@@ -22,7 +22,7 @@ struct DetailHeader: View {
 	// as a proper banner instead of a thin, over-cropped strip when stretched to
 	// the full width. iPhone (compact) keeps its original height.
 	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
-	private var heroHeight: CGFloat { horizontalSizeClass == .regular ? 360 : 230 }
+	private var heroHeight: CGFloat { horizontalSizeClass == .regular ? 420 : 230 }
 
 	// Prefer the landscape backdrop; fall back to the poster, then a gradient.
 	private var heroURL: String { backdropURL.isEmpty ? posterURL : backdropURL }

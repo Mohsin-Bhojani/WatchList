@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct ShowDetailView: View {
 	@Environment(\.modelContext) private var ctx
@@ -40,69 +41,11 @@ struct ShowDetailView: View {
 	var body: some View {
 		ZStack {
 			GlassBackground()
-			ScrollView {
-				VStack(alignment: .leading, spacing: 20) {
-					DetailHeader(
-						posterURL: show.posterURL,
-						backdropURL: show.backdropURL,
-						title: show.title,
-						subtitle: [show.firstAirYear, show.genre].filter { !$0.isEmpty }.joined(separator: "  ·  "),
-						meta: show.subtitle,
-						imdbID: show.imdbID,
-						placeholder: "tv"
-					)
-
-					VStack(alignment: .leading, spacing: 10) {
-						SectionLabel(text: "Status")
-						StatusPicker(status: watchedCascadeBinding)
-					}
-
-					SynopsisSection(text: show.overview)
-
-					// Seasons
-					VStack(alignment: .leading, spacing: 12) {
-						HStack {
-							SectionLabel(text: "Seasons", systemImage: "rectangle.stack.fill")
-							Spacer()
-							Button { showingAddSeason = true } label: {
-								Image(systemName: "plus.circle.fill")
-									.font(.system(size: 20, weight: .semibold))
-									.foregroundStyle(Glass.accent)
-							}
-						}
-						if show.seasons.isEmpty {
-							Text("No seasons yet. Tap + to add one, or import via an IMDb link.")
-								.font(.system(size: 14, weight: .medium, design: .rounded))
-								.foregroundStyle(.secondary)
-								.frame(maxWidth: .infinity, alignment: .leading)
-								.padding(16).glass(cornerRadius: 18)
-						} else {
-							ForEach(show.sortedSeasons) { season in
-								NavigationLink { SeasonDetailView(season: season) } label: {
-									GlassRow(
-										title: season.displayName,
-										subtitle: "\(season.episodes.count) episodes · \(season.watchedCount) watched",
-										thumbURL: season.posterURL.isEmpty ? show.posterURL : season.posterURL,
-										thumbPlaceholder: "tv",
-										status: season.status
-									)
-								}
-								.buttonStyle(.pressable)
-								.contextMenu {
-									Button(role: .destructive) { withAnimation { ctx.delete(season) } } label: {
-										Label("Delete Season", systemImage: "trash")
-									}
-								}
-							}
-						}
-					}
-
-					TriviaSection(trivia: show.trivia, isLoading: loadingTrivia,
-					              hasIMDb: !(show.imdbID ?? "").isEmpty)
-
-					Color.clear.frame(height: 20)
+			GeometryReader { geo in
+				ScrollView {
+					layout(width: geo.size.width)
+						.padding(18)
 				}
-				.padding(18)
 			}
 		}
 		.navigationTitle(show.title)
@@ -116,6 +59,109 @@ struct ShowDetailView: View {
 			loadingTrivia = true
 			await TriviaLoader.loadIfNeeded(for: show)
 			loadingTrivia = false
+		}
+	}
+
+	// MARK: - Layouts
+
+	/// On a wide iPad the poster sits beside the status / synopsis / trivia, with
+	/// the seasons list running full-width underneath. iPhone (and narrow iPad
+	/// multitasking widths) keep the original single column.
+	@ViewBuilder
+	private func layout(width: CGFloat) -> some View {
+		let isWideiPad = UIDevice.current.userInterfaceIdiom == .pad && width >= 820
+		if isWideiPad {
+			// Cap the side column so the landscape poster keeps the larger share.
+			let sideWidth = min(max((width - 36) * 0.34, 300), 380)
+			VStack(alignment: .leading, spacing: 20) {
+				HStack(alignment: .top, spacing: 20) {
+					header
+						.frame(maxWidth: .infinity)
+					VStack(alignment: .leading, spacing: 20) {
+						statusSection
+						SynopsisSection(text: show.overview)
+						triviaSection
+					}
+					.frame(width: sideWidth)
+				}
+				seasonsSection
+				Color.clear.frame(height: 20)
+			}
+		} else {
+			VStack(alignment: .leading, spacing: 20) {
+				header
+				statusSection
+				SynopsisSection(text: show.overview)
+				seasonsSection
+				triviaSection
+				Color.clear.frame(height: 20)
+			}
+		}
+	}
+
+	// MARK: - Sections
+
+	private var header: some View {
+		DetailHeader(
+			posterURL: show.posterURL,
+			backdropURL: show.backdropURL,
+			title: show.title,
+			subtitle: [show.firstAirYear, show.genre].filter { !$0.isEmpty }.joined(separator: "  ·  "),
+			meta: show.subtitle,
+			imdbID: show.imdbID,
+			placeholder: "tv"
+		)
+	}
+
+	private var statusSection: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			SectionLabel(text: "Status")
+			StatusPicker(status: watchedCascadeBinding)
+		}
+	}
+
+	private var triviaSection: some View {
+		TriviaSection(trivia: show.trivia, isLoading: loadingTrivia,
+		              hasIMDb: !(show.imdbID ?? "").isEmpty)
+	}
+
+	@ViewBuilder
+	private var seasonsSection: some View {
+		VStack(alignment: .leading, spacing: 12) {
+			HStack {
+				SectionLabel(text: "Seasons", systemImage: "rectangle.stack.fill")
+				Spacer()
+				Button { showingAddSeason = true } label: {
+					Image(systemName: "plus.circle.fill")
+						.font(.system(size: 20, weight: .semibold))
+						.foregroundStyle(Glass.accent)
+				}
+			}
+			if show.seasons.isEmpty {
+				Text("No seasons yet. Tap + to add one, or import via an IMDb link.")
+					.font(.system(size: 14, weight: .medium, design: .rounded))
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(16).glass(cornerRadius: 18)
+			} else {
+				ForEach(show.sortedSeasons) { season in
+					NavigationLink { SeasonDetailView(season: season) } label: {
+						GlassRow(
+							title: season.displayName,
+							subtitle: "\(season.episodes.count) episodes · \(season.watchedCount) watched",
+							thumbURL: season.posterURL.isEmpty ? show.posterURL : season.posterURL,
+							thumbPlaceholder: "tv",
+							status: season.status
+						)
+					}
+					.buttonStyle(.pressable)
+					.contextMenu {
+						Button(role: .destructive) { withAnimation { ctx.delete(season) } } label: {
+							Label("Delete Season", systemImage: "trash")
+						}
+					}
+				}
+			}
 		}
 	}
 }
