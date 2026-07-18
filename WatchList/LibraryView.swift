@@ -35,6 +35,7 @@ enum LibrarySortOption: String, CaseIterable, Identifiable {
 
 struct LibraryView: View {
 	@Environment(\.modelContext) private var ctx
+	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
 	@Query(sort: \Film.dateAdded, order: .reverse) private var films: [Film]
 
@@ -45,7 +46,14 @@ struct LibraryView: View {
 	@State private var sortOption: LibrarySortOption = .dateAdded
 	@State private var genreFilter: String? = nil
 
-	private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+	/// iPhone keeps two fixed columns; iPad (regular width) fits as many
+	/// poster-sized columns as the width allows so posters don't blow up.
+	private var columns: [GridItem] {
+		if horizontalSizeClass == .regular {
+			return [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 16)]
+		}
+		return [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+	}
 
 	// Status tallies across the current segment.
 	private var toWatch: Int {

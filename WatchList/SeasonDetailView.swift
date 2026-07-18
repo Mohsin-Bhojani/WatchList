@@ -50,6 +50,7 @@ struct SeasonDetailView: View {
 					header
 						.frame(maxWidth: .infinity)
 					VStack(alignment: .leading, spacing: 20) {
+						IMDbLinkButton(imdbID: season.show?.imdbID)
 						statusSection
 						if !season.overview.isEmpty {
 							SynopsisSection(text: season.overview)
@@ -63,6 +64,7 @@ struct SeasonDetailView: View {
 		} else {
 			VStack(alignment: .leading, spacing: 20) {
 				header
+				IMDbLinkButton(imdbID: season.show?.imdbID)
 				statusSection
 				if !season.overview.isEmpty {
 					SynopsisSection(text: season.overview)
@@ -82,7 +84,6 @@ struct SeasonDetailView: View {
 			title: season.displayName,
 			subtitle: season.show?.title ?? "",
 			meta: "\(season.episodes.count) episodes · \(season.watchedCount) watched",
-			imdbID: nil,
 			placeholder: "tv"
 		)
 	}

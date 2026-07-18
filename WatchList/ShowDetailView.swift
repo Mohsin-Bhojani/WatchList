@@ -78,18 +78,20 @@ struct ShowDetailView: View {
 					header
 						.frame(maxWidth: .infinity)
 					VStack(alignment: .leading, spacing: 20) {
+						IMDbLinkButton(imdbID: show.imdbID)
 						statusSection
 						SynopsisSection(text: show.overview)
-						triviaSection
 					}
 					.frame(width: sideWidth)
 				}
 				seasonsSection
+				triviaSection
 				Color.clear.frame(height: 20)
 			}
 		} else {
 			VStack(alignment: .leading, spacing: 20) {
 				header
+				IMDbLinkButton(imdbID: show.imdbID)
 				statusSection
 				SynopsisSection(text: show.overview)
 				seasonsSection
@@ -108,7 +110,6 @@ struct ShowDetailView: View {
 			title: show.title,
 			subtitle: [show.firstAirYear, show.genre].filter { !$0.isEmpty }.joined(separator: "  ·  "),
 			meta: show.subtitle,
-			imdbID: show.imdbID,
 			placeholder: "tv"
 		)
 	}

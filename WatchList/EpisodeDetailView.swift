@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct EpisodeDetailView: View {
 	@Bindable var episode: Episode
@@ -23,31 +24,11 @@ struct EpisodeDetailView: View {
 	var body: some View {
 		ZStack {
 			GlassBackground()
-			ScrollView {
-				VStack(alignment: .leading, spacing: 20) {
-					DetailHeader(
-						posterURL: episode.stillURL,
-						backdropURL: episode.stillURL,
-						title: episode.displayTitle,
-						subtitle: subtitle,
-						meta: episode.season?.show?.title ?? "",
-						imdbID: episode.imdbID,
-						placeholder: "film"
-					)
-
-					VStack(alignment: .leading, spacing: 10) {
-						SectionLabel(text: "Status")
-						StatusPicker(status: $episode.status)
-					}
-
-					SynopsisSection(text: episode.synopsis)
-					TriviaSection(trivia: episode.trivia, isLoading: loadingTrivia,
-					              hasIMDb: !(episode.imdbID ?? "").isEmpty || episode.tmdbShowID != nil)
-					SpecsSection(specs: episode.specs)
-
-					Color.clear.frame(height: 20)
+			GeometryReader { geo in
+				ScrollView {
+					layout(width: geo.size.width)
+						.padding(18)
 				}
-				.padding(18)
 			}
 		}
 		.navigationTitle(episode.code)
@@ -59,5 +40,68 @@ struct EpisodeDetailView: View {
 			await TriviaLoader.loadIfNeeded(for: episode)
 			loadingTrivia = false
 		}
+	}
+
+	// MARK: - Layouts
+
+	/// On a wide iPad the still sits beside the IMDb link / status / synopsis,
+	/// with trivia and technical specs running full-width underneath. iPhone
+	/// (and narrow iPad multitasking widths) keep the original single column.
+	@ViewBuilder
+	private func layout(width: CGFloat) -> some View {
+		let isWideiPad = UIDevice.current.userInterfaceIdiom == .pad && width >= 820
+		if isWideiPad {
+			let sideWidth = min(max((width - 36) * 0.34, 300), 380)
+			VStack(alignment: .leading, spacing: 20) {
+				HStack(alignment: .top, spacing: 20) {
+					header
+						.frame(maxWidth: .infinity)
+					VStack(alignment: .leading, spacing: 20) {
+						IMDbLinkButton(imdbID: episode.imdbID)
+						statusSection
+						SynopsisSection(text: episode.synopsis)
+					}
+					.frame(width: sideWidth)
+				}
+				triviaSection
+				SpecsSection(specs: episode.specs)
+				Color.clear.frame(height: 20)
+			}
+		} else {
+			VStack(alignment: .leading, spacing: 20) {
+				header
+				IMDbLinkButton(imdbID: episode.imdbID)
+				statusSection
+				SynopsisSection(text: episode.synopsis)
+				triviaSection
+				SpecsSection(specs: episode.specs)
+				Color.clear.frame(height: 20)
+			}
+		}
+	}
+
+	// MARK: - Sections
+
+	private var header: some View {
+		DetailHeader(
+			posterURL: episode.stillURL,
+			backdropURL: episode.stillURL,
+			title: episode.displayTitle,
+			subtitle: subtitle,
+			meta: episode.season?.show?.title ?? "",
+			placeholder: "film"
+		)
+	}
+
+	private var statusSection: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			SectionLabel(text: "Status")
+			StatusPicker(status: $episode.status)
+		}
+	}
+
+	private var triviaSection: some View {
+		TriviaSection(trivia: episode.trivia, isLoading: loadingTrivia,
+		              hasIMDb: !(episode.imdbID ?? "").isEmpty || episode.tmdbShowID != nil)
 	}
 }

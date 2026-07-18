@@ -15,7 +15,6 @@ struct DetailHeader: View {
 	let title: String
 	let subtitle: String
 	let meta: String
-	var imdbID: String? = nil
 	var placeholder: String = "film"
 
 	// iPad (regular width) gets a taller landscape poster so the backdrop reads
@@ -62,19 +61,6 @@ struct DetailHeader: View {
 						.font(.system(size: 12, weight: .semibold, design: .rounded))
 						.foregroundStyle(.white.opacity(0.85))
 				}
-				if let id = imdbID, !id.isEmpty, let url = IMDb.titleURL(id) {
-					Link(destination: url) {
-						HStack(spacing: 5) {
-							Image(systemName: "arrow.up.right.square.fill")
-							Text("View on IMDb")
-						}
-						.font(.system(size: 12, weight: .bold, design: .rounded))
-						.foregroundStyle(.black)
-						.padding(.horizontal, 11).padding(.vertical, 6)
-						.background(Capsule().fill(Color(hex: "#F5C518")))
-					}
-					.padding(.top, 4)
-				}
 			}
 			.padding(16)
 			.frame(maxWidth: .infinity, alignment: .leading)
@@ -85,5 +71,28 @@ struct DetailHeader: View {
 		.overlay(RoundedRectangle(cornerRadius: Glass.corner, style: .continuous)
 			.strokeBorder(Glass.hairline.opacity(0.16), lineWidth: 1))
 		.shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+	}
+}
+
+// MARK: - IMDb link
+
+/// The yellow "View on IMDb" pill, shown above the Status section on every
+/// detail page. Renders nothing when there is no valid IMDb id.
+struct IMDbLinkButton: View {
+	let imdbID: String?
+
+	@ViewBuilder var body: some View {
+		if let id = imdbID, !id.isEmpty, let url = IMDb.titleURL(id) {
+			Link(destination: url) {
+				HStack(spacing: 6) {
+					Image(systemName: "arrow.up.right.square.fill")
+					Text("View on IMDb")
+				}
+				.font(.system(size: 13, weight: .bold, design: .rounded))
+				.foregroundStyle(.black)
+				.padding(.horizontal, 14).padding(.vertical, 9)
+				.background(Capsule().fill(Color(hex: "#F5C518")))
+			}
+		}
 	}
 }

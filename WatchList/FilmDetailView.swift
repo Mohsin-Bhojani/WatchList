@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct FilmDetailView: View {
 	@Bindable var film: Film
@@ -16,41 +17,11 @@ struct FilmDetailView: View {
 	var body: some View {
 		ZStack {
 			GlassBackground()
-			ScrollView {
-				VStack(alignment: .leading, spacing: 20) {
-					DetailHeader(
-						posterURL: film.posterURL,
-						backdropURL: film.backdropURL,
-						title: film.title,
-						subtitle: [film.year, film.genre].filter { !$0.isEmpty }.joined(separator: "  ·  "),
-						meta: "",
-						imdbID: film.imdbID,
-						placeholder: "film"
-					)
-
-					VStack(alignment: .leading, spacing: 10) {
-						SectionLabel(text: "Status")
-						StatusPicker(status: $film.status)
-					}
-
-					SynopsisSection(text: film.synopsis)
-					TriviaSection(trivia: film.trivia, isLoading: loadingTrivia,
-					              hasIMDb: !(film.imdbID ?? "").isEmpty)
-					SpecsSection(specs: film.specs)
-
-					if !film.notes.isEmpty {
-						VStack(alignment: .leading, spacing: 12) {
-							SectionLabel(text: "Notes", systemImage: "note.text")
-							Text(film.notes)
-								.font(.system(size: 15, weight: .regular, design: .rounded))
-								.frame(maxWidth: .infinity, alignment: .leading)
-								.padding(16).glass(cornerRadius: 18)
-						}
-					}
-
-					Color.clear.frame(height: 20)
+			GeometryReader { geo in
+				ScrollView {
+					layout(width: geo.size.width)
+						.padding(18)
 				}
-				.padding(18)
 			}
 		}
 		.navigationTitle(film.title)
@@ -61,6 +32,84 @@ struct FilmDetailView: View {
 			loadingTrivia = true
 			await TriviaLoader.loadIfNeeded(for: film)
 			loadingTrivia = false
+		}
+	}
+
+	// MARK: - Layouts
+
+	/// On a wide iPad the poster sits beside the IMDb link / status / synopsis,
+	/// with trivia, specs, and notes running full-width underneath. iPhone (and
+	/// narrow iPad multitasking widths) keep the original single column.
+	@ViewBuilder
+	private func layout(width: CGFloat) -> some View {
+		let isWideiPad = UIDevice.current.userInterfaceIdiom == .pad && width >= 820
+		if isWideiPad {
+			let sideWidth = min(max((width - 36) * 0.34, 300), 380)
+			VStack(alignment: .leading, spacing: 20) {
+				HStack(alignment: .top, spacing: 20) {
+					header
+						.frame(maxWidth: .infinity)
+					VStack(alignment: .leading, spacing: 20) {
+						IMDbLinkButton(imdbID: film.imdbID)
+						statusSection
+						SynopsisSection(text: film.synopsis)
+					}
+					.frame(width: sideWidth)
+				}
+				triviaSection
+				SpecsSection(specs: film.specs)
+				notesSection
+				Color.clear.frame(height: 20)
+			}
+		} else {
+			VStack(alignment: .leading, spacing: 20) {
+				header
+				IMDbLinkButton(imdbID: film.imdbID)
+				statusSection
+				SynopsisSection(text: film.synopsis)
+				triviaSection
+				SpecsSection(specs: film.specs)
+				notesSection
+				Color.clear.frame(height: 20)
+			}
+		}
+	}
+
+	// MARK: - Sections
+
+	private var header: some View {
+		DetailHeader(
+			posterURL: film.posterURL,
+			backdropURL: film.backdropURL,
+			title: film.title,
+			subtitle: [film.year, film.genre].filter { !$0.isEmpty }.joined(separator: "  ·  "),
+			meta: "",
+			placeholder: "film"
+		)
+	}
+
+	private var statusSection: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			SectionLabel(text: "Status")
+			StatusPicker(status: $film.status)
+		}
+	}
+
+	private var triviaSection: some View {
+		TriviaSection(trivia: film.trivia, isLoading: loadingTrivia,
+		              hasIMDb: !(film.imdbID ?? "").isEmpty)
+	}
+
+	@ViewBuilder
+	private var notesSection: some View {
+		if !film.notes.isEmpty {
+			VStack(alignment: .leading, spacing: 12) {
+				SectionLabel(text: "Notes", systemImage: "note.text")
+				Text(film.notes)
+					.font(.system(size: 15, weight: .regular, design: .rounded))
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(16).glass(cornerRadius: 18)
+			}
 		}
 	}
 }
