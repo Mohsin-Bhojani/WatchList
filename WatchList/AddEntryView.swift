@@ -16,12 +16,13 @@ struct AddEntryView: View {
 	@Environment(\.dismiss) private var dismiss
 
 	enum Mode: String, CaseIterable, Identifiable {
+		case search = "Search"
 		case link = "IMDb Link"
 		case manual = "Manual"
 		var id: String { rawValue }
 	}
 
-	@State private var mode: Mode = .link
+	@State private var mode: Mode = .search
 
 	var body: some View {
 		NavigationStack {
@@ -30,8 +31,11 @@ struct AddEntryView: View {
 				ScrollView {
 					VStack(spacing: 18) {
 						modePicker
-						if mode == .link { LinkImportSection() }
-						else { ManualEntrySection() }
+						switch mode {
+						case .search: TMDbSearchSection()
+						case .link:   LinkImportSection()
+						case .manual: ManualEntrySection()
+						}
 					}
 					.padding(18)
 				}
@@ -146,6 +150,170 @@ private struct LinkImportSection: View {
 				.glass(cornerRadius: 16)
 			}
 		}
+	}
+}
+
+// MARK: - TMDb title search
+
+private struct TMDbSearchSection: View {
+	@Environment(\.modelContext) private var ctx
+	@Environment(\.dismiss) private var dismiss
+	@StateObject private var importer = ImportCoordinator()
+
+	@State private var query = ""
+	@State private var results: [TMDbSearchItem] = []
+	@State private var searching = false
+	@State private var searchError: String?
+	@State private var addingID: Int?
+	@State private var addedTitle: String?
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 18) {
+			VStack(alignment: .leading, spacing: 10) {
+				SectionLabel(text: "Search by title", systemImage: "magnifyingglass")
+				HStack(spacing: 10) {
+					Image(systemName: "magnifyingglass")
+						.font(.system(size: 15, weight: .semibold))
+						.foregroundStyle(.secondary)
+					TextField("e.g. The Dark Knight", text: $query)
+						.font(.system(size: 15, weight: .medium, design: .rounded))
+						.autocorrectionDisabled()
+						.submitLabel(.search)
+					if searching {
+						ProgressView()
+					} else if !query.isEmpty {
+						Button { query = "" } label: {
+							Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+						}
+						.buttonStyle(.plain)
+					}
+				}
+				.padding(15)
+				.glass(cornerRadius: 16)
+				Text("Searches The Movie Database. Pick a result to import it — for shows, every season and episode comes with it.")
+					.font(.system(size: 12, weight: .medium, design: .rounded))
+					.foregroundStyle(.secondary)
+			}
+
+			if !TMDbConfig.isConfigured {
+				Label("Add your free TMDb API key in TMDbService.swift to enable search.",
+				      systemImage: "exclamationmark.triangle.fill")
+					.font(.system(size: 13, weight: .semibold, design: .rounded))
+					.foregroundStyle(.orange)
+					.padding(14)
+					.glass(cornerRadius: 16)
+			}
+
+			if let addedTitle {
+				statusRow(icon: "checkmark.circle.fill", tint: Glass.watched,
+				          text: "Added \u{201C}\(addedTitle)\u{201D} to your library!")
+			}
+			if let searchError {
+				statusRow(icon: "xmark.octagon.fill", tint: .red, text: searchError)
+			}
+
+			if !results.isEmpty {
+				VStack(spacing: 10) {
+					ForEach(results) { resultRow($0) }
+				}
+			} else if !query.trimmingCharacters(in: .whitespaces).isEmpty,
+			          !searching, searchError == nil, addedTitle == nil {
+				Text("No matches for \u{201C}\(query)\u{201D}.")
+					.font(.system(size: 13, weight: .medium, design: .rounded))
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(14).glass(cornerRadius: 16)
+			}
+		}
+		.task(id: query) { await runSearch() }
+	}
+
+	private func runSearch() async {
+		let trimmed = query.trimmingCharacters(in: .whitespaces)
+		addedTitle = nil
+		guard trimmed.count >= 2 else {
+			results = []; searchError = nil; searching = false
+			return
+		}
+		// Debounce rapid typing; a new keystroke cancels this task first.
+		try? await Task.sleep(nanoseconds: 350_000_000)
+		if Task.isCancelled { return }
+		searching = true; searchError = nil
+		do {
+			let items = try await TMDbService.shared.multiSearch(query: trimmed)
+			if Task.isCancelled { return }
+			results = items
+		} catch {
+			if Task.isCancelled { return }
+			searchError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+			results = []
+		}
+		searching = false
+	}
+
+	private func add(_ item: TMDbSearchItem) {
+		let kind: MediaKind = item.media_type == "tv" ? .show : .film
+		addingID = item.id
+		Haptics.tap(.medium)
+		Task {
+			let result = await importer.importFromTMDb(id: item.id, kind: kind, into: ctx)
+			addingID = nil
+			if result != nil {
+				Haptics.success()
+				addedTitle = item.displayTitle
+				try? await Task.sleep(nanoseconds: 500_000_000)
+				dismiss()
+			} else {
+				Haptics.warning()
+			}
+		}
+	}
+
+	private func resultRow(_ item: TMDbSearchItem) -> some View {
+		let isShow = item.media_type == "tv"
+		let year = String((item.release_date ?? item.first_air_date ?? "").prefix(4))
+		let subtitle = [isShow ? "TV Series" : "Film", year].filter { !$0.isEmpty }.joined(separator: " · ")
+		return Button { add(item) } label: {
+			HStack(spacing: 12) {
+				PosterImage(urlString: TMDbConfig.poster(item.poster_path),
+				            systemPlaceholder: isShow ? "tv" : "film")
+					.frame(width: 46, height: 69)
+					.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+				VStack(alignment: .leading, spacing: 3) {
+					Text(item.displayTitle)
+						.font(.system(size: 15, weight: .bold, design: .serif))
+						.foregroundStyle(.primary)
+						.lineLimit(2)
+					Text(subtitle)
+						.font(.system(size: 12, weight: .medium, design: .rounded))
+						.foregroundStyle(.secondary)
+				}
+				Spacer(minLength: 0)
+				if addingID == item.id {
+					ProgressView()
+				} else {
+					Image(systemName: "plus.circle.fill")
+						.font(.system(size: 22, weight: .semibold))
+						.foregroundStyle(Glass.accent)
+				}
+			}
+			.padding(10)
+			.glass(cornerRadius: 16)
+		}
+		.buttonStyle(.pressable)
+		.disabled(importer.isWorking)
+	}
+
+	private func statusRow(icon: String, tint: Color, text: String) -> some View {
+		HStack(spacing: 8) {
+			Image(systemName: icon).foregroundStyle(tint)
+			Text(text)
+				.font(.system(size: 13, weight: .medium, design: .rounded))
+				.foregroundStyle(.secondary)
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.padding(14)
+		.glass(cornerRadius: 16)
 	}
 }
 

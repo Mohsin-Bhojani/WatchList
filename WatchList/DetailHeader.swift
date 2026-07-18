@@ -82,12 +82,20 @@ struct DetailHeader: View {
 // MARK: - IMDb link
 
 /// The yellow "View on IMDb" pill, shown above the Status section on every
-/// detail page. Renders nothing when there is no valid IMDb id.
+/// detail page. Renders nothing when there is no valid IMDb id. When a
+/// `seasonNumber` is given it deep-links to that season on the show's page.
 struct IMDbLinkButton: View {
 	let imdbID: String?
+	var seasonNumber: Int? = nil
+
+	private var url: URL? {
+		guard let id = imdbID, !id.isEmpty else { return nil }
+		if let seasonNumber { return IMDb.seasonURL(id, season: seasonNumber) }
+		return IMDb.titleURL(id)
+	}
 
 	@ViewBuilder var body: some View {
-		if let id = imdbID, !id.isEmpty, let url = IMDb.titleURL(id) {
+		if let url {
 			Link(destination: url) {
 				HStack(spacing: 6) {
 					Image(systemName: "arrow.up.right.square.fill")

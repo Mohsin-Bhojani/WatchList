@@ -300,4 +300,9 @@ enum IMDb {
 	}
 
 	static func titleURL(_ id: String) -> URL? { URL(string: "https://www.imdb.com/title/\(id)/") }
+
+	/// Deep-links to a specific season's episode list on the show's IMDb page.
+	static func seasonURL(_ id: String, season: Int) -> URL? {
+		URL(string: "https://www.imdb.com/title/\(id)/episodes/?season=\(season)")
+	}
 }
