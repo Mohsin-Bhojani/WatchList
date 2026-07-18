@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PreferenceSpecifiers</key>
+	<array>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Appearance</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Accent Color</string>
+			<key>Key</key>
+			<string>accentColorID</string>
+			<key>DefaultValue</key>
+			<string>classicRed</string>
+			<key>Titles</key>
+			<array>
+				<string>Classic Red</string>
+				<string>Cobalt Blue</string>
+				<string>Forest Green</string>
+				<string>Plum</string>
+				<string>Amber</string>
+				<string>Graphite</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>classicRed</string>
+				<string>cobaltBlue</string>
+				<string>forestGreen</string>
+				<string>plum</string>
+				<string>amber</string>
+				<string>graphite</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Shows</string>
+			<key>FooterText</key>
+			<string>When you mark a show as Watched, automatically mark all of its seasons and episodes as Watched too.</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Mark All Episodes Watched</string>
+			<key>Key</key>
+			<string>autoMarkEpisodesWatched</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+	</array>
+</dict>
+</plist>

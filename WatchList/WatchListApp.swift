@@ -2,7 +2,7 @@
 //  WatchListApp.swift
 //  WatchList
 //
-//  Created by Abbas on 15/04/2026.
+//  App entry point. Registers the new SwiftData models.
 //
 
 import SwiftUI
@@ -10,23 +10,19 @@ import SwiftData
 
 @main
 struct WatchListApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+	init() {
+		// Preference default; the user can change this in the iOS Settings app
+		// (defined in Settings.bundle). Registering here keeps it ON until then.
+		UserDefaults.standard.register(defaults: [
+			"autoMarkEpisodesWatched": true,
+			"accentColorID": "classicRed",
+		])
+	}
 
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-        .modelContainer(sharedModelContainer)
-    }
+	var body: some Scene {
+		WindowGroup {
+			RootView()
+		}
+		.modelContainer(for: [Show.self, Season.self, Episode.self, Film.self])
+	}
 }
