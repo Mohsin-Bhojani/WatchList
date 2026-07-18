@@ -17,11 +17,15 @@ struct DetailHeader: View {
 	let meta: String
 	var placeholder: String = "film"
 
-	// iPad (regular width) gets a taller landscape poster so the backdrop reads
-	// as a proper banner instead of a thin, over-cropped strip when stretched to
-	// the full width. iPhone (compact) keeps its original height.
+	// iPad (regular width) tracks a 16:9 landscape ratio off the poster's actual
+	// width, capped so a full-width poster doesn't dominate the screen. iPhone
+	// (compact) keeps a fixed banner height.
 	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
-	private var heroHeight: CGFloat { horizontalSizeClass == .regular ? 420 : 230 }
+	@State private var measuredWidth: CGFloat = 0
+	private var heroHeight: CGFloat {
+		guard horizontalSizeClass == .regular else { return 230 }
+		return min(max(measuredWidth * 9.0 / 16.0, 300), 560)
+	}
 
 	// Prefer the landscape backdrop; fall back to the poster, then a gradient.
 	private var heroURL: String { backdropURL.isEmpty ? posterURL : backdropURL }
@@ -66,6 +70,7 @@ struct DetailHeader: View {
 			.frame(maxWidth: .infinity, alignment: .leading)
 		}
 		.frame(maxWidth: .infinity)
+		.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measuredWidth = $0 }
 		.frame(height: heroHeight)
 		.clipShape(RoundedRectangle(cornerRadius: Glass.corner, style: .continuous))
 		.overlay(RoundedRectangle(cornerRadius: Glass.corner, style: .continuous)
