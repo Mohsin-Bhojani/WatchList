@@ -17,14 +17,14 @@ struct DetailHeader: View {
 	let meta: String
 	var placeholder: String = "film"
 
-	// iPad (regular width) tracks a 16:9 landscape ratio off the poster's actual
-	// width, capped so a full-width poster doesn't dominate the screen. iPhone
-	// (compact) keeps a fixed banner height.
+	// iPad (regular width) tracks a ~1.9:1 landscape ratio off the poster's
+	// actual width, capped so a full-width poster doesn't dominate the screen.
+	// iPhone (compact) keeps a fixed banner height.
 	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@State private var measuredWidth: CGFloat = 0
 	private var heroHeight: CGFloat {
 		guard horizontalSizeClass == .regular else { return 230 }
-		return min(max(measuredWidth * 9.0 / 16.0, 300), 560)
+		return min(max(measuredWidth * 1.0 / 1.9, 300), 560)
 	}
 
 	// Prefer the landscape backdrop; fall back to the poster, then a gradient.
