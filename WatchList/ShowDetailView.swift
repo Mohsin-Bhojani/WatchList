@@ -25,6 +25,7 @@ struct ShowDetailView: View {
 			get: { show.status },
 			set: { newValue in
 				show.status = newValue
+				show.personalUpdatedAt = .now
 				guard newValue == .watched,
 				      UserDefaults.standard.bool(forKey: "autoMarkEpisodesWatched")
 				else { return }
@@ -126,7 +127,10 @@ struct ShowDetailView: View {
 	private var ratingSection: some View {
 		VStack(alignment: .leading, spacing: 10) {
 			SectionLabel(text: "Rating", systemImage: "star.fill")
-			RatingPicker(rating: $show.rating)
+			RatingPicker(rating: Binding(
+				get: { show.rating },
+				set: { show.rating = $0; show.personalUpdatedAt = .now }
+			))
 		}
 	}
 

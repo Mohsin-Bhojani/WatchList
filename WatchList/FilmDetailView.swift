@@ -93,14 +93,20 @@ struct FilmDetailView: View {
 	private var statusSection: some View {
 		VStack(alignment: .leading, spacing: 10) {
 			SectionLabel(text: "Status")
-			StatusPicker(status: $film.status)
+			StatusPicker(status: Binding(
+				get: { film.status },
+				set: { film.status = $0; film.personalUpdatedAt = .now }
+			))
 		}
 	}
 
 	private var ratingSection: some View {
 		VStack(alignment: .leading, spacing: 10) {
 			SectionLabel(text: "Rating", systemImage: "star.fill")
-			RatingPicker(rating: $film.rating)
+			RatingPicker(rating: Binding(
+				get: { film.rating },
+				set: { film.rating = $0; film.personalUpdatedAt = .now }
+			))
 		}
 	}
 

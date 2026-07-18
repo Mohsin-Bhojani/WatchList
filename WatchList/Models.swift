@@ -139,6 +139,11 @@ final class Show {
 	var dateAdded: Date
 	var triviaFetched: Bool
 
+	// iCloud sync markers (see LibrarySync). Local-only; optional so the
+	// existing store migrates cleanly.
+	var syncKey: String?
+	var personalUpdatedAt: Date?
+
 	@Relationship(deleteRule: .cascade, inverse: \Season.show)
 	var seasons: [Season]
 
@@ -296,6 +301,11 @@ final class Film {
 	var notes: String
 	var dateAdded: Date
 	var triviaFetched: Bool
+
+	// iCloud sync markers (see LibrarySync). Local-only; optional so the
+	// existing store migrates cleanly.
+	var syncKey: String?
+	var personalUpdatedAt: Date?
 
 	init(title: String,
 	     synopsis: String = "",

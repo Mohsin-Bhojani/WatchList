@@ -419,10 +419,12 @@ private struct ManualEntrySection: View {
 			let show = Show(title: trimmedTitle, overview: synopsis, genre: genre,
 			                firstAirYear: year, posterURL: posterURL, imdbID: imdbID,
 			                status: status, rating: rating, notes: notes)
+			show.personalUpdatedAt = .now
 			ctx.insert(show)
 		case .film:
 			let film = Film(title: trimmedTitle, synopsis: synopsis, genre: genre, year: year,
 			                posterURL: posterURL, imdbID: imdbID, status: status, rating: rating, notes: notes)
+			film.personalUpdatedAt = .now
 			ctx.insert(film)
 		}
 		Haptics.success()
