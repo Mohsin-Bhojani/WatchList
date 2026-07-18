@@ -18,6 +18,12 @@ struct DetailHeader: View {
 	var imdbID: String? = nil
 	var placeholder: String = "film"
 
+	// iPad (regular width) gets a taller landscape poster so the backdrop reads
+	// as a proper banner instead of a thin, over-cropped strip when stretched to
+	// the full width. iPhone (compact) keeps its original height.
+	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
+	private var heroHeight: CGFloat { horizontalSizeClass == .regular ? 360 : 230 }
+
 	// Prefer the landscape backdrop; fall back to the poster, then a gradient.
 	private var heroURL: String { backdropURL.isEmpty ? posterURL : backdropURL }
 
@@ -32,7 +38,7 @@ struct DetailHeader: View {
 				}
 			}
 			.frame(maxWidth: .infinity)
-			.frame(height: 230)
+			.frame(height: heroHeight)
 			.clipped()
 
 			// Legibility scrim so overlaid text reads on any image.
@@ -74,7 +80,7 @@ struct DetailHeader: View {
 			.frame(maxWidth: .infinity, alignment: .leading)
 		}
 		.frame(maxWidth: .infinity)
-		.frame(height: 230)
+		.frame(height: heroHeight)
 		.clipShape(RoundedRectangle(cornerRadius: Glass.corner, style: .continuous))
 		.overlay(RoundedRectangle(cornerRadius: Glass.corner, style: .continuous)
 			.strokeBorder(Glass.hairline.opacity(0.16), lineWidth: 1))
