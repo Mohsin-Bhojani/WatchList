@@ -170,34 +170,24 @@ struct StatusPicker: View {
 
 struct RatingPicker: View {
 	@Binding var rating: Rating?
+	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
 	private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 8) {
-			LazyVGrid(columns: columns, spacing: 8) {
-				ForEach(Rating.allCases) { r in
-					let selected = rating == r
-					Button {
-						Haptics.selection()
-						withAnimation(Glass.pop) { rating = selected ? nil : r }
-					} label: {
-						HStack(spacing: 6) {
-							Image(systemName: r.systemImage).font(.system(size: 12, weight: .bold))
-							Text(r.rawValue).font(.system(size: 13, weight: .semibold, design: .rounded))
-						}
-						.foregroundStyle(selected ? .white : Color.primary)
-						.frame(maxWidth: .infinity)
-						.padding(.vertical, 11)
-						.background {
-							if selected {
-								Capsule().fill(Glass.tint(r))
-							} else {
-								Capsule().fill(.ultraThinMaterial)
-							}
-						}
+			if horizontalSizeClass == .regular {
+				// iPad: a 2×2 grid fits the narrow two-column side column.
+				LazyVGrid(columns: columns, spacing: 8) {
+					ForEach(Rating.allCases) { chip($0, expands: true) }
+				}
+			} else {
+				// iPhone: a single horizontal scrollable row.
+				ScrollView(.horizontal, showsIndicators: false) {
+					HStack(spacing: 8) {
+						ForEach(Rating.allCases) { chip($0, expands: false) }
 					}
-					.buttonStyle(.pressable)
+					.padding(.vertical, 2)
 				}
 			}
 			if rating != nil {
@@ -206,6 +196,31 @@ struct RatingPicker: View {
 					.foregroundStyle(.secondary)
 			}
 		}
+	}
+
+	private func chip(_ r: Rating, expands: Bool) -> some View {
+		let selected = rating == r
+		return Button {
+			Haptics.selection()
+			withAnimation(Glass.pop) { rating = selected ? nil : r }
+		} label: {
+			HStack(spacing: 6) {
+				Image(systemName: r.systemImage).font(.system(size: 12, weight: .bold))
+				Text(r.rawValue).font(.system(size: 13, weight: .semibold, design: .rounded))
+			}
+			.foregroundStyle(selected ? .white : Color.primary)
+			.frame(maxWidth: expands ? .infinity : nil)
+			.padding(.horizontal, expands ? 0 : 16)
+			.padding(.vertical, 11)
+			.background {
+				if selected {
+					Capsule().fill(Glass.tint(r))
+				} else {
+					Capsule().fill(.ultraThinMaterial)
+				}
+			}
+		}
+		.buttonStyle(.pressable)
 	}
 }
 
