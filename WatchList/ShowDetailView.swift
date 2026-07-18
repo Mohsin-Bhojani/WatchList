@@ -80,6 +80,7 @@ struct ShowDetailView: View {
 					VStack(alignment: .leading, spacing: 20) {
 						IMDbLinkButton(imdbID: show.imdbID)
 						statusSection
+						ratingSection
 						SynopsisSection(text: show.overview)
 					}
 					.frame(width: sideWidth)
@@ -93,6 +94,7 @@ struct ShowDetailView: View {
 				header
 				IMDbLinkButton(imdbID: show.imdbID)
 				statusSection
+				ratingSection
 				SynopsisSection(text: show.overview)
 				seasonsSection
 				triviaSection
@@ -118,6 +120,13 @@ struct ShowDetailView: View {
 		VStack(alignment: .leading, spacing: 10) {
 			SectionLabel(text: "Status")
 			StatusPicker(status: watchedCascadeBinding)
+		}
+	}
+
+	private var ratingSection: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			SectionLabel(text: "Rating", systemImage: "star.fill")
+			RatingPicker(rating: $show.rating)
 		}
 	}
 
@@ -152,7 +161,8 @@ struct ShowDetailView: View {
 							subtitle: "\(season.episodes.count) episodes · \(season.watchedCount) watched",
 							thumbURL: season.posterURL.isEmpty ? show.posterURL : season.posterURL,
 							thumbPlaceholder: "tv",
-							status: season.status
+							status: season.status,
+							rating: season.rating
 						)
 					}
 					.buttonStyle(.pressable)

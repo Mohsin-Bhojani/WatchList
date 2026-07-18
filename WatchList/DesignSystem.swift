@@ -25,6 +25,12 @@ enum Glass {
 	static let watching    = Color(hex: "#B23A2F")   // red
 	static let watched     = Color(hex: "#4F6B4E")   // muted green
 
+	// Rating tints (best -> worst), muted to match the editorial palette.
+	static let ratingPerfection = Color(hex: "#2E7D6B")   // teal-green
+	static let ratingGoForIt    = Color(hex: "#5E7A3E")   // olive
+	static let ratingTimepass   = Color(hex: "#B08A2E")   // amber
+	static let ratingSkip       = Color(hex: "#9A3B34")   // brick red
+
 	// Paper surfaces (adapt to light / dark).
 	static let paper    = Color(light: "#F3ECDD", dark: "#141109")
 	static let surface  = Color(light: "#FBF7EE", dark: "#211C14")
@@ -44,6 +50,15 @@ enum Glass {
 		case .toWatch:  return toWatch
 		case .watching: return watching
 		case .watched:  return watched
+		}
+	}
+
+	static func tint(_ rating: Rating) -> Color {
+		switch rating {
+		case .perfection: return ratingPerfection
+		case .goForIt:    return ratingGoForIt
+		case .timepass:   return ratingTimepass
+		case .skip:       return ratingSkip
 		}
 	}
 
@@ -175,6 +190,27 @@ struct StatusBadge: View {
 		.padding(.vertical, compact ? 5 : 6)
 		.background(Glass.tint(status).opacity(0.14), in: Capsule())
 		.overlay(Capsule().strokeBorder(Glass.tint(status).opacity(0.4), lineWidth: 1))
+	}
+}
+
+/// The rating counterpart to `StatusBadge`, shown wherever a title has a rating.
+struct RatingBadge: View {
+	let rating: Rating
+	var compact: Bool = false
+	var body: some View {
+		HStack(spacing: 5) {
+			Image(systemName: rating.systemImage)
+				.font(.system(size: compact ? 10 : 12, weight: .bold))
+			if !compact {
+				Text(rating.rawValue)
+					.font(.system(size: 12, weight: .semibold))
+			}
+		}
+		.foregroundStyle(Glass.tint(rating))
+		.padding(.horizontal, compact ? 8 : 11)
+		.padding(.vertical, compact ? 5 : 6)
+		.background(Glass.tint(rating).opacity(0.14), in: Capsule())
+		.overlay(Capsule().strokeBorder(Glass.tint(rating).opacity(0.4), lineWidth: 1))
 	}
 }
 

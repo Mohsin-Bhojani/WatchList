@@ -52,6 +52,7 @@ struct SeasonDetailView: View {
 					VStack(alignment: .leading, spacing: 20) {
 						IMDbLinkButton(imdbID: season.show?.imdbID, seasonNumber: season.seasonNumber)
 						statusSection
+						ratingSection
 						if !season.overview.isEmpty {
 							SynopsisSection(text: season.overview)
 						}
@@ -66,6 +67,7 @@ struct SeasonDetailView: View {
 				header
 				IMDbLinkButton(imdbID: season.show?.imdbID, seasonNumber: season.seasonNumber)
 				statusSection
+				ratingSection
 				if !season.overview.isEmpty {
 					SynopsisSection(text: season.overview)
 				}
@@ -95,6 +97,13 @@ struct SeasonDetailView: View {
 		}
 	}
 
+	private var ratingSection: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			SectionLabel(text: "Rating", systemImage: "star.fill")
+			RatingPicker(rating: $season.rating)
+		}
+	}
+
 	@ViewBuilder
 	private var episodesSection: some View {
 		VStack(alignment: .leading, spacing: 12) {
@@ -121,7 +130,8 @@ struct SeasonDetailView: View {
 							subtitle: ep.synopsis,
 							thumbURL: ep.stillURL,
 							thumbPlaceholder: "film",
-							status: ep.status
+							status: ep.status,
+							rating: ep.rating
 						)
 					}
 					.buttonStyle(.pressable)

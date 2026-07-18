@@ -330,6 +330,7 @@ private struct ManualEntrySection: View {
 	@State private var synopsis = ""
 	@State private var imdb = ""
 	@State private var status: WatchStatus = .toWatch
+	@State private var rating: Rating? = nil
 	@State private var notes = ""
 	@State private var posterItem: PhotosPickerItem?
 	@State private var posterData: Data?
@@ -378,6 +379,7 @@ private struct ManualEntrySection: View {
 					.padding(15).glass(cornerRadius: 16)
 			}
 			field("Status") { StatusPicker(status: $status) }
+			field("Rating (optional)") { RatingPicker(rating: $rating) }
 			field("Notes (optional)") {
 				TextField("Any thoughts…", text: $notes, axis: .vertical)
 					.lineLimit(2...4)
@@ -415,11 +417,12 @@ private struct ManualEntrySection: View {
 		switch kind {
 		case .show:
 			let show = Show(title: trimmedTitle, overview: synopsis, genre: genre,
-			                firstAirYear: year, posterURL: posterURL, imdbID: imdbID, status: status, notes: notes)
+			                firstAirYear: year, posterURL: posterURL, imdbID: imdbID,
+			                status: status, rating: rating, notes: notes)
 			ctx.insert(show)
 		case .film:
 			let film = Film(title: trimmedTitle, synopsis: synopsis, genre: genre, year: year,
-			                posterURL: posterURL, imdbID: imdbID, status: status, notes: notes)
+			                posterURL: posterURL, imdbID: imdbID, status: status, rating: rating, notes: notes)
 			ctx.insert(film)
 		}
 		Haptics.success()

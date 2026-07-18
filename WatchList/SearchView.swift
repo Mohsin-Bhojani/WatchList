@@ -53,7 +53,7 @@ struct SearchView: View {
 									NavigationLink { ShowDetailView(show: show) } label: {
 										GlassRow(title: show.title, subtitle: show.subtitle,
 										         thumbURL: show.posterURL, thumbPlaceholder: "tv",
-										         status: show.status)
+										         status: show.status, rating: show.rating)
 									}
 									.buttonStyle(.pressable)
 								}
@@ -66,7 +66,7 @@ struct SearchView: View {
 										GlassRow(title: film.title,
 										         subtitle: [film.year, film.genre].filter { !$0.isEmpty }.joined(separator: " · "),
 										         thumbURL: film.posterURL, thumbPlaceholder: "film",
-										         status: film.status)
+										         status: film.status, rating: film.rating)
 									}
 									.buttonStyle(.pressable)
 								}

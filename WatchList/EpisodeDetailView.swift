@@ -59,6 +59,7 @@ struct EpisodeDetailView: View {
 					VStack(alignment: .leading, spacing: 20) {
 						IMDbLinkButton(imdbID: episode.imdbID)
 						statusSection
+						ratingSection
 						SynopsisSection(text: episode.synopsis)
 					}
 					.frame(width: sideWidth)
@@ -72,6 +73,7 @@ struct EpisodeDetailView: View {
 				header
 				IMDbLinkButton(imdbID: episode.imdbID)
 				statusSection
+				ratingSection
 				SynopsisSection(text: episode.synopsis)
 				triviaSection
 				SpecsSection(specs: episode.specs)
@@ -97,6 +99,13 @@ struct EpisodeDetailView: View {
 		VStack(alignment: .leading, spacing: 10) {
 			SectionLabel(text: "Status")
 			StatusPicker(status: $episode.status)
+		}
+	}
+
+	private var ratingSection: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			SectionLabel(text: "Rating", systemImage: "star.fill")
+			RatingPicker(rating: $episode.rating)
 		}
 	}
 

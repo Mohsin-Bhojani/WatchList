@@ -19,6 +19,10 @@ struct StatsView: View {
 		items.filter { $0[keyPath: keyPath] == status }.count
 	}
 
+	private func count<T>(_ items: [T], _ keyPath: KeyPath<T, Rating?>, _ rating: Rating) -> Int {
+		items.filter { $0[keyPath: keyPath] == rating }.count
+	}
+
 	var body: some View {
 		NavigationStack {
 			ZStack {
@@ -40,6 +44,9 @@ struct StatsView: View {
 						breakdown("Films", to: count(films, \.status, .toWatch),
 						          watching: count(films, \.status, .watching),
 						          watched: count(films, \.status, .watched))
+
+						ratingBreakdown("Show Ratings", items: shows, keyPath: \.rating)
+						ratingBreakdown("Film Ratings", items: films, keyPath: \.rating)
 					}
 					.padding(18)
 				}
@@ -71,6 +78,26 @@ struct StatsView: View {
 			Text("\(value)")
 				.font(.system(size: 18, weight: .bold, design: .rounded))
 				.foregroundStyle(.primary)
+		}
+	}
+
+	@ViewBuilder private func ratingBreakdown<T>(_ title: String, items: [T], keyPath: KeyPath<T, Rating?>) -> some View {
+		VStack(alignment: .leading, spacing: 12) {
+			SectionLabel(text: title)
+			VStack(spacing: 10) {
+				ForEach(Array(Rating.allCases.enumerated()), id: \.element) { index, rating in
+					if index > 0 { Divider().opacity(0.4) }
+					HStack {
+						RatingBadge(rating: rating)
+						Spacer()
+						Text("\(count(items, keyPath, rating))")
+							.font(.system(size: 18, weight: .bold, design: .rounded))
+							.foregroundStyle(.primary)
+					}
+				}
+			}
+			.padding(16)
+			.glass(cornerRadius: 18)
 		}
 	}
 }

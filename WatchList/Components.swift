@@ -41,6 +41,7 @@ struct PosterCard: View {
 	let subtitle: String
 	let posterURL: String
 	let status: WatchStatus
+	var rating: Rating? = nil
 	var placeholder: String = "film"
 
 	var body: some View {
@@ -51,6 +52,12 @@ struct PosterCard: View {
 				.overlay(alignment: .topTrailing) {
 					StatusBadge(status: status, compact: true)
 						.padding(8)
+				}
+				.overlay(alignment: .topLeading) {
+					if let rating {
+						RatingBadge(rating: rating, compact: true)
+							.padding(8)
+					}
 				}
 
 			VStack(alignment: .leading, spacing: 2) {
@@ -80,6 +87,7 @@ struct GlassRow: View {
 	var thumbURL: String = ""
 	var thumbPlaceholder: String = "film"
 	var status: WatchStatus? = nil
+	var rating: Rating? = nil
 	var leadingNumber: Int? = nil
 	var showsChevron: Bool = true
 
@@ -111,6 +119,7 @@ struct GlassRow: View {
 			}
 			Spacer(minLength: 6)
 
+			if let rating { RatingBadge(rating: rating, compact: true) }
 			if let status { StatusBadge(status: status, compact: true) }
 			if showsChevron {
 				Image(systemName: "chevron.right")
@@ -152,6 +161,49 @@ struct StatusPicker: View {
 					}
 				}
 				.buttonStyle(.pressable)
+			}
+		}
+	}
+}
+
+// MARK: - Rating picker (2×2 glass grid, clearable)
+
+struct RatingPicker: View {
+	@Binding var rating: Rating?
+
+	private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			LazyVGrid(columns: columns, spacing: 8) {
+				ForEach(Rating.allCases) { r in
+					let selected = rating == r
+					Button {
+						Haptics.selection()
+						withAnimation(Glass.pop) { rating = selected ? nil : r }
+					} label: {
+						HStack(spacing: 6) {
+							Image(systemName: r.systemImage).font(.system(size: 12, weight: .bold))
+							Text(r.rawValue).font(.system(size: 13, weight: .semibold, design: .rounded))
+						}
+						.foregroundStyle(selected ? .white : Color.primary)
+						.frame(maxWidth: .infinity)
+						.padding(.vertical, 11)
+						.background {
+							if selected {
+								Capsule().fill(Glass.tint(r))
+							} else {
+								Capsule().fill(.ultraThinMaterial)
+							}
+						}
+					}
+					.buttonStyle(.pressable)
+				}
+			}
+			if rating != nil {
+				Text("Tap the selected rating again to clear it.")
+					.font(.system(size: 11, weight: .medium, design: .rounded))
+					.foregroundStyle(.secondary)
 			}
 		}
 	}

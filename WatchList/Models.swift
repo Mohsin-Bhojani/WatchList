@@ -59,6 +59,36 @@ enum WatchStatus: String, Codable, CaseIterable, Identifiable {
 	}
 }
 
+/// A personal verdict, set independently on shows, seasons, episodes and films.
+/// Optional on every model: `nil` means "not rated yet".
+enum Rating: String, Codable, CaseIterable, Identifiable {
+	case perfection = "Perfection"
+	case goForIt = "Go For It"
+	case timepass = "Timepass"
+	case skip = "Skip"
+
+	var id: String { rawValue }
+
+	var systemImage: String {
+		switch self {
+		case .perfection: return "crown.fill"
+		case .goForIt:    return "hand.thumbsup.fill"
+		case .timepass:   return "clock.fill"
+		case .skip:       return "hand.thumbsdown.fill"
+		}
+	}
+
+	/// Best -> worst, for sorting.
+	var sortRank: Int {
+		switch self {
+		case .perfection: return 0
+		case .goForIt:    return 1
+		case .timepass:   return 2
+		case .skip:       return 3
+		}
+	}
+}
+
 // MARK: - Technical specs (value type persisted by SwiftData)
 
 /// A bundle of "technical spec" facts. Populated from TMDb during import, and
@@ -104,6 +134,7 @@ final class Show {
 	var imdbID: String?
 	var tmdbID: Int?
 	var status: WatchStatus
+	var rating: Rating?
 	var notes: String
 	var dateAdded: Date
 	var triviaFetched: Bool
@@ -120,6 +151,7 @@ final class Show {
 	     imdbID: String? = nil,
 	     tmdbID: Int? = nil,
 	     status: WatchStatus = .toWatch,
+	     rating: Rating? = nil,
 	     notes: String = "") {
 		self.id = UUID()
 		self.title = title
@@ -132,6 +164,7 @@ final class Show {
 		self.imdbID = imdbID
 		self.tmdbID = tmdbID
 		self.status = status
+		self.rating = rating
 		self.notes = notes
 		self.dateAdded = Date()
 		self.triviaFetched = false
@@ -158,6 +191,7 @@ final class Season {
 	var posterURL: String
 	var airYear: String
 	var status: WatchStatus
+	var rating: Rating?
 	var dateAdded: Date
 	var show: Show?
 
@@ -169,7 +203,8 @@ final class Season {
 	     overview: String = "",
 	     posterURL: String = "",
 	     airYear: String = "",
-	     status: WatchStatus = .toWatch) {
+	     status: WatchStatus = .toWatch,
+	     rating: Rating? = nil) {
 		self.id = UUID()
 		self.seasonNumber = seasonNumber
 		self.name = name.isEmpty ? "Season \(seasonNumber)" : name
@@ -177,6 +212,7 @@ final class Season {
 		self.posterURL = posterURL
 		self.airYear = airYear
 		self.status = status
+		self.rating = rating
 		self.dateAdded = Date()
 		self.episodes = []
 	}
@@ -201,6 +237,7 @@ final class Episode {
 	var runtimeMinutes: Int?
 	var specs: TechSpecs?           // technical specs (films + episodes only)
 	var status: WatchStatus
+	var rating: Rating?
 	var imdbID: String?             // resolved lazily for trivia scraping
 	var tmdbShowID: Int?            // needed to resolve episode external ids
 	var triviaFetched: Bool
@@ -215,6 +252,7 @@ final class Episode {
 	     runtimeMinutes: Int? = nil,
 	     specs: TechSpecs? = nil,
 	     status: WatchStatus = .toWatch,
+	     rating: Rating? = nil,
 	     imdbID: String? = nil,
 	     tmdbShowID: Int? = nil) {
 		self.id = UUID()
@@ -228,6 +266,7 @@ final class Episode {
 		self.runtimeMinutes = runtimeMinutes
 		self.specs = specs
 		self.status = status
+		self.rating = rating
 		self.imdbID = imdbID
 		self.tmdbShowID = tmdbShowID
 		self.triviaFetched = false
@@ -253,6 +292,7 @@ final class Film {
 	var tmdbID: Int?
 	var specs: TechSpecs?           // technical specs
 	var status: WatchStatus
+	var rating: Rating?
 	var notes: String
 	var dateAdded: Date
 	var triviaFetched: Bool
@@ -267,6 +307,7 @@ final class Film {
 	     tmdbID: Int? = nil,
 	     specs: TechSpecs? = nil,
 	     status: WatchStatus = .toWatch,
+	     rating: Rating? = nil,
 	     notes: String = "") {
 		self.id = UUID()
 		self.title = title
@@ -280,6 +321,7 @@ final class Film {
 		self.tmdbID = tmdbID
 		self.specs = specs
 		self.status = status
+		self.rating = rating
 		self.notes = notes
 		self.dateAdded = Date()
 		self.triviaFetched = false

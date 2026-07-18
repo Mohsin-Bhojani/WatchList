@@ -22,6 +22,7 @@ enum LibrarySortOption: String, CaseIterable, Identifiable {
 	case titleAZ = "Title A–Z"
 	case year = "Year"
 	case status = "Status"
+	case rating = "Rating"
 	var id: String { rawValue }
 	var systemImage: String {
 		switch self {
@@ -29,6 +30,7 @@ enum LibrarySortOption: String, CaseIterable, Identifiable {
 		case .titleAZ: return "textformat"
 		case .year: return "calendar"
 		case .status: return "checklist"
+		case .rating: return "star"
 		}
 	}
 }
@@ -84,7 +86,8 @@ struct LibraryView: View {
 		title: (T) -> String,
 		dateAdded: (T) -> Date,
 		year: (T) -> String,
-		status: (T) -> WatchStatus
+		status: (T) -> WatchStatus,
+		rating: (T) -> Rating?
 	) -> [T] {
 		let filtered: [T]
 		if let genreFilter {
@@ -101,16 +104,24 @@ struct LibraryView: View {
 			return filtered.sorted { year($0) > year($1) }
 		case .status:
 			return filtered.sorted { status($0).sortRank < status($1).sortRank }
+		case .rating:
+			// Best rating first; unrated titles fall to the end, then A–Z.
+			return filtered.sorted { a, b in
+				let ra = rating(a)?.sortRank ?? Int.max
+				let rb = rating(b)?.sortRank ?? Int.max
+				if ra != rb { return ra < rb }
+				return title(a).localizedCaseInsensitiveCompare(title(b)) == .orderedAscending
+			}
 		}
 	}
 
 	private var displayedShows: [Show] {
 		sortedAndFiltered(shows, genre: \.genre, title: \.title, dateAdded: \.dateAdded,
-		                   year: \.firstAirYear, status: \.status)
+		                   year: \.firstAirYear, status: \.status, rating: \.rating)
 	}
 	private var displayedFilms: [Film] {
 		sortedAndFiltered(films, genre: \.genre, title: \.title, dateAdded: \.dateAdded,
-		                   year: \.year, status: \.status)
+		                   year: \.year, status: \.status, rating: \.rating)
 	}
 
 	var body: some View {
@@ -322,7 +333,8 @@ struct LibraryView: View {
 					ForEach(displayedShows) { show in
 						NavigationLink { ShowDetailView(show: show) } label: {
 							PosterCard(title: show.title, subtitle: show.subtitle,
-							           posterURL: show.posterURL, status: show.status, placeholder: "tv")
+							           posterURL: show.posterURL, status: show.status,
+							           rating: show.rating, placeholder: "tv")
 						}
 						.buttonStyle(.pressable)
 						.contextMenu { deleteButton { ctx.delete(show) } }
@@ -344,7 +356,8 @@ struct LibraryView: View {
 							PosterCard(title: film.title,
 							           subtitle: [film.year, film.genre.components(separatedBy: ", ").first ?? ""]
 								.filter { !$0.isEmpty }.joined(separator: " · "),
-							           posterURL: film.posterURL, status: film.status, placeholder: "film")
+							           posterURL: film.posterURL, status: film.status,
+							           rating: film.rating, placeholder: "film")
 						}
 						.buttonStyle(.pressable)
 						.contextMenu { deleteButton { ctx.delete(film) } }
