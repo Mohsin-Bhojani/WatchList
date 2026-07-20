@@ -56,4 +56,11 @@ final class AppTheme: ObservableObject {
 		let latest = UserDefaults.standard.string(forKey: "accentColorID") ?? AccentCatalog.defaultID
 		if latest != accentID { accentID = latest }
 	}
+
+	/// Set from the in-app Settings screen; persists and re-tints immediately.
+	func setAccent(_ id: String) {
+		guard AccentCatalog.all.contains(where: { $0.id == id }), id != accentID else { return }
+		UserDefaults.standard.set(id, forKey: "accentColorID")
+		accentID = id
+	}
 }

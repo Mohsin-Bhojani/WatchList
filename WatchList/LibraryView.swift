@@ -46,6 +46,7 @@ struct LibraryView: View {
 	@State private var showingSearch = false
 	@State private var showingStats = false
 	@State private var showingNearby = false
+	@State private var showingSettings = false
 	@State private var sortOption: LibrarySortOption = .dateAdded
 	@State private var genreFilter: String? = nil
 
@@ -171,6 +172,7 @@ struct LibraryView: View {
 				.sheet(isPresented: $showingSearch) { SearchView() }
 				.sheet(isPresented: $showingStats) { StatsView() }
 				.sheet(isPresented: $showingNearby) { NearbyView() }
+				.sheet(isPresented: $showingSettings) { SettingsView() }
 		}
 	}
 
@@ -192,7 +194,7 @@ struct LibraryView: View {
 				tabButton("chart.bar.fill", "Stats") { Haptics.tap(); showingStats = true }
 				Color.clear.frame(width: 84)
 				tabButton("person.2.fill", "Nearby") { Haptics.tap(); showingNearby = true }
-				tabButton("gearshape.fill", "Settings") { openSettings() }
+				tabButton("gearshape.fill", "Settings") { Haptics.tap(); showingSettings = true }
 			}
 			.frame(height: 60)
 			.padding(.horizontal, 6)
@@ -226,13 +228,6 @@ struct LibraryView: View {
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.pressable)
-	}
-
-	private func openSettings() {
-		Haptics.tap()
-		if let url = URL(string: UIApplication.openSettingsURLString) {
-			UIApplication.shared.open(url)
-		}
 	}
 
 	// MARK: Segmented control (editorial underline tabs)
