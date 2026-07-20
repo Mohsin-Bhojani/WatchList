@@ -127,26 +127,24 @@ struct LibraryView: View {
 
 	var body: some View {
 		NavigationStack {
-			ScrollViewReader { proxy in
-				ZStack(alignment: .bottom) {
-					GlassBackground()
+			ZStack(alignment: .bottom) {
+				GlassBackground()
 
-					ScrollView {
-						VStack(spacing: 18) {
-							Color.clear.frame(height: 1).id("top")
-							segmented
-							statsRow
-							genreFilterRow
-							grid
-							Color.clear.frame(height: 96)
-						}
-						.padding(.horizontal, 18)
-						.padding(.top, 6)
+				ScrollView {
+					VStack(spacing: 18) {
+						segmented
+						statsRow
+						genreFilterRow
+						grid
+						Color.clear.frame(height: 96)
 					}
-
-					dock(proxy: proxy)
+					.padding(.horizontal, 18)
+					.padding(.top, 6)
 				}
-				.navigationTitle("WatchList")
+
+				dock()
+			}
+			.navigationTitle("WatchList")
 				.toolbarBackground(.hidden, for: .navigationBar)
 				.toolbar {
 					ToolbarItem(placement: .topBarTrailing) {
@@ -182,28 +180,13 @@ struct LibraryView: View {
 				.sheet(isPresented: $showingSearch) { SearchView() }
 				.sheet(isPresented: $showingStats) { StatsView() }
 				.sheet(isPresented: $showingNearby) { NearbyView() }
-			}
 		}
 	}
 
-	// MARK: Bottom dock (Library · Search · Add)
+	// MARK: Bottom dock (Search · Add)
 
-	private func dock(proxy: ScrollViewProxy) -> some View {
+	private func dock() -> some View {
 		HStack(spacing: 10) {
-			// Library / home — scrolls back to the top.
-			Button {
-				Haptics.tap()
-				withAnimation(Glass.smooth) { proxy.scrollTo("top", anchor: .top) }
-			} label: {
-				Image(systemName: "books.vertical.fill")
-					.font(.system(size: 18, weight: .semibold))
-					.foregroundStyle(Glass.accent)
-					.frame(width: 52, height: 52)
-					.background(Circle().fill(Glass.surface))
-					.overlay(Circle().strokeBorder(Glass.hairline.opacity(0.16), lineWidth: 1))
-			}
-			.buttonStyle(.pressable)
-
 			// Search bar — opens the search sheet.
 			Button {
 				Haptics.tap(); showingSearch = true

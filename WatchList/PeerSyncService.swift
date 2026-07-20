@@ -24,10 +24,10 @@ final class PeerSyncService: NSObject, ObservableObject {
 	@Published var connecting: Set<MCPeerID> = []
 	@Published var isRunning = false
 
-	nonisolated(unsafe) private let myPeerID: MCPeerID
-	nonisolated(unsafe) private let session: MCSession
-	nonisolated(unsafe) private let advertiser: MCNearbyServiceAdvertiser
-	nonisolated(unsafe) private let browser: MCNearbyServiceBrowser
+	nonisolated(unsafe) private var myPeerID: MCPeerID
+	nonisolated(unsafe) private var session: MCSession
+	nonisolated(unsafe) private var advertiser: MCNearbyServiceAdvertiser
+	nonisolated(unsafe) private var browser: MCNearbyServiceBrowser
 
 	/// Builds the outgoing snapshot (watched titles) from the local library.
 	nonisolated(unsafe) var snapshotProvider: (() -> LibrarySnapshot)?
@@ -51,6 +51,26 @@ final class PeerSyncService: NSObject, ObservableObject {
 	static func deviceName() -> String {
 		if let stored = UserDefaults.standard.string(forKey: "sharing.displayName"), !stored.isEmpty { return stored }
 		return UIDevice.current.name
+	}
+
+	/// Change the name others see. Rebuilds the peer identity (an MCPeerID can't
+	/// be renamed) and restarts if we were already advertising/browsing.
+	func rename(to newName: String) {
+		let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !trimmed.isEmpty, trimmed != myPeerID.displayName else { return }
+		UserDefaults.standard.set(trimmed, forKey: "sharing.displayName")
+		let wasRunning = isRunning
+		stop()
+		let peer = MCPeerID(displayName: trimmed)
+		myPeerID = peer
+		session = MCSession(peer: peer, securityIdentity: nil, encryptionPreference: .required)
+		advertiser = MCNearbyServiceAdvertiser(peer: peer, discoveryInfo: nil, serviceType: PeerSyncService.serviceType)
+		browser = MCNearbyServiceBrowser(peer: peer, serviceType: PeerSyncService.serviceType)
+		session.delegate = self
+		advertiser.delegate = self
+		browser.delegate = self
+		objectWillChange.send()
+		if wasRunning { start() }
 	}
 
 	func start() {

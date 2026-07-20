@@ -18,6 +18,8 @@ struct NearbyView: View {
 	@StateObject private var peer = PeerSyncService()
 	@Query(sort: \SharedLibrary.receivedAt, order: .reverse) private var shared: [SharedLibrary]
 	@State private var openLibrary: SharedLibrary?
+	@State private var myName = PeerSyncService.deviceName()
+	@FocusState private var nameFocused: Bool
 
 	var body: some View {
 		NavigationStack {
@@ -25,6 +27,7 @@ struct NearbyView: View {
 				GlassBackground()
 				ScrollView {
 					VStack(alignment: .leading, spacing: 22) {
+						identitySection
 						nearbySection
 						sharedSection
 					}
@@ -43,6 +46,32 @@ struct NearbyView: View {
 			peer.start()
 		}
 		.onDisappear { peer.stop() }
+	}
+
+	// MARK: Your name
+
+	private var identitySection: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			SectionLabel(text: "Your Name", systemImage: "person.crop.circle")
+			HStack(spacing: 8) {
+				TextField("Your name", text: $myName)
+					.font(.system(size: 15, weight: .medium, design: .rounded))
+					.autocorrectionDisabled()
+					.submitLabel(.done)
+					.focused($nameFocused)
+					.onSubmit { peer.rename(to: myName); nameFocused = false }
+				if nameFocused {
+					Button("Save") { peer.rename(to: myName); nameFocused = false }
+						.font(.system(size: 14, weight: .bold, design: .rounded))
+						.foregroundStyle(Glass.accent)
+				}
+			}
+			.padding(15)
+			.glass(cornerRadius: 16)
+			Text("How you appear to nearby devices.")
+				.font(.system(size: 12, weight: .medium, design: .rounded))
+				.foregroundStyle(.secondary)
+		}
 	}
 
 	// MARK: Nearby devices
