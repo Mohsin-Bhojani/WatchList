@@ -143,6 +143,14 @@ struct LibraryView: View {
 					.padding(.top, 6)
 				}
 
+				// Fade the content into the paper behind the bar so it scrolls
+				// away smoothly instead of appearing sharply under the dock.
+				LinearGradient(colors: [.clear, Glass.paper], startPoint: .top, endPoint: .bottom)
+					.frame(maxWidth: .infinity)
+					.frame(height: 130)
+					.allowsHitTesting(false)
+					.ignoresSafeArea(edges: .bottom)
+
 				dock()
 			}
 			.navigationTitle("WatchList")
@@ -214,7 +222,7 @@ struct LibraryView: View {
 			.offset(y: -28)
 		}
 		.padding(.horizontal, 14)
-		.padding(.bottom, 8)
+		.padding(.bottom, -6)
 	}
 
 	private func tabButton(_ icon: String, _ label: String, _ action: @escaping () -> Void) -> some View {
