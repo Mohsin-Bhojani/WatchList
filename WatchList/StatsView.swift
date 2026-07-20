@@ -2,8 +2,10 @@
 //  StatsView.swift
 //  WatchList
 //
-//  A light overview of the whole library. Status and rating rows are tappable
-//  and open a sheet listing the actual titles in that bucket.
+//  A light overview of the whole library. Shows and Films are combined: Status
+//  covers what's left to get through (To Watch / Watching), and Ratings covers
+//  everything watched (the four verdicts plus Unrated). Every row is tappable
+//  and opens a sheet listing the actual titles.
 //
 
 import SwiftUI
@@ -12,27 +14,25 @@ import SwiftData
 /// Identifies a tapped stats bucket so it can drive the drill-down sheet.
 struct StatFilter: Identifiable {
 	enum Criterion: Equatable {
-		case status(WatchStatus)
-		case rating(Rating)
-		case unrated
+		case status(WatchStatus)   // To Watch / Watching
+		case rating(Rating)         // watched + this rating
+		case unratedWatched         // watched + no rating
 	}
-	let kind: MediaKind
 	let criterion: Criterion
 
 	var id: String {
 		switch criterion {
-		case .status(let s): return "\(kind.rawValue)-status-\(s.rawValue)"
-		case .rating(let r): return "\(kind.rawValue)-rating-\(r.rawValue)"
-		case .unrated:       return "\(kind.rawValue)-unrated"
+		case .status(let s): return "status-\(s.rawValue)"
+		case .rating(let r): return "rating-\(r.rawValue)"
+		case .unratedWatched: return "unrated"
 		}
 	}
 
 	var title: String {
-		let noun = kind == .show ? "Shows" : "Films"
 		switch criterion {
-		case .status(let s): return "\(s.rawValue) · \(noun)"
-		case .rating(let r): return "\(r.rawValue) · \(noun)"
-		case .unrated:       return "Unrated · \(noun)"
+		case .status(let s): return s.rawValue
+		case .rating(let r): return r.rawValue
+		case .unratedWatched: return "Unrated"
 		}
 	}
 }
@@ -46,16 +46,17 @@ struct StatsView: View {
 	private var totalEpisodes: Int { shows.reduce(0) { $0 + $1.episodeCount } }
 	private var watchedEpisodes: Int { shows.reduce(0) { $0 + $1.watchedEpisodeCount } }
 
-	private func count<T>(_ items: [T], _ keyPath: KeyPath<T, WatchStatus>, _ status: WatchStatus) -> Int {
-		items.filter { $0[keyPath: keyPath] == status }.count
+	// Combined Shows + Films counts.
+	private func statusCount(_ status: WatchStatus) -> Int {
+		shows.filter { $0.status == status }.count + films.filter { $0.status == status }.count
 	}
-
-	private func count<T>(_ items: [T], _ keyPath: KeyPath<T, Rating?>, _ rating: Rating) -> Int {
-		items.filter { $0[keyPath: keyPath] == rating }.count
+	private func ratingCount(_ rating: Rating) -> Int {
+		shows.filter { $0.status == .watched && $0.rating == rating }.count +
+		films.filter { $0.status == .watched && $0.rating == rating }.count
 	}
-
-	private func unratedCount<T>(_ items: [T], _ keyPath: KeyPath<T, Rating?>) -> Int {
-		items.filter { $0[keyPath: keyPath] == nil }.count
+	private var unratedWatchedCount: Int {
+		shows.filter { $0.status == .watched && $0.rating == nil }.count +
+		films.filter { $0.status == .watched && $0.rating == nil }.count
 	}
 
 	var body: some View {
@@ -73,15 +74,8 @@ struct StatsView: View {
 							StatChip(label: "Eps Watched", value: "\(watchedEpisodes)", systemImage: "checkmark.circle.fill", tint: Glass.watched)
 						}
 
-						breakdown(.show, "Shows", to: count(shows, \.status, .toWatch),
-						          watching: count(shows, \.status, .watching),
-						          watched: count(shows, \.status, .watched))
-						breakdown(.film, "Films", to: count(films, \.status, .toWatch),
-						          watching: count(films, \.status, .watching),
-						          watched: count(films, \.status, .watched))
-
-						ratingBreakdown(.show, "Show Ratings", items: shows, keyPath: \.rating)
-						ratingBreakdown(.film, "Film Ratings", items: films, keyPath: \.rating)
+						statusCard
+						ratingsCard
 					}
 					.padding(18)
 				}
@@ -92,44 +86,38 @@ struct StatsView: View {
 		}
 	}
 
-	// MARK: - Status breakdown
+	// MARK: - Status (what's left to watch)
 
-	@ViewBuilder private func breakdown(_ kind: MediaKind, _ title: String, to: Int, watching: Int, watched: Int) -> some View {
+	private var statusCard: some View {
 		VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(text: title)
+			SectionLabel(text: "Status")
 			VStack(spacing: 10) {
-				statusRow(kind, .toWatch, to)
+				drillRow(value: statusCount(.toWatch), filter: StatFilter(criterion: .status(.toWatch))) {
+					StatusBadge(status: .toWatch)
+				}
 				Divider().opacity(0.4)
-				statusRow(kind, .watching, watching)
-				Divider().opacity(0.4)
-				statusRow(kind, .watched, watched)
+				drillRow(value: statusCount(.watching), filter: StatFilter(criterion: .status(.watching))) {
+					StatusBadge(status: .watching)
+				}
 			}
 			.padding(16)
 			.glass(cornerRadius: 18)
 		}
 	}
 
-	private func statusRow(_ kind: MediaKind, _ status: WatchStatus, _ value: Int) -> some View {
-		drillRow(value: value, filter: StatFilter(kind: kind, criterion: .status(status))) {
-			StatusBadge(status: status)
-		}
-	}
+	// MARK: - Ratings (everything watched)
 
-	// MARK: - Rating breakdown
-
-	@ViewBuilder private func ratingBreakdown<T>(_ kind: MediaKind, _ title: String, items: [T], keyPath: KeyPath<T, Rating?>) -> some View {
+	private var ratingsCard: some View {
 		VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(text: title)
+			SectionLabel(text: "Ratings")
 			VStack(spacing: 10) {
 				ForEach(Rating.allCases) { rating in
-					drillRow(value: count(items, keyPath, rating),
-					         filter: StatFilter(kind: kind, criterion: .rating(rating))) {
+					drillRow(value: ratingCount(rating), filter: StatFilter(criterion: .rating(rating))) {
 						RatingBadge(rating: rating)
 					}
 					Divider().opacity(0.4)
 				}
-				drillRow(value: unratedCount(items, keyPath),
-				         filter: StatFilter(kind: kind, criterion: .unrated)) {
+				drillRow(value: unratedWatchedCount, filter: StatFilter(criterion: .unratedWatched)) {
 					unratedBadge
 				}
 			}
@@ -174,8 +162,8 @@ struct StatsView: View {
 
 // MARK: - Drill-down sheet
 
-/// Lists the titles that fall into a tapped stats bucket, scoped to one media
-/// kind, each linking to its detail page.
+/// Lists the titles (Shows + Films combined) that fall into a tapped bucket,
+/// each linking to its detail page.
 struct StatItemsSheet: View {
 	@Environment(\.dismiss) private var dismiss
 	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
@@ -185,20 +173,14 @@ struct StatItemsSheet: View {
 
 	private func matches(status: WatchStatus, rating: Rating?) -> Bool {
 		switch filter.criterion {
-		case .status(let s): return status == s
-		case .rating(let r): return rating == r
-		case .unrated:       return rating == nil
+		case .status(let s):    return status == s
+		case .rating(let r):    return status == .watched && rating == r
+		case .unratedWatched:   return status == .watched && rating == nil
 		}
 	}
 
-	private var matchingShows: [Show] {
-		guard filter.kind == .show else { return [] }
-		return shows.filter { matches(status: $0.status, rating: $0.rating) }
-	}
-	private var matchingFilms: [Film] {
-		guard filter.kind == .film else { return [] }
-		return films.filter { matches(status: $0.status, rating: $0.rating) }
-	}
+	private var matchingShows: [Show] { shows.filter { matches(status: $0.status, rating: $0.rating) } }
+	private var matchingFilms: [Film] { films.filter { matches(status: $0.status, rating: $0.rating) } }
 
 	var body: some View {
 		NavigationStack {
