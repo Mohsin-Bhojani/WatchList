@@ -188,15 +188,6 @@ struct LibraryView: View {
 
 	private func dock() -> some View {
 		ZStack {
-			NotchedBar(cornerRadius: 26, notchRadius: 38)
-				.fill(Glass.surface)
-				.overlay(
-					NotchedBar(cornerRadius: 26, notchRadius: 38)
-						.stroke(Glass.hairline.opacity(0.14), lineWidth: 1)
-				)
-				.frame(height: 60)
-				.shadow(color: .black.opacity(0.08), radius: 12, y: 4)
-
 			HStack(spacing: 0) {
 				tabButton("magnifyingglass", "Search") { Haptics.tap(); showingSearch = true }
 				tabButton("chart.bar.fill", "Stats") { Haptics.tap(); showingStats = true }
@@ -204,8 +195,9 @@ struct LibraryView: View {
 				tabButton("person.2.fill", "Nearby") { Haptics.tap(); showingNearby = true }
 				tabButton("gearshape.fill", "Settings") { Haptics.tap(); showingSettings = true }
 			}
-			.frame(height: 60)
-			.padding(.horizontal, 6)
+			.padding(.horizontal, 12)
+			.frame(height: 62)
+			.frame(maxWidth: .infinity)
 
 			// Raised center Add button, cradled by the notch.
 			Button {
@@ -219,10 +211,18 @@ struct LibraryView: View {
 					.shadow(color: Glass.accent.opacity(0.35), radius: 8, y: 3)
 			}
 			.buttonStyle(.pressable)
-			.offset(y: -28)
+			.offset(y: -26)
 		}
-		.padding(.horizontal, 14)
-		.padding(.bottom, -6)
+		.background(
+			NotchedBar(cornerRadius: 26, notchRadius: 38)
+				.fill(Glass.surface)
+				.overlay(
+					NotchedBar(cornerRadius: 26, notchRadius: 38)
+						.stroke(Glass.hairline.opacity(0.12), lineWidth: 1)
+				)
+				.shadow(color: .black.opacity(0.08), radius: 12, y: -3)
+				.ignoresSafeArea(edges: .bottom)
+		)
 	}
 
 	private func tabButton(_ icon: String, _ label: String, _ action: @escaping () -> Void) -> some View {
@@ -371,36 +371,31 @@ struct LibraryView: View {
 
 // MARK: - Notched bottom-bar shape
 
-/// A rounded bar with a concave semicircular notch centered on the top edge,
-/// cradling the raised Add button.
+/// A filled bottom-bar shape: rounded top corners, a concave semicircular notch
+/// centered on the top edge (cradling the raised Add button), and a flat bottom
+/// so the bar fills to the screen edge.
 struct NotchedBar: Shape {
 	var cornerRadius: CGFloat = 26
 	var notchRadius: CGFloat = 38
 
 	func path(in rect: CGRect) -> Path {
 		let w = rect.width, h = rect.height
-		let cr = min(cornerRadius, h / 2)
+		let cr = min(cornerRadius, h)
 		let nr = notchRadius
 		let cx = rect.midX
 		var p = Path()
-		p.move(to: CGPoint(x: cr, y: 0))
-		p.addLine(to: CGPoint(x: cx - nr, y: 0))
-		// Concave notch dipping down into the bar.
-		p.addArc(center: CGPoint(x: cx, y: 0), radius: nr,
-		         startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)
-		p.addLine(to: CGPoint(x: w - cr, y: 0))
-		p.addArc(center: CGPoint(x: w - cr, y: cr), radius: cr,
-		         startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
-		p.addLine(to: CGPoint(x: w, y: h - cr))
-		p.addArc(center: CGPoint(x: w - cr, y: h - cr), radius: cr,
-		         startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-		p.addLine(to: CGPoint(x: cr, y: h))
-		p.addArc(center: CGPoint(x: cr, y: h - cr), radius: cr,
-		         startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-		p.addLine(to: CGPoint(x: 0, y: cr))
+		p.move(to: CGPoint(x: 0, y: h))                       // bottom-left (square)
+		p.addLine(to: CGPoint(x: 0, y: cr))                    // up the left edge
 		p.addArc(center: CGPoint(x: cr, y: cr), radius: cr,
-		         startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-		p.closeSubpath()
+		         startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)  // top-left corner
+		p.addLine(to: CGPoint(x: cx - nr, y: 0))               // top edge to notch
+		p.addArc(center: CGPoint(x: cx, y: 0), radius: nr,
+		         startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)      // concave notch (dips in)
+		p.addLine(to: CGPoint(x: w - cr, y: 0))                // top edge after notch
+		p.addArc(center: CGPoint(x: w - cr, y: cr), radius: cr,
+		         startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)     // top-right corner
+		p.addLine(to: CGPoint(x: w, y: h))                     // down the right edge
+		p.closeSubpath()                                       // flat bottom
 		return p
 	}
 }
