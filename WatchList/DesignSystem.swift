@@ -31,6 +31,11 @@ enum Glass {
 	static let ratingTimepass   = Color(hex: "#B08A2E")   // amber
 	static let ratingSkip       = Color(hex: "#9A3B34")   // brick red
 
+	// Episode rewatch-tier tints (worst -> best).
+	static let tierSkip    = Color(hex: "#9A8F86")   // muted taupe
+	static let tierWatch   = Color(hex: "#4F6B4E")   // green
+	static let tierRewatch = Color(hex: "#C6902A")   // gold
+
 	// Paper surfaces (adapt to light / dark).
 	static let paper    = Color(light: "#F3ECDD", dark: "#141109")
 	static let surface  = Color(light: "#FBF7EE", dark: "#211C14")
@@ -59,6 +64,14 @@ enum Glass {
 		case .goForIt:    return ratingGoForIt
 		case .timepass:   return ratingTimepass
 		case .skip:       return ratingSkip
+		}
+	}
+
+	static func tint(_ tier: EpisodeTier) -> Color {
+		switch tier {
+		case .skip:    return tierSkip
+		case .watch:   return tierWatch
+		case .rewatch: return tierRewatch
 		}
 	}
 
@@ -211,6 +224,27 @@ struct RatingBadge: View {
 		.padding(.vertical, compact ? 5 : 6)
 		.background(Glass.tint(rating).opacity(0.14), in: Capsule())
 		.overlay(Capsule().strokeBorder(Glass.tint(rating).opacity(0.4), lineWidth: 1))
+	}
+}
+
+/// The episode rewatch-tier badge (Skip / Watch / Rewatch).
+struct EpisodeTierBadge: View {
+	let tier: EpisodeTier
+	var compact: Bool = false
+	var body: some View {
+		HStack(spacing: 5) {
+			Image(systemName: tier.systemImage)
+				.font(.system(size: compact ? 10 : 12, weight: .bold))
+			if !compact {
+				Text(tier.rawValue)
+					.font(.system(size: 12, weight: .semibold))
+			}
+		}
+		.foregroundStyle(Glass.tint(tier))
+		.padding(.horizontal, compact ? 8 : 11)
+		.padding(.vertical, compact ? 5 : 6)
+		.background(Glass.tint(tier).opacity(0.14), in: Capsule())
+		.overlay(Capsule().strokeBorder(Glass.tint(tier).opacity(0.4), lineWidth: 1))
 	}
 }
 

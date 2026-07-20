@@ -89,6 +89,34 @@ enum Rating: String, Codable, CaseIterable, Identifiable {
 	}
 }
 
+/// A rewatch-value rating for individual episodes (distinct from the show/film
+/// verdict). The label says what to do with the episode on a rewatch: skip the
+/// filler, watch it normally, or rewatch a standout on its own.
+enum EpisodeTier: String, Codable, CaseIterable, Identifiable {
+	case skip = "Skip"
+	case watch = "Watch"
+	case rewatch = "Rewatch"
+
+	var id: String { rawValue }
+
+	var systemImage: String {
+		switch self {
+		case .skip:    return "forward.fill"
+		case .watch:   return "play.fill"
+		case .rewatch: return "arrow.2.squarepath"
+		}
+	}
+
+	/// Best -> worst, for sorting.
+	var sortRank: Int {
+		switch self {
+		case .rewatch: return 0
+		case .watch:   return 1
+		case .skip:    return 2
+		}
+	}
+}
+
 // MARK: - Technical specs (value type persisted by SwiftData)
 
 /// A bundle of "technical spec" facts. Populated from TMDb during import, and
@@ -237,7 +265,7 @@ final class Episode {
 	var runtimeMinutes: Int?
 	var specs: TechSpecs?           // technical specs (films + episodes only)
 	var status: WatchStatus
-	var rating: Rating?
+	var episodeTier: EpisodeTier?   // Skip / Watch / Rewatch (episode-only rating)
 	var imdbID: String?             // resolved lazily for trivia scraping
 	var tmdbShowID: Int?            // needed to resolve episode external ids
 	var triviaFetched: Bool
@@ -252,7 +280,7 @@ final class Episode {
 	     runtimeMinutes: Int? = nil,
 	     specs: TechSpecs? = nil,
 	     status: WatchStatus = .toWatch,
-	     rating: Rating? = nil,
+	     episodeTier: EpisodeTier? = nil,
 	     imdbID: String? = nil,
 	     tmdbShowID: Int? = nil) {
 		self.id = UUID()
@@ -266,7 +294,7 @@ final class Episode {
 		self.runtimeMinutes = runtimeMinutes
 		self.specs = specs
 		self.status = status
-		self.rating = rating
+		self.episodeTier = episodeTier
 		self.imdbID = imdbID
 		self.tmdbShowID = tmdbShowID
 		self.triviaFetched = false

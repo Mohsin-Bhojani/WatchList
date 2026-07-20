@@ -131,7 +131,7 @@ struct SeasonDetailView: View {
 							thumbURL: ep.stillURL,
 							thumbPlaceholder: "film",
 							status: ep.status,
-							rating: ep.rating
+							episodeTier: ep.episodeTier
 						)
 					}
 					.buttonStyle(.pressable)

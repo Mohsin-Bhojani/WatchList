@@ -59,7 +59,7 @@ struct EpisodeDetailView: View {
 					VStack(alignment: .leading, spacing: 20) {
 						IMDbLinkButton(imdbID: episode.imdbID)
 						statusSection
-						ratingSection
+						tierSection
 						SynopsisSection(text: episode.synopsis)
 					}
 					.frame(width: sideWidth)
@@ -73,7 +73,7 @@ struct EpisodeDetailView: View {
 				header
 				IMDbLinkButton(imdbID: episode.imdbID)
 				statusSection
-				ratingSection
+				tierSection
 				SynopsisSection(text: episode.synopsis)
 				triviaSection
 				SpecsSection(specs: episode.specs)
@@ -102,10 +102,10 @@ struct EpisodeDetailView: View {
 		}
 	}
 
-	private var ratingSection: some View {
+	private var tierSection: some View {
 		VStack(alignment: .leading, spacing: 10) {
-			SectionLabel(text: "Rating", systemImage: "star.fill")
-			RatingPicker(rating: $episode.rating)
+			SectionLabel(text: "Rewatch", systemImage: "arrow.2.squarepath")
+			EpisodeTierPicker(tier: $episode.episodeTier)
 		}
 	}
 

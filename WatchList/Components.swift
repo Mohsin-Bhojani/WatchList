@@ -88,6 +88,7 @@ struct GlassRow: View {
 	var thumbPlaceholder: String = "film"
 	var status: WatchStatus? = nil
 	var rating: Rating? = nil
+	var episodeTier: EpisodeTier? = nil
 	var leadingNumber: Int? = nil
 	var showsChevron: Bool = true
 
@@ -119,6 +120,7 @@ struct GlassRow: View {
 			}
 			Spacer(minLength: 6)
 
+			if let episodeTier { EpisodeTierBadge(tier: episodeTier, compact: true) }
 			if let rating { RatingBadge(rating: rating, compact: true) }
 			if let status { StatusBadge(status: status, compact: true) }
 			if showsChevron {
@@ -221,6 +223,47 @@ struct RatingPicker: View {
 			}
 		}
 		.buttonStyle(.pressable)
+	}
+}
+
+// MARK: - Episode rewatch-tier picker (Skip · Watch · Rewatch)
+
+struct EpisodeTierPicker: View {
+	@Binding var tier: EpisodeTier?
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			HStack(spacing: 8) {
+				ForEach(EpisodeTier.allCases) { t in
+					let selected = tier == t
+					Button {
+						Haptics.selection()
+						withAnimation(Glass.pop) { tier = selected ? nil : t }
+					} label: {
+						HStack(spacing: 6) {
+							Image(systemName: t.systemImage).font(.system(size: 12, weight: .bold))
+							Text(t.rawValue).font(.system(size: 13, weight: .semibold, design: .rounded))
+						}
+						.foregroundStyle(selected ? .white : Color.primary)
+						.frame(maxWidth: .infinity)
+						.padding(.vertical, 11)
+						.background {
+							if selected {
+								Capsule().fill(Glass.tint(t))
+							} else {
+								Capsule().fill(.ultraThinMaterial)
+							}
+						}
+					}
+					.buttonStyle(.pressable)
+				}
+			}
+			if tier != nil {
+				Text("Tap the selected one again to clear it.")
+					.font(.system(size: 11, weight: .medium, design: .rounded))
+					.foregroundStyle(.secondary)
+			}
+		}
 	}
 }
 
