@@ -162,15 +162,6 @@ struct LibraryView: View {
 							} label: {
 								Image(systemName: "arrow.up.arrow.down.circle.fill")
 							}
-							Button { Haptics.tap(); showingStats = true } label: {
-								Image(systemName: "chart.bar.fill")
-							}
-							Button { Haptics.tap(); showingNearby = true } label: {
-								Image(systemName: "person.2.fill")
-							}
-							Button { openSettings() } label: {
-								Image(systemName: "gearshape.fill")
-							}
 						}
 						.font(.system(size: 17, weight: .semibold))
 						.foregroundStyle(Glass.accent)
@@ -183,45 +174,58 @@ struct LibraryView: View {
 		}
 	}
 
-	// MARK: Bottom dock (Search · Add)
+	// MARK: Bottom tab bar (Search · Stats · [+] · Nearby · Settings)
 
 	private func dock() -> some View {
-		HStack(spacing: 10) {
-			// Search bar — opens the search sheet.
-			Button {
-				Haptics.tap(); showingSearch = true
-			} label: {
-				HStack(spacing: 8) {
-					Image(systemName: "magnifyingglass")
-						.font(.system(size: 15, weight: .semibold))
-					Text("Search")
-						.font(.system(size: 16, weight: .regular, design: .serif))
-					Spacer(minLength: 0)
-				}
-				.foregroundStyle(.secondary)
-				.padding(.horizontal, 18)
-				.frame(height: 52)
-				.frame(maxWidth: .infinity)
-				.background(Capsule().fill(Glass.surface))
-				.overlay(Capsule().strokeBorder(Glass.hairline.opacity(0.16), lineWidth: 1))
-			}
-			.buttonStyle(.pressable)
+		ZStack {
+			NotchedBar(cornerRadius: 26, notchRadius: 38)
+				.fill(Glass.surface)
+				.overlay(
+					NotchedBar(cornerRadius: 26, notchRadius: 38)
+						.stroke(Glass.hairline.opacity(0.14), lineWidth: 1)
+				)
+				.frame(height: 60)
+				.shadow(color: .black.opacity(0.08), radius: 12, y: 4)
 
-			// Add new — opens the add sheet (where compose sits in Mail).
+			HStack(spacing: 0) {
+				tabButton("magnifyingglass", "Search") { Haptics.tap(); showingSearch = true }
+				tabButton("chart.bar.fill", "Stats") { Haptics.tap(); showingStats = true }
+				Color.clear.frame(width: 84)
+				tabButton("person.2.fill", "Nearby") { Haptics.tap(); showingNearby = true }
+				tabButton("gearshape.fill", "Settings") { openSettings() }
+			}
+			.frame(height: 60)
+			.padding(.horizontal, 6)
+
+			// Raised center Add button, cradled by the notch.
 			Button {
 				Haptics.tap(.medium); showingAdd = true
 			} label: {
 				Image(systemName: "plus")
-					.font(.system(size: 22, weight: .bold))
+					.font(.system(size: 26, weight: .bold))
 					.foregroundStyle(.white)
-					.frame(width: 52, height: 52)
+					.frame(width: 58, height: 58)
 					.background(Circle().fill(Glass.accent))
+					.shadow(color: Glass.accent.opacity(0.35), radius: 8, y: 3)
 			}
 			.buttonStyle(.pressable)
+			.offset(y: -28)
 		}
-		.padding(.horizontal, 16)
-		.padding(.bottom, 10)
-		.shadow(color: .black.opacity(0.07), radius: 12, y: 4)
+		.padding(.horizontal, 14)
+		.padding(.bottom, 8)
+	}
+
+	private func tabButton(_ icon: String, _ label: String, _ action: @escaping () -> Void) -> some View {
+		Button(action: action) {
+			VStack(spacing: 3) {
+				Image(systemName: icon).font(.system(size: 18, weight: .semibold))
+				Text(label).font(.system(size: 10, weight: .semibold, design: .rounded))
+			}
+			.foregroundStyle(.secondary)
+			.frame(maxWidth: .infinity)
+			.contentShape(Rectangle())
+		}
+		.buttonStyle(.pressable)
 	}
 
 	private func openSettings() {
@@ -359,5 +363,41 @@ struct LibraryView: View {
 		Button(role: .destructive) { withAnimation { action() } } label: {
 			Label("Delete", systemImage: "trash")
 		}
+	}
+}
+
+// MARK: - Notched bottom-bar shape
+
+/// A rounded bar with a concave semicircular notch centered on the top edge,
+/// cradling the raised Add button.
+struct NotchedBar: Shape {
+	var cornerRadius: CGFloat = 26
+	var notchRadius: CGFloat = 38
+
+	func path(in rect: CGRect) -> Path {
+		let w = rect.width, h = rect.height
+		let cr = min(cornerRadius, h / 2)
+		let nr = notchRadius
+		let cx = rect.midX
+		var p = Path()
+		p.move(to: CGPoint(x: cr, y: 0))
+		p.addLine(to: CGPoint(x: cx - nr, y: 0))
+		// Concave notch dipping down into the bar.
+		p.addArc(center: CGPoint(x: cx, y: 0), radius: nr,
+		         startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)
+		p.addLine(to: CGPoint(x: w - cr, y: 0))
+		p.addArc(center: CGPoint(x: w - cr, y: cr), radius: cr,
+		         startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+		p.addLine(to: CGPoint(x: w, y: h - cr))
+		p.addArc(center: CGPoint(x: w - cr, y: h - cr), radius: cr,
+		         startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+		p.addLine(to: CGPoint(x: cr, y: h))
+		p.addArc(center: CGPoint(x: cr, y: h - cr), radius: cr,
+		         startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+		p.addLine(to: CGPoint(x: 0, y: cr))
+		p.addArc(center: CGPoint(x: cr, y: cr), radius: cr,
+		         startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+		p.closeSubpath()
+		return p
 	}
 }
