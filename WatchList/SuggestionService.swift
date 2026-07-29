@@ -33,6 +33,22 @@ enum SimilarConfig {
 
 	static var displayAddress: String { "\(host):\(port)" }
 
+	/// Loopback means "this device". That's the Mac in the Simulator, but on a
+	/// real iPhone it's the phone itself — where nothing is listening.
+	static var isLoopback: Bool {
+		let h = host.trimmingCharacters(in: .whitespaces).lowercased()
+		return h == "127.0.0.1" || h == "localhost" || h == "::1"
+	}
+
+	/// True when the address can't possibly reach the Mac from this device.
+	static var loopbackOnDevice: Bool {
+		#if targetEnvironment(simulator)
+		return false
+		#else
+		return isLoopback
+		#endif
+	}
+
 	static func url(path: String) -> URL? {
 		var components = URLComponents()
 		components.scheme = "http"
@@ -98,6 +114,9 @@ enum SuggestionError: LocalizedError {
 		case .notConfigured:
 			return "Set your Mac's address in Settings first."
 		case .unreachable:
+			if SimilarConfig.loopbackOnDevice {
+				return "\(SimilarConfig.host) is this iPhone, not your Mac. Put your Mac's Wi-Fi address in Settings."
+			}
 			return "Couldn't reach your Mac at \(SimilarConfig.displayAddress). Is the helper running?"
 		case .http(let code):
 			return "Your Mac's helper returned an error (\(code))."

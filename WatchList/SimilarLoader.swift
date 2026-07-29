@@ -133,9 +133,7 @@ enum SimilarLoader {
 		// Probe first: a sleeping Mac should drop us onto the cache in ~2s
 		// rather than after the full request timeout.
 		guard await SuggestionService.shared.health() else {
-			return cached.isEmpty
-				? .stale(SuggestionError.unreachable.localizedDescription)
-				: .stale("Couldn't reach your Mac at \(SimilarConfig.displayAddress).")
+			return .stale(SuggestionError.unreachable.localizedDescription)
 		}
 
 		let dtos: [SuggestionDTO]
