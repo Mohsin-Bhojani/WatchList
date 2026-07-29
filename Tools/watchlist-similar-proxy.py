@@ -8,7 +8,7 @@ ships in the app binary.
 
 Deliberately Python 3 stdlib only — no pip, nothing to keep up to date.
 
-    export ANTHROPIC_API_KEY=sk-ant-...
+    export ANTHROPIC_API_KEY='<your key from console.anthropic.com>'
     python3 ~/bin/watchlist-similar-proxy.py                # Simulator: loopback
     python3 ~/bin/watchlist-similar-proxy.py --bind 0.0.0.0 # device: LAN, needs a token
 
@@ -86,22 +86,6 @@ SUGGESTIONS_SCHEMA = {
 }
 
 
-STUB_SUGGESTIONS = [
-    ("The Leftovers", "2014", "show", "Same interior dread as Severance, and it trusts you to sit with the ambiguity."),
-    ("Dark", "2017", "show", "Cold, precise, structurally clever - built for anyone who liked Severance's puzzle-box discipline."),
-    ("Under the Skin", "2013", "film", "Arrival's patience and alienness, pushed somewhere far stranger."),
-    ("Devs", "2020", "show", "Silicon Valley determinism told in slow, deliberate frames."),
-    ("The Zone of Interest", "2023", "film", "Restraint as a weapon - the horror is entirely in what stays off-screen."),
-    ("Chernobyl", "2019", "show", "Institutional failure rendered with the same procedural weight you rated Perfection."),
-    ("Annihilation", "2018", "film", "Arrival's other half: less linguistics, more dread."),
-    ("Mr. Robot", "2015", "show", "Unreliable narration and corporate rot, formally ambitious throughout."),
-    ("Past Lives", "2023", "film", "Quiet and exact, if the register of Arrival mattered more than the sci-fi."),
-    ("Station Eleven", "2021", "show", "Post-collapse but generous - closer to Arrival's warmth than its bleakness."),
-    ("The Prestige", "2006", "film", "Structural trickery that rewards a rewatch."),
-    ("Better Call Saul", "2015", "show", "Slow-burn character work with total control of tone."),
-]
-
-
 class ProxyError(Exception):
     """Anything we want to report to the app as a clean {"error": ...}."""
 
@@ -147,7 +131,6 @@ def build_ssl_context():
 
 
 SSL_CONTEXT = None  # set in main(), once we know we're actually serving
-STUB_MODE = False   # --stub: canned suggestions, no key, no network
 
 
 # ---------------------------------------------------------------- prompt
@@ -201,15 +184,7 @@ def render_profile(payload):
 # ---------------------------------------------------------------- upstream
 
 
-def call_claude(rendered, stub=False):
-    if stub:
-        # No API key, no network - proves the whole app path (decode, TMDb
-        # resolution, cache, UI) without spending anything.
-        return [
-            {"title": t, "year": y, "kind": k, "reason": r}
-            for (t, y, k, r) in STUB_SUGGESTIONS
-        ]
-
+def call_claude(rendered):
     body = {
         "model": MODEL,
         "max_tokens": 8000,
@@ -350,7 +325,7 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             rendered = render_profile(payload)
-            suggestions = call_claude(rendered, stub=STUB_MODE)
+            suggestions = call_claude(rendered)
         except ProxyError as exc:
             self.log_message("error %s: %s", exc.kind, exc.message)
             self._send_error(exc.kind, exc.message, status=exc.status)
@@ -372,29 +347,7 @@ def main():
     parser.add_argument("--bind", default="127.0.0.1",
                         help="127.0.0.1 (default, Simulator) or 0.0.0.0 (device on your Wi-Fi)")
     parser.add_argument("--port", type=int, default=8787)
-    parser.add_argument("--stub", action="store_true",
-                        help="serve canned suggestions with no API key and no network, "
-                             "to check the app end to end")
     args = parser.parse_args()
-
-    global STUB_MODE
-    STUB_MODE = args.stub
-
-    if args.stub:
-        if args.bind != "127.0.0.1" and not SHARED_TOKEN:
-            sys.exit(f"Refusing to bind {args.bind} without a shared secret.\n"
-                     "  export WATCHLIST_PROXY_TOKEN=$(uuidgen)")
-        server = ThreadingHTTPServer((args.bind, args.port), Handler)
-        print(f"watchlist-similar-proxy on http://{args.bind}:{args.port}  [STUB MODE]")
-        print(f"  {len(STUB_SUGGESTIONS)} canned suggestions; no API key used, nothing billed")
-        print(f"  token required: {'yes' if SHARED_TOKEN else 'no (loopback only)'}")
-        print("  ctrl-c to stop")
-        try:
-            server.serve_forever()
-        except KeyboardInterrupt:
-            print("\nstopped")
-            server.server_close()
-        return
 
     if not API_KEY:
         sys.exit("ANTHROPIC_API_KEY is not set.\n"
