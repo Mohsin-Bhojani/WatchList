@@ -45,6 +45,7 @@ struct LibraryView: View {
 	@State private var showingAdd = false
 	@State private var showingSearch = false
 	@State private var showingStats = false
+	@State private var showingSimilar = false
 	@State private var showingSettings = false
 	@State private var sortOption: LibrarySortOption = .dateAdded
 	@State private var genreFilter: String? = nil
@@ -178,11 +179,12 @@ struct LibraryView: View {
 				.sheet(isPresented: $showingAdd) { AddEntryView() }
 				.sheet(isPresented: $showingSearch) { SearchView() }
 				.sheet(isPresented: $showingStats) { StatsView() }
+				.sheet(isPresented: $showingSimilar) { SimilarView() }
 				.sheet(isPresented: $showingSettings) { SettingsView() }
 		}
 	}
 
-	// MARK: Bottom tab bar (Search · Stats · [+] · Settings)
+	// MARK: Bottom tab bar (Search · Stats · [+] · Similar · Settings)
 
 	private func dock() -> some View {
 		ZStack {
@@ -198,6 +200,7 @@ struct LibraryView: View {
 				Color.clear.frame(width: 84)
 
 				HStack(spacing: 0) {
+					tabButton("sparkles", "Similar") { Haptics.tap(); showingSimilar = true }
 					tabButton("gearshape.fill", "Settings") { Haptics.tap(); showingSettings = true }
 				}
 				.frame(maxWidth: .infinity)

@@ -13,6 +13,13 @@ struct SettingsView: View {
 	@Environment(\.dismiss) private var dismiss
 	@ObservedObject private var theme = AppTheme.shared
 	@AppStorage("autoMarkEpisodesWatched") private var autoMarkEpisodes = true
+	@AppStorage("similarProxyHost") private var proxyHost = "127.0.0.1"
+	@AppStorage("similarProxyPort") private var proxyPort = 8787
+	@AppStorage("similarProxyToken") private var proxyToken = ""
+
+	/// nil = not tested yet, so the row stays neutral until you ask.
+	@State private var probeResult: Bool?
+	@State private var probing = false
 
 	private let columns = [GridItem(.adaptive(minimum: 96), spacing: 12)]
 
@@ -24,6 +31,7 @@ struct SettingsView: View {
 					VStack(alignment: .leading, spacing: 22) {
 						appearanceSection
 						episodesSection
+						similarSection
 						aboutSection
 					}
 					.padding(18)
@@ -93,6 +101,96 @@ struct SettingsView: View {
 			}
 			.padding(16)
 			.glass(cornerRadius: 18)
+		}
+	}
+
+	// MARK: Similar
+
+	private var similarSection: some View {
+		VStack(alignment: .leading, spacing: 12) {
+			SectionLabel(text: "Similar", systemImage: "sparkles")
+			VStack(alignment: .leading, spacing: 12) {
+				field("Mac address", text: $proxyHost, placeholder: "127.0.0.1")
+					.keyboardType(.numbersAndPunctuation)
+				field("Port", text: portText, placeholder: "8787")
+					.keyboardType(.numberPad)
+				secureField("Token", text: $proxyToken, placeholder: "Only if not on 127.0.0.1")
+
+				Divider().opacity(0.4)
+
+				HStack(spacing: 10) {
+					Button {
+						Haptics.tap()
+						probe()
+					} label: {
+						Text(probing ? "Testing…" : "Test connection")
+							.font(.system(size: 14, weight: .semibold, design: .rounded))
+					}
+					.buttonStyle(.pressable)
+					.disabled(probing)
+
+					if probing {
+						ProgressView().controlSize(.small)
+					} else if let ok = probeResult {
+						Label(ok ? "Reachable" : "No answer", systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
+							.font(.system(size: 13, weight: .semibold, design: .rounded))
+							.foregroundStyle(ok ? Glass.watched : Glass.ratingSkip)
+					}
+					Spacer()
+				}
+
+				Text("Suggestions are generated on your Mac, which holds the API key. Use 127.0.0.1 in the Simulator, or your Mac's Wi-Fi address on a device.")
+					.font(.system(size: 12, weight: .medium, design: .rounded))
+					.foregroundStyle(.secondary)
+			}
+			.padding(16)
+			.glass(cornerRadius: 18)
+		}
+	}
+
+	/// Port is an Int in storage but a String in the field; bridged here so the
+	/// field can be emptied mid-edit without resetting to 0.
+	private var portText: Binding<String> {
+		Binding(
+			get: { proxyPort > 0 ? String(proxyPort) : "" },
+			set: { proxyPort = Int($0.filter(\.isNumber)) ?? 0 }
+		)
+	}
+
+	private func field(_ label: String, text: Binding<String>, placeholder: String) -> some View {
+		HStack(spacing: 10) {
+			Text(label)
+				.font(.system(size: 15, weight: .semibold, design: .rounded))
+				.frame(width: 108, alignment: .leading)
+			TextField(placeholder, text: text)
+				.font(.system(size: 15, weight: .medium, design: .rounded))
+				.multilineTextAlignment(.trailing)
+				.autocorrectionDisabled()
+				.textInputAutocapitalization(.never)
+				.onChange(of: text.wrappedValue) { _, _ in probeResult = nil }
+		}
+	}
+
+	private func secureField(_ label: String, text: Binding<String>, placeholder: String) -> some View {
+		HStack(spacing: 10) {
+			Text(label)
+				.font(.system(size: 15, weight: .semibold, design: .rounded))
+				.frame(width: 108, alignment: .leading)
+			SecureField(placeholder, text: text)
+				.font(.system(size: 15, weight: .medium, design: .rounded))
+				.multilineTextAlignment(.trailing)
+				.onChange(of: text.wrappedValue) { _, _ in probeResult = nil }
+		}
+	}
+
+	private func probe() {
+		probing = true
+		probeResult = nil
+		Task {
+			let ok = await SuggestionService.shared.health()
+			probing = false
+			probeResult = ok
+			ok ? Haptics.success() : Haptics.warning()
 		}
 	}
 

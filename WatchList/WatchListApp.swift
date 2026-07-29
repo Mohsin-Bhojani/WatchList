@@ -16,6 +16,11 @@ struct WatchListApp: App {
 		UserDefaults.standard.register(defaults: [
 			"autoMarkEpisodesWatched": true,
 			"accentColorID": "classicRed",
+			// Similar tab: where the Mac helper that holds the API key lives.
+			// 127.0.0.1 works from the Simulator (it shares the Mac's network
+			// stack); a device needs the Mac's Wi-Fi address instead.
+			"similarProxyHost": "127.0.0.1",
+			"similarProxyPort": 8787,
 		])
 	}
 
@@ -23,6 +28,6 @@ struct WatchListApp: App {
 		WindowGroup {
 			RootView()
 		}
-		.modelContainer(for: [Show.self, Season.self, Episode.self, Film.self])
+		.modelContainer(for: [Show.self, Season.self, Episode.self, Film.self, Suggestion.self])
 	}
 }
