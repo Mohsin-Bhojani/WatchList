@@ -282,6 +282,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.split("?")[0] != "/health":
             self._send_error("bad_request", "Unknown endpoint.", status=404)
             return
+        # Health checks the token too, so a green "Reachable" in the app means
+        # the real call will work. Left open, it would pass without a token and
+        # then /similar would 401 on the very next tap.
+        if not self._authorized():
+            self._send_error("unauthorized", "Bad or missing token.", status=401)
+            return
         self._send(200, {"ok": True, "version": PROTOCOL_VERSION, "model": MODEL})
 
     def do_POST(self):

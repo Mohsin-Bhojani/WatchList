@@ -155,6 +155,12 @@ struct SuggestionService {
 
 		var request = URLRequest(url: url)
 		request.timeoutInterval = 2
+		// Carry the token: the helper checks it here too, so a green
+		// "Reachable" means the real call will work rather than 401.
+		let token = SimilarConfig.token
+		if !token.isEmpty {
+			request.setValue(token, forHTTPHeaderField: "X-WatchList-Token")
+		}
 
 		guard let (_, response) = try? await URLSession(configuration: config).data(for: request),
 		      let http = response as? HTTPURLResponse else { return false }
