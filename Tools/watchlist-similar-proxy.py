@@ -351,7 +351,16 @@ def main():
 
     if not API_KEY:
         sys.exit("ANTHROPIC_API_KEY is not set.\n"
-                 "  export ANTHROPIC_API_KEY=sk-ant-...")
+                 "  export ANTHROPIC_API_KEY='<your key from console.anthropic.com>'")
+
+    # Catch a placeholder or a truncated paste here rather than letting it
+    # start fine and fail as an opaque 401 on the first suggestion.
+    if not API_KEY.startswith("sk-ant-") or len(API_KEY) < 60:
+        sys.exit(f"ANTHROPIC_API_KEY doesn't look like a real key "
+                 f"(starts {API_KEY[:8]!r}, {len(API_KEY)} chars).\n"
+                 "Real keys start 'sk-ant-' and run past 100 characters.\n"
+                 "Get one at console.anthropic.com > API keys > Create Key, then:\n"
+                 "  export ANTHROPIC_API_KEY='<paste it here, keeping the quotes>'")
 
     if args.bind != "127.0.0.1" and not SHARED_TOKEN:
         sys.exit(f"Refusing to bind {args.bind} without a shared secret.\n"
