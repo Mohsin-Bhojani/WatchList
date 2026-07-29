@@ -23,6 +23,6 @@ struct WatchListApp: App {
 		WindowGroup {
 			RootView()
 		}
-		.modelContainer(for: [Show.self, Season.self, Episode.self, Film.self, SharedLibrary.self])
+		.modelContainer(for: [Show.self, Season.self, Episode.self, Film.self])
 	}
 }

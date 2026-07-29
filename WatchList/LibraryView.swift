@@ -45,7 +45,6 @@ struct LibraryView: View {
 	@State private var showingAdd = false
 	@State private var showingSearch = false
 	@State private var showingStats = false
-	@State private var showingNearby = false
 	@State private var showingSettings = false
 	@State private var sortOption: LibrarySortOption = .dateAdded
 	@State private var genreFilter: String? = nil
@@ -179,21 +178,29 @@ struct LibraryView: View {
 				.sheet(isPresented: $showingAdd) { AddEntryView() }
 				.sheet(isPresented: $showingSearch) { SearchView() }
 				.sheet(isPresented: $showingStats) { StatsView() }
-				.sheet(isPresented: $showingNearby) { NearbyView() }
 				.sheet(isPresented: $showingSettings) { SettingsView() }
 		}
 	}
 
-	// MARK: Bottom tab bar (Search · Stats · [+] · Nearby · Settings)
+	// MARK: Bottom tab bar (Search · Stats · [+] · Settings)
 
 	private func dock() -> some View {
 		ZStack {
+			// Equal-width halves either side of the notch gap, so the gap stays
+			// on rect.midX where NotchedBar carves it (and the [+] sits).
 			HStack(spacing: 0) {
-				tabButton("magnifyingglass", "Search") { Haptics.tap(); showingSearch = true }
-				tabButton("chart.bar.fill", "Stats") { Haptics.tap(); showingStats = true }
+				HStack(spacing: 0) {
+					tabButton("magnifyingglass", "Search") { Haptics.tap(); showingSearch = true }
+					tabButton("chart.bar.fill", "Stats") { Haptics.tap(); showingStats = true }
+				}
+				.frame(maxWidth: .infinity)
+
 				Color.clear.frame(width: 84)
-				tabButton("person.2.fill", "Nearby") { Haptics.tap(); showingNearby = true }
-				tabButton("gearshape.fill", "Settings") { Haptics.tap(); showingSettings = true }
+
+				HStack(spacing: 0) {
+					tabButton("gearshape.fill", "Settings") { Haptics.tap(); showingSettings = true }
+				}
+				.frame(maxWidth: .infinity)
 			}
 			.padding(.horizontal, 12)
 			.frame(height: 62)
