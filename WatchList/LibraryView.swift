@@ -181,6 +181,13 @@ struct LibraryView: View {
 				.sheet(isPresented: $showingStats) { StatsView() }
 				.sheet(isPresented: $showingSimilar) { SimilarView() }
 				.sheet(isPresented: $showingSettings) { SettingsView() }
+				// Shows gain seasons after they're added; top them up quietly
+				// at most once a day. Additive only, so there's nothing to
+				// interrupt the user about.
+				.task {
+					guard LibraryRefresher.autoCheckIsDue else { return }
+					_ = await LibraryRefresher.refreshAll(shows: shows, into: ctx)
+				}
 		}
 	}
 

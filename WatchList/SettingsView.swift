@@ -7,6 +7,7 @@
 //  so changes take effect immediately app-wide.
 //
 
+import SwiftData
 import SwiftUI
 
 struct SettingsView: View {
@@ -16,6 +17,12 @@ struct SettingsView: View {
 	@AppStorage("similarProxyHost") private var proxyHost = "127.0.0.1"
 	@AppStorage("similarProxyPort") private var proxyPort = 8787
 	@AppStorage("similarProxyToken") private var proxyToken = ""
+	@AppStorage("autoCheckNewEpisodes") private var autoCheckEpisodes = true
+
+	@Environment(\.modelContext) private var ctx
+	@Query private var shows: [Show]
+	@State private var checking = false
+	@State private var checkResult: String?
 
 	/// nil = not tested yet, so the row stays neutral until you ask.
 	@State private var probeResult: Bool?
@@ -31,6 +38,7 @@ struct SettingsView: View {
 					VStack(alignment: .leading, spacing: 22) {
 						appearanceSection
 						episodesSection
+						newEpisodesSection
 						similarSection
 						aboutSection
 					}
@@ -101,6 +109,64 @@ struct SettingsView: View {
 			}
 			.padding(16)
 			.glass(cornerRadius: 18)
+		}
+	}
+
+	// MARK: New episodes
+
+	private var newEpisodesSection: some View {
+		VStack(alignment: .leading, spacing: 12) {
+			SectionLabel(text: "New Episodes", systemImage: "arrow.triangle.2.circlepath")
+			VStack(alignment: .leading, spacing: 10) {
+				Toggle(isOn: $autoCheckEpisodes) {
+					Text("Check automatically")
+						.font(.system(size: 15, weight: .semibold, design: .rounded))
+				}
+				.tint(Glass.accent)
+				Text("Looks for new seasons and episodes once a day. Only ever adds — your watched marks and ratings are never changed.")
+					.font(.system(size: 12, weight: .medium, design: .rounded))
+					.foregroundStyle(.secondary)
+
+				Divider().opacity(0.4)
+
+				HStack(spacing: 10) {
+					Button {
+						Haptics.tap()
+						checkNow()
+					} label: {
+						Text(checking ? "Checking…" : "Check now")
+							.font(.system(size: 14, weight: .semibold, design: .rounded))
+					}
+					.buttonStyle(.pressable)
+					.disabled(checking || shows.isEmpty)
+
+					if checking { ProgressView().controlSize(.small) }
+					Spacer()
+				}
+
+				if let checkResult {
+					Text(checkResult)
+						.font(.system(size: 12, weight: .medium, design: .rounded))
+						.foregroundStyle(.secondary)
+				} else if let last = LibraryRefresher.lastChecked {
+					Text("Last checked \(last.formatted(.relative(presentation: .named))).")
+						.font(.system(size: 12, weight: .medium, design: .rounded))
+						.foregroundStyle(.secondary)
+				}
+			}
+			.padding(16)
+			.glass(cornerRadius: 18)
+		}
+	}
+
+	private func checkNow() {
+		checking = true
+		checkResult = nil
+		Task {
+			let report = await LibraryRefresher.refreshAll(shows: shows, into: ctx)
+			checking = false
+			checkResult = report.summary
+			report.foundSomething ? Haptics.success() : Haptics.tap()
 		}
 	}
 
