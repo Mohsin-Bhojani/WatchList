@@ -214,7 +214,18 @@ def call_claude(rendered):
         with urllib.request.urlopen(request, timeout=UPSTREAM_TIMEOUT, context=SSL_CONTEXT) as response:
             parsed = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
+        # Lead with something readable on a phone screen; the raw body only
+        # helps when it isn't one of the cases we can name.
         detail = exc.read().decode("utf-8", "replace")[:400]
+        friendly = {
+            401: "Your Mac's ANTHROPIC_API_KEY was rejected. Check it at console.anthropic.com.",
+            403: "That API key isn't allowed to use this model.",
+            429: "Rate limited by Claude. Try again shortly.",
+            529: "Claude is overloaded. Try again shortly.",
+        }.get(exc.code)
+        if friendly:
+            sys.stderr.write(f"[proxy] upstream {exc.code}: {detail}\n")
+            raise ProxyError("upstream_http", friendly)
         raise ProxyError("upstream_http", f"Claude returned {exc.code}: {detail}")
     except urllib.error.URLError as exc:
         raise ProxyError("timeout", f"Couldn't reach Claude: {exc.reason}")
