@@ -1,0 +1,9 @@
+# Python bytecode from the Tools/ helper
+__pycache__/
+*.pyc
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.DS_Store
