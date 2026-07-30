@@ -311,6 +311,17 @@ def call_claude(rendered):
         # Lead with something readable on a phone screen; the raw body only
         # helps when it isn't one of the cases we can name.
         detail = exc.read().decode("utf-8", "replace")[:400]
+
+        # Billing arrives as a 400, not a 402/403, and it's the likeliest wall
+        # for anyone signed in with a subscription: the login is valid and
+        # scoped for inference, but a Claude plan doesn't fund API calls.
+        if "credit balance is too low" in detail:
+            sys.stderr.write(f"[proxy] upstream {exc.code}: {detail}\n")
+            raise ProxyError(
+                "no_credit",
+                "This Anthropic account has no API credit. A Claude Pro/Max plan "
+                "doesn't cover API usage — add credits under Plans & Billing.")
+
         friendly = {
             401: ("Your Mac's Claude login was rejected. Run `ant auth login` again."
                   if AUTH_MODE == "oauth"
