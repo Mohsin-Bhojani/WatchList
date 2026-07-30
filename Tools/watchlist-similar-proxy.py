@@ -23,8 +23,12 @@ Endpoints:
 import argparse
 import json
 import os
+import shutil
 import ssl
+import subprocess
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -36,7 +40,15 @@ UPSTREAM_TIMEOUT = 90
 MAX_BODY_BYTES = 512 * 1024
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+AUTH_TOKEN = os.environ.get("ANTHROPIC_AUTH_TOKEN")
 SHARED_TOKEN = os.environ.get("WATCHLIST_PROXY_TOKEN", "")
+
+# Set in main(): "api-key" or "oauth".
+AUTH_MODE = "api-key"
+OAUTH_BETA = "oauth-2025-04-20"
+# OAuth access tokens are short-lived, so we re-ask the CLI periodically
+# rather than holding one for the life of the process.
+OAUTH_TTL = 300
 
 SYSTEM_PROMPT = """\
 You suggest shows and films to one person, based on how they rated what \
@@ -133,6 +145,83 @@ def build_ssl_context():
 SSL_CONTEXT = None  # set in main(), once we know we're actually serving
 
 
+# ---------------------------------------------------------------- auth
+
+_oauth_lock = threading.Lock()
+_oauth_cache = {"token": None, "fetched_at": 0.0}
+
+
+def ant_access_token(force=False):
+    """
+    Ask the `ant` CLI for a short-lived OAuth access token.
+
+    --access-token is required: the bare form prints the whole credentials
+    JSON, which silently produces an unusable Authorization header. The CLI
+    refreshes the token itself when it's near expiry, so re-asking is the
+    refresh mechanism - we just avoid doing it on every single request.
+    """
+    with _oauth_lock:
+        fresh_enough = time.time() - _oauth_cache["fetched_at"] < OAUTH_TTL
+        if not force and _oauth_cache["token"] and fresh_enough:
+            return _oauth_cache["token"]
+
+        ant = shutil.which("ant")
+        if not ant:
+            raise ProxyError("no_key", "The `ant` CLI isn't installed, so there's no OAuth token to use.")
+
+        try:
+            result = subprocess.run([ant, "auth", "print-credentials", "--access-token"],
+                                    capture_output=True, text=True, timeout=30)
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            raise ProxyError("no_key", f"Couldn't run `ant auth print-credentials`: {exc}")
+
+        token = (result.stdout or "").strip()
+        if result.returncode != 0 or not token:
+            detail = (result.stderr or "").strip()[:200] or "no output"
+            raise ProxyError("no_key",
+                             f"`ant` returned no access token ({detail}). Try: ant auth login")
+        if token.startswith("{"):
+            raise ProxyError("no_key", "`ant` printed credentials JSON instead of a bare token.")
+
+        _oauth_cache["token"] = token
+        _oauth_cache["fetched_at"] = time.time()
+        return token
+
+
+def resolve_auth_mode(requested):
+    """
+    An explicitly-set API key wins, matching how the SDKs resolve credentials -
+    a stale exported key silently overriding a profile is the classic trap, so
+    at least be predictable about it and print which one won at startup.
+    """
+    if requested != "auto":
+        return requested
+    if API_KEY or AUTH_TOKEN:
+        return "api-key" if API_KEY else "oauth"
+    return "oauth" if shutil.which("ant") else "api-key"
+
+
+def auth_headers(force_refresh=False):
+    """
+    OAuth goes on Authorization: Bearer and needs its own beta header - it is
+    not an x-api-key drop-in, so converting between the two is a header change
+    rather than swapping one value.
+    """
+    if AUTH_MODE == "oauth":
+        # An explicitly-provided token wins; otherwise ask the CLI, which can
+        # also refresh. A pre-set token can't be refreshed, so it just expires.
+        token = AUTH_TOKEN or ant_access_token(force=force_refresh)
+        headers = {
+            "authorization": f"Bearer {token}",
+            "anthropic-beta": OAUTH_BETA,
+        }
+    else:
+        headers = {"x-api-key": API_KEY}
+    headers["content-type"] = "application/json"
+    headers["anthropic-version"] = "2023-06-01"
+    return headers
+
+
 # ---------------------------------------------------------------- prompt
 
 
@@ -199,27 +288,37 @@ def call_claude(rendered):
             "format": {"type": "json_schema", "schema": SUGGESTIONS_SCHEMA},
         },
     }
-    request = urllib.request.Request(
-        ANTHROPIC_URL,
-        data=json.dumps(body).encode("utf-8"),
-        headers={
-            "content-type": "application/json",
-            "x-api-key": API_KEY,
-            "anthropic-version": "2023-06-01",
-        },
-        method="POST",
-    )
+    payload = json.dumps(body).encode("utf-8")
+
+    def post(force_refresh=False):
+        request = urllib.request.Request(
+            ANTHROPIC_URL, data=payload, headers=auth_headers(force_refresh), method="POST")
+        with urllib.request.urlopen(request, timeout=UPSTREAM_TIMEOUT, context=SSL_CONTEXT) as response:
+            return json.loads(response.read().decode("utf-8"))
 
     try:
-        with urllib.request.urlopen(request, timeout=UPSTREAM_TIMEOUT, context=SSL_CONTEXT) as response:
-            parsed = json.loads(response.read().decode("utf-8"))
+        try:
+            parsed = post()
+        except urllib.error.HTTPError as exc:
+            # An OAuth token can expire between requests. Mint a fresh one and
+            # try once more before reporting it as an auth failure.
+            if exc.code == 401 and AUTH_MODE == "oauth":
+                sys.stderr.write("[proxy] 401 on OAuth token; refreshing and retrying once\n")
+                parsed = post(force_refresh=True)
+            else:
+                raise
     except urllib.error.HTTPError as exc:
         # Lead with something readable on a phone screen; the raw body only
         # helps when it isn't one of the cases we can name.
         detail = exc.read().decode("utf-8", "replace")[:400]
         friendly = {
-            401: "Your Mac's ANTHROPIC_API_KEY was rejected. Check it at console.anthropic.com.",
-            403: "That API key isn't allowed to use this model.",
+            401: ("Your Mac's Claude login was rejected. Run `ant auth login` again."
+                  if AUTH_MODE == "oauth"
+                  else "Your Mac's ANTHROPIC_API_KEY was rejected. Check it at console.anthropic.com."),
+            403: ("This Claude plan isn't entitled to call the API this way. "
+                  "API credits from console.anthropic.com are the supported path."
+                  if AUTH_MODE == "oauth"
+                  else "That API key isn't allowed to use this model."),
             429: "Rate limited by Claude. Try again shortly.",
             529: "Claude is overloaded. Try again shortly.",
         }.get(exc.code)
@@ -347,20 +446,38 @@ def main():
     parser.add_argument("--bind", default="127.0.0.1",
                         help="127.0.0.1 (default, Simulator) or 0.0.0.0 (device on your Wi-Fi)")
     parser.add_argument("--port", type=int, default=8787)
+    parser.add_argument("--auth", choices=["auto", "api-key", "oauth"], default="auto",
+                        help="auto (default): use ANTHROPIC_API_KEY if set, otherwise an "
+                             "`ant auth login` profile")
     args = parser.parse_args()
 
-    if not API_KEY:
-        sys.exit("ANTHROPIC_API_KEY is not set.\n"
-                 "  export ANTHROPIC_API_KEY='<your key from console.anthropic.com>'")
+    global AUTH_MODE
+    AUTH_MODE = resolve_auth_mode(args.auth)
 
-    # Catch a placeholder or a truncated paste here rather than letting it
-    # start fine and fail as an opaque 401 on the first suggestion.
-    if not API_KEY.startswith("sk-ant-") or len(API_KEY) < 60:
-        sys.exit(f"ANTHROPIC_API_KEY doesn't look like a real key "
-                 f"(starts {API_KEY[:8]!r}, {len(API_KEY)} chars).\n"
-                 "Real keys start 'sk-ant-' and run past 100 characters.\n"
-                 "Get one at console.anthropic.com > API keys > Create Key, then:\n"
-                 "  export ANTHROPIC_API_KEY='<paste it here, keeping the quotes>'")
+    if AUTH_MODE == "oauth":
+        # Fail here rather than on the first suggestion: prove we can actually
+        # mint a token before we start answering the phone.
+        try:
+            if not AUTH_TOKEN:
+                ant_access_token(force=True)
+        except ProxyError as exc:
+            sys.exit(f"{exc.message}\n"
+                     "Sign in with:  ant auth login\n"
+                     "Or use an API key instead:  export ANTHROPIC_API_KEY='<key>'")
+    else:
+        if not API_KEY:
+            sys.exit("No credentials found.\n"
+                     "Either:  export ANTHROPIC_API_KEY='<your key from console.anthropic.com>'\n"
+                     "Or:      ant auth login     (then rerun; --auth oauth to force it)")
+
+        # Catch a placeholder or a truncated paste here rather than letting it
+        # start fine and fail as an opaque 401 on the first suggestion.
+        if not API_KEY.startswith("sk-ant-") or len(API_KEY) < 60:
+            sys.exit(f"ANTHROPIC_API_KEY doesn't look like a real key "
+                     f"(starts {API_KEY[:8]!r}, {len(API_KEY)} chars).\n"
+                     "Real keys start 'sk-ant-' and run past 100 characters.\n"
+                     "Get one at console.anthropic.com > API keys > Create Key, then:\n"
+                     "  export ANTHROPIC_API_KEY='<paste it here, keeping the quotes>'")
 
     if args.bind != "127.0.0.1" and not SHARED_TOKEN:
         sys.exit(f"Refusing to bind {args.bind} without a shared secret.\n"
@@ -373,6 +490,7 @@ def main():
 
     server = ThreadingHTTPServer((args.bind, args.port), Handler)
     print(f"watchlist-similar-proxy on http://{args.bind}:{args.port}  (model {MODEL})")
+    print(f"  auth: {'OAuth via ant (subscription login)' if AUTH_MODE == 'oauth' else 'API key'}")
     print(f"  token required: {'yes' if SHARED_TOKEN else 'no (loopback only)'}")
     print("  ctrl-c to stop")
     try:
