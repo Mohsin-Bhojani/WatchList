@@ -17,6 +17,12 @@ struct ShowDetailView: View {
 	@State private var loadingTrivia = false
 	@State private var showingAddSeason = false
 
+	/// View state only — the page always opens on Details.
+	@State private var tab: DetailTab = .details
+	/// Tabs TMDb turned out to have nothing for. Only known after the first
+	/// fetch, since nothing is fetched until its tab is opened.
+	@State private var emptyTabs: Set<DetailTab> = []
+
 	/// Setting a show to "Watched" optionally cascades to every season and
 	/// episode. Controlled by the "Mark All Episodes Watched" toggle in the iOS
 	/// Settings app (default on).
@@ -79,27 +85,75 @@ struct ShowDetailView: View {
 						.frame(maxWidth: .infinity)
 					VStack(alignment: .leading, spacing: 20) {
 						IMDbLinkButton(imdbID: show.imdbID)
-						statusSection
-						ratingSection
-						SynopsisSection(text: show.overview)
+						StatusPicker(status: watchedCascadeBinding)
+						RatingPicker(rating: $show.rating)
 					}
 					.frame(width: sideWidth)
 				}
-				seasonsSection
-				triviaSection
+				tabBar
+				tabContent
 				Color.clear.frame(height: 20)
 			}
 		} else {
 			VStack(alignment: .leading, spacing: 20) {
 				header
 				IMDbLinkButton(imdbID: show.imdbID)
-				statusSection
-				ratingSection
+				StatusPicker(status: watchedCascadeBinding)
+				RatingPicker(rating: $show.rating)
+				tabBar
+				tabContent
+				Color.clear.frame(height: 20)
+			}
+		}
+	}
+
+	// MARK: - Tabs
+
+	/// Cast and Similar both need a TMDb id, so a hand-added show keeps the
+	/// single-column page it has today.
+	private var tabItems: [DetailTabItem] {
+		var items = [DetailTabItem(tab: .details, title: "Details")]
+		guard show.tmdbID != nil else { return items }
+		if !emptyTabs.contains(.cast) { items.append(DetailTabItem(tab: .cast, title: "Cast")) }
+		if !emptyTabs.contains(.similar) { items.append(DetailTabItem(tab: .similar, title: "Similar")) }
+		return items
+	}
+
+	@ViewBuilder
+	private var tabBar: some View {
+		if tabItems.count > 1 {
+			DetailTabBar(items: tabItems, selection: $tab)
+		}
+	}
+
+	@ViewBuilder
+	private var tabContent: some View {
+		switch tab {
+		case .details:
+			VStack(alignment: .leading, spacing: 20) {
 				SynopsisSection(text: show.overview)
 				seasonsSection
 				triviaSection
-				Color.clear.frame(height: 20)
 			}
+		case .cast:
+			if let tmdbID = show.tmdbID {
+				CastTabView(source: .series(tvID: tmdbID)) { found in
+					if !found { drop(.cast) }
+				}
+			}
+		case .similar:
+			if let tmdbID = show.tmdbID {
+				SimilarTitlesTab(tvID: tmdbID, parentGenres: show.genre) { found in
+					if !found { drop(.similar) }
+				}
+			}
+		}
+	}
+
+	private func drop(_ tab: DetailTab) {
+		withAnimation(Glass.smooth) {
+			emptyTabs.insert(tab)
+			if self.tab == tab { self.tab = .details }
 		}
 	}
 
@@ -114,20 +168,6 @@ struct ShowDetailView: View {
 			meta: show.subtitle,
 			placeholder: "tv"
 		)
-	}
-
-	private var statusSection: some View {
-		VStack(alignment: .leading, spacing: 10) {
-			SectionLabel(text: "Status")
-			StatusPicker(status: watchedCascadeBinding)
-		}
-	}
-
-	private var ratingSection: some View {
-		VStack(alignment: .leading, spacing: 10) {
-			SectionLabel(text: "Rating", systemImage: "star.fill")
-			RatingPicker(rating: $show.rating)
-		}
 	}
 
 	private var triviaSection: some View {

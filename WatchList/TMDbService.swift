@@ -27,6 +27,8 @@ enum TMDbConfig {
 	static func poster(_ path: String?) -> String { image(path, size: "w500") }
 	static func backdrop(_ path: String?) -> String { image(path, size: "w780") }
 	static func still(_ path: String?) -> String { image(path, size: "w300") }
+	/// Cast headshot (2:3). Small, because it's drawn as a 44pt circle.
+	static func profile(_ path: String?) -> String { image(path, size: "w185") }
 
 	private static func image(_ path: String?, size: String) -> String {
 		guard let path, !path.isEmpty else { return "" }
@@ -156,6 +158,75 @@ struct TMDbSearchItem: Decodable, Identifiable {
 
 struct TMDbSearchResponse: Decodable { let results: [TMDbSearchItem] }
 
+// MARK: - Credits DTOs
+
+/// One character a person played, as returned by the `aggregate_credits`
+/// endpoints. A person can hold several roles across a run of a show.
+struct TMDbCreditRole: Decodable {
+	let character: String?
+	let episode_count: Int?
+}
+
+/// A cast member from `/aggregate_credits` — the only credits shape that
+/// carries episode counts.
+struct TMDbAggregateCastMember: Decodable {
+	let id: Int
+	let name: String?
+	let profile_path: String?
+	let total_episode_count: Int?
+	let order: Int?
+	let roles: [TMDbCreditRole]?
+}
+
+struct TMDbAggregateCredits: Decodable {
+	let cast: [TMDbAggregateCastMember]?
+}
+
+/// A cast member from the plain `/credits` endpoints (episode level), which
+/// bill by `order` and have no episode counts.
+struct TMDbCastMember: Decodable {
+	let id: Int
+	let name: String?
+	let character: String?
+	let profile_path: String?
+	let order: Int?
+}
+
+struct TMDbCrewMember: Decodable {
+	let id: Int
+	let name: String?
+	let job: String?
+	let department: String?
+}
+
+struct TMDbCredits: Decodable {
+	let cast: [TMDbCastMember]?
+	let crew: [TMDbCrewMember]?
+	let guest_stars: [TMDbCastMember]?
+}
+
+// MARK: - Similar / genre DTOs
+
+/// A title from `/tv/{id}/similar`. Note it carries `genre_ids`, not names —
+/// see `TMDbService.tvGenres()` for the lookup table.
+struct TMDbSimilarTV: Decodable {
+	let id: Int
+	let name: String?
+	let first_air_date: String?
+	let vote_average: Double?
+	let poster_path: String?
+	let genre_ids: [Int]?
+}
+
+struct TMDbSimilarResponse: Decodable { let results: [TMDbSimilarTV] }
+
+struct TMDbGenre: Decodable {
+	let id: Int
+	let name: String?
+}
+
+struct TMDbGenreList: Decodable { let genres: [TMDbGenre] }
+
 // MARK: - Service
 
 struct TMDbService {
@@ -190,6 +261,38 @@ struct TMDbService {
 	func multiSearch(query: String) async throws -> [TMDbSearchItem] {
 		let response: TMDbSearchResponse = try await get("/search/multi", query: ["query": query])
 		return response.results.filter { ($0.media_type == "movie" || $0.media_type == "tv") }
+	}
+
+	// MARK: Credits
+
+	/// Series-wide cast, with a total episode count per person.
+	func aggregateCredits(tvID: Int) async throws -> TMDbAggregateCredits {
+		try await get("/tv/\(tvID)/aggregate_credits")
+	}
+
+	/// One season's cast. `aggregate_credits` rather than `credits` because only
+	/// the aggregate shape carries the per-season episode counts we sort on.
+	func seasonAggregateCredits(tvID: Int, seasonNumber: Int) async throws -> TMDbAggregateCredits {
+		try await get("/tv/\(tvID)/season/\(seasonNumber)/aggregate_credits")
+	}
+
+	/// One episode's cast, guest stars and crew.
+	func episodeCredits(tvID: Int, season: Int, episode: Int) async throws -> TMDbCredits {
+		try await get("/tv/\(tvID)/season/\(season)/episode/\(episode)/credits")
+	}
+
+	// MARK: Similar
+
+	func similar(tvID: Int) async throws -> [TMDbSimilarTV] {
+		let response: TMDbSimilarResponse = try await get("/tv/\(tvID)/similar")
+		return response.results
+	}
+
+	/// The id -> name table for TV genres. `/similar` only returns ids, so this
+	/// is what turns them back into the genre names we show.
+	func tvGenres() async throws -> [TMDbGenre] {
+		let list: TMDbGenreList = try await get("/genre/tv/list")
+		return list.genres
 	}
 
 	// MARK: Networking

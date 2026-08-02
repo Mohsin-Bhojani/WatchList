@@ -16,6 +16,12 @@ struct SeasonDetailView: View {
 
 	@State private var showingAddEpisode = false
 
+	/// View state only — the page always opens on Details.
+	@State private var tab: DetailTab = .details
+	/// Tabs TMDb turned out to have nothing for. Only known after the first
+	/// fetch, since nothing is fetched until its tab is opened.
+	@State private var emptyTabs: Set<DetailTab> = []
+
 	private var posterURL: String { season.posterURL.isEmpty ? (season.show?.posterURL ?? "") : season.posterURL }
 
 	var body: some View {
@@ -51,29 +57,76 @@ struct SeasonDetailView: View {
 						.frame(maxWidth: .infinity)
 					VStack(alignment: .leading, spacing: 20) {
 						IMDbLinkButton(imdbID: season.show?.imdbID, seasonNumber: season.seasonNumber)
-						statusSection
-						ratingSection
-						if !season.overview.isEmpty {
-							SynopsisSection(text: season.overview)
-						}
+						StatusPicker(status: $season.status)
+						RatingPicker(rating: $season.rating)
 					}
 					.frame(width: sideWidth)
 				}
-				episodesSection
+				tabBar
+				tabContent
 				Color.clear.frame(height: 20)
 			}
 		} else {
 			VStack(alignment: .leading, spacing: 20) {
 				header
 				IMDbLinkButton(imdbID: season.show?.imdbID, seasonNumber: season.seasonNumber)
-				statusSection
-				ratingSection
+				StatusPicker(status: $season.status)
+				RatingPicker(rating: $season.rating)
+				tabBar
+				tabContent
+				Color.clear.frame(height: 20)
+			}
+		}
+	}
+
+	// MARK: - Tabs
+
+	private var tabItems: [DetailTabItem] {
+		var items = [DetailTabItem(tab: .details, title: "Details")]
+		guard season.show?.tmdbID != nil else { return items }
+		if !emptyTabs.contains(.cast) { items.append(DetailTabItem(tab: .cast, title: "Cast")) }
+		if !emptyTabs.contains(.similar) { items.append(DetailTabItem(tab: .similar, title: "Similar")) }
+		return items
+	}
+
+	@ViewBuilder
+	private var tabBar: some View {
+		if tabItems.count > 1 {
+			DetailTabBar(items: tabItems, selection: $tab)
+		}
+	}
+
+	@ViewBuilder
+	private var tabContent: some View {
+		switch tab {
+		case .details:
+			VStack(alignment: .leading, spacing: 20) {
 				if !season.overview.isEmpty {
 					SynopsisSection(text: season.overview)
 				}
 				episodesSection
-				Color.clear.frame(height: 20)
 			}
+		case .cast:
+			if let tmdbID = season.show?.tmdbID {
+				CastTabView(source: .season(tvID: tmdbID, season: season.seasonNumber)) { found in
+					if !found { drop(.cast) }
+				}
+			}
+		case .similar:
+			// TMDb has no per-season similarity, so a season shows the series'
+			// list — the same call the Show page makes, off the same cache.
+			if let tmdbID = season.show?.tmdbID {
+				SimilarTitlesTab(tvID: tmdbID, parentGenres: season.show?.genre ?? "") { found in
+					if !found { drop(.similar) }
+				}
+			}
+		}
+	}
+
+	private func drop(_ tab: DetailTab) {
+		withAnimation(Glass.smooth) {
+			emptyTabs.insert(tab)
+			if self.tab == tab { self.tab = .details }
 		}
 	}
 
@@ -88,20 +141,6 @@ struct SeasonDetailView: View {
 			meta: "\(season.episodes.count) episodes · \(season.watchedCount) watched",
 			placeholder: "tv"
 		)
-	}
-
-	private var statusSection: some View {
-		VStack(alignment: .leading, spacing: 10) {
-			SectionLabel(text: "Status")
-			StatusPicker(status: $season.status)
-		}
-	}
-
-	private var ratingSection: some View {
-		VStack(alignment: .leading, spacing: 10) {
-			SectionLabel(text: "Rating", systemImage: "star.fill")
-			RatingPicker(rating: $season.rating)
-		}
 	}
 
 	@ViewBuilder
