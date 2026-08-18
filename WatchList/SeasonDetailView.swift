@@ -86,6 +86,7 @@ struct SeasonDetailView: View {
 		guard season.show?.tmdbID != nil else { return items }
 		if !emptyTabs.contains(.cast) { items.append(DetailTabItem(tab: .cast, title: "Cast")) }
 		if !emptyTabs.contains(.similar) { items.append(DetailTabItem(tab: .similar, title: "Similar")) }
+		if !emptyTabs.contains(.images) { items.append(DetailTabItem(tab: .images, title: "Images")) }
 		return items
 	}
 
@@ -118,6 +119,14 @@ struct SeasonDetailView: View {
 			if let tmdbID = season.show?.tmdbID {
 				SimilarTitlesTab(tvID: tmdbID, parentGenres: season.show?.genre ?? "") { found in
 					if !found { drop(.similar) }
+				}
+			}
+		case .images:
+			// The season's own posters, not the series' — TMDb keeps artwork per
+			// season, and a season without any drops the tab.
+			if let tmdbID = season.show?.tmdbID {
+				ImagesTabView(source: .season(tvID: tmdbID, season: season.seasonNumber)) { found in
+					if !found { drop(.images) }
 				}
 			}
 		}

@@ -15,9 +15,11 @@ struct EpisodeDetailView: View {
 	@State private var loadingTrivia = false
 
 	/// View state only — the page always opens on Details. An episode has no
-	/// meaningful "similar", so there are only ever two tabs here.
+	/// meaningful "similar", so it is Details, the cast and the stills.
 	@State private var tab: DetailTab = .details
-	@State private var castIsEmpty = false
+	/// Tabs TMDb turned out to have nothing for. Only known after the first
+	/// fetch, since nothing is fetched until its tab is opened.
+	@State private var emptyTabs: Set<DetailTab> = []
 
 	private var subtitle: String {
 		var parts: [String] = [episode.code]
@@ -89,8 +91,9 @@ struct EpisodeDetailView: View {
 
 	private var tabItems: [DetailTabItem] {
 		var items = [DetailTabItem(tab: .details, title: "Details")]
-		guard episode.tmdbShowID != nil, !castIsEmpty else { return items }
-		items.append(DetailTabItem(tab: .cast, title: "In this episode"))
+		guard episode.tmdbShowID != nil else { return items }
+		if !emptyTabs.contains(.cast) { items.append(DetailTabItem(tab: .cast, title: "In this episode")) }
+		if !emptyTabs.contains(.images) { items.append(DetailTabItem(tab: .images, title: "Images")) }
 		return items
 	}
 
@@ -117,15 +120,28 @@ struct EpisodeDetailView: View {
 				CastTabView(source: .episode(tvID: showID,
 				                             season: episode.seasonNumber,
 				                             episode: episode.episodeNumber)) { found in
-					guard !found else { return }
-					withAnimation(Glass.smooth) {
-						castIsEmpty = true
-						tab = .details
-					}
+					if !found { drop(.cast) }
+				}
+			}
+		case .images:
+			// Every still TMDb has for this episode, not just the one used as
+			// the thumbnail. Unaired episodes usually have none.
+			if let showID = episode.tmdbShowID {
+				ImagesTabView(source: .episode(tvID: showID,
+				                               season: episode.seasonNumber,
+				                               episode: episode.episodeNumber)) { found in
+					if !found { drop(.images) }
 				}
 			}
 		case .similar:
 			EmptyView()
+		}
+	}
+
+	private func drop(_ tab: DetailTab) {
+		withAnimation(Glass.smooth) {
+			emptyTabs.insert(tab)
+			if self.tab == tab { self.tab = .details }
 		}
 	}
 
