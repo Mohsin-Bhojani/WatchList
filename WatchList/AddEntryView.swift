@@ -23,6 +23,9 @@ struct AddEntryView: View {
 	}
 
 	@State private var mode: Mode = .search
+	/// Titles added while this sheet has been open. Once anything has landed in
+	/// the library there is nothing left to cancel, so the button says "Done".
+	@State private var addedCount = 0
 
 	var body: some View {
 		NavigationStack {
@@ -32,7 +35,7 @@ struct AddEntryView: View {
 					VStack(spacing: 18) {
 						modePicker
 						switch mode {
-						case .search: TMDbSearchSection()
+						case .search: TMDbSearchSection(addedCount: $addedCount)
 						case .link:   LinkImportSection()
 						case .manual: ManualEntrySection()
 						}
@@ -44,7 +47,7 @@ struct AddEntryView: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				ToolbarItem(placement: .cancellationAction) {
-					Button("Cancel") { dismiss() }
+					Button(addedCount > 0 ? "Done" : "Cancel") { dismiss() }
 				}
 			}
 		}
@@ -157,15 +160,45 @@ private struct LinkImportSection: View {
 
 private struct TMDbSearchSection: View {
 	@Environment(\.modelContext) private var ctx
-	@Environment(\.dismiss) private var dismiss
 	@StateObject private var importer = ImportCoordinator()
+
+	@Binding var addedCount: Int
+
+	@Query private var libraryShows: [Show]
+	@Query private var libraryFilms: [Film]
 
 	@State private var query = ""
 	@State private var results: [TMDbSearchItem] = []
 	@State private var searching = false
 	@State private var searchError: String?
-	@State private var addingID: Int?
-	@State private var addedTitle: String?
+	/// Rows are keyed by kind + id: TMDb numbers films and shows separately,
+	/// so the same id can arrive as both.
+	@State private var addingKey: String?
+	@State private var addedKeys: Set<String> = []
+	@State private var lastAddedTitle: String?
+	@State private var importError: String?
+
+	private func kind(of item: TMDbSearchItem) -> MediaKind {
+		item.media_type == "tv" ? .show : .film
+	}
+
+	private func key(_ kind: MediaKind, _ id: Int) -> String { "\(kind.rawValue)-\(id)" }
+	private func key(_ item: TMDbSearchItem) -> String { key(kind(of: item), item.id) }
+
+	/// Everything already imported, by the same key the rows use. Titles added
+	/// by hand have no `tmdbID` and so cannot be matched — they are skipped.
+	private var libraryKeys: Set<String> {
+		var keys = Set(libraryShows.compactMap { $0.tmdbID.map { key(.show, $0) } })
+		keys.formUnion(libraryFilms.compactMap { $0.tmdbID.map { key(.film, $0) } })
+		return keys
+	}
+
+	private var addedText: String? {
+		guard let lastAddedTitle else { return nil }
+		return addedKeys.count > 1
+			? "Added \u{201C}\(lastAddedTitle)\u{201D} · \(addedKeys.count) titles so far. Search again to add more."
+			: "Added \u{201C}\(lastAddedTitle)\u{201D}. Search again to add more, or tap Done."
+	}
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 18) {
@@ -190,7 +223,7 @@ private struct TMDbSearchSection: View {
 				}
 				.padding(15)
 				.glass(cornerRadius: 16)
-				Text("Searches The Movie Database. Pick a result to import it — for shows, every season and episode comes with it.")
+				Text("Searches The Movie Database. Pick a result to import it — for shows, every season and episode comes with it. This stays open so you can add several in a row.")
 					.font(.system(size: 12, weight: .medium, design: .rounded))
 					.foregroundStyle(.secondary)
 			}
@@ -204,20 +237,20 @@ private struct TMDbSearchSection: View {
 					.glass(cornerRadius: 16)
 			}
 
-			if let addedTitle {
-				statusRow(icon: "checkmark.circle.fill", tint: Glass.watched,
-				          text: "Added \u{201C}\(addedTitle)\u{201D} to your library!")
+			if let addedText {
+				statusRow(icon: "checkmark.circle.fill", tint: Glass.watched, text: addedText)
+			}
+			if let importError {
+				statusRow(icon: "xmark.octagon.fill", tint: .red, text: importError)
 			}
 			if let searchError {
 				statusRow(icon: "xmark.octagon.fill", tint: .red, text: searchError)
 			}
 
 			if !results.isEmpty {
-				VStack(spacing: 10) {
-					ForEach(results) { resultRow($0) }
-				}
+				resultList
 			} else if !query.trimmingCharacters(in: .whitespaces).isEmpty,
-			          !searching, searchError == nil, addedTitle == nil {
+			          !searching, searchError == nil {
 				Text("No matches for \u{201C}\(query)\u{201D}.")
 					.font(.system(size: 13, weight: .medium, design: .rounded))
 					.foregroundStyle(.secondary)
@@ -230,7 +263,9 @@ private struct TMDbSearchSection: View {
 
 	private func runSearch() async {
 		let trimmed = query.trimmingCharacters(in: .whitespaces)
-		addedTitle = nil
+		// The "added" tally deliberately survives a new query — it is the running
+		// record of this session. A stale import failure does not.
+		importError = nil
 		guard trimmed.count >= 2 else {
 			results = []; searchError = nil; searching = false
 			return
@@ -251,28 +286,42 @@ private struct TMDbSearchSection: View {
 		searching = false
 	}
 
+	/// Built once per pass, not once per row: `libraryKeys` walks the whole library.
+	private var resultList: some View {
+		let inLibrary = libraryKeys
+		return VStack(spacing: 10) {
+			ForEach(results) { resultRow($0, alreadyInLibrary: inLibrary.contains(key($0))) }
+		}
+	}
+
 	private func add(_ item: TMDbSearchItem) {
-		let kind: MediaKind = item.media_type == "tv" ? .show : .film
-		addingID = item.id
+		addingKey = key(item)
+		importError = nil
 		Haptics.tap(.medium)
 		Task {
-			let result = await importer.importFromTMDb(id: item.id, kind: kind, into: ctx)
-			addingID = nil
+			let result = await importer.importFromTMDb(id: item.id, kind: kind(of: item), into: ctx)
+			addingKey = nil
 			if result != nil {
 				Haptics.success()
-				addedTitle = item.displayTitle
-				try? await Task.sleep(nanoseconds: 500_000_000)
-				dismiss()
+				addedKeys.insert(key(item))
+				lastAddedTitle = item.displayTitle
+				addedCount += 1
 			} else {
 				Haptics.warning()
+				if case .failed(let message) = importer.phase { importError = message }
 			}
 		}
 	}
 
-	private func resultRow(_ item: TMDbSearchItem) -> some View {
-		let isShow = item.media_type == "tv"
+	private func resultRow(_ item: TMDbSearchItem, alreadyInLibrary: Bool) -> some View {
+		let isShow = kind(of: item) == .show
 		let year = String((item.release_date ?? item.first_air_date ?? "").prefix(4))
-		let subtitle = [isShow ? "TV Series" : "Film", year].filter { !$0.isEmpty }.joined(separator: " · ")
+		// Added just now reads differently from "you already had this".
+		let addedNow = addedKeys.contains(key(item))
+		let owned = addedNow || alreadyInLibrary
+		let tag = addedNow ? "Added" : (alreadyInLibrary ? "In your library" : "")
+		let subtitle = [isShow ? "TV Series" : "Film", year, tag]
+			.filter { !$0.isEmpty }.joined(separator: " · ")
 		return Button { add(item) } label: {
 			HStack(spacing: 12) {
 				PosterImage(urlString: TMDbConfig.poster(item.poster_path),
@@ -289,19 +338,20 @@ private struct TMDbSearchSection: View {
 						.foregroundStyle(.secondary)
 				}
 				Spacer(minLength: 0)
-				if addingID == item.id {
+				if addingKey == key(item) {
 					ProgressView()
 				} else {
-					Image(systemName: "plus.circle.fill")
+					Image(systemName: owned ? "checkmark.circle.fill" : "plus.circle.fill")
 						.font(.system(size: 22, weight: .semibold))
-						.foregroundStyle(Glass.accent)
+						.foregroundStyle(owned ? Glass.watched : Glass.accent)
 				}
 			}
 			.padding(10)
 			.glass(cornerRadius: 16)
 		}
 		.buttonStyle(.pressable)
-		.disabled(importer.isWorking)
+		.disabled(importer.isWorking || owned)
+		.opacity(owned ? 0.6 : 1)
 	}
 
 	private func statusRow(icon: String, tint: Color, text: String) -> some View {
