@@ -2,10 +2,10 @@
 //  CreditsTests.swift
 //  WatchListTests
 //
-//  Covers the parts of the Cast and Similar tabs that are pure logic: decoding
-//  what TMDb's credits and similar endpoints actually return, and the mapping
-//  that turns them into rows — sort order, the guest-star and multi-role cases,
-//  and which genres two titles share.
+//  Covers the parts of the Cast, Similar and Images tabs that are pure logic:
+//  decoding what TMDb's credits, similar and images endpoints actually return,
+//  and the mapping that turns them into rows — sort order, the guest-star and
+//  multi-role cases, which genres two titles share, and how artwork is grouped.
 //
 //  These need no API key, which is the point: they pin the behaviour either
 //  side of the network call.
@@ -210,5 +210,122 @@ struct SimilarEntryTests {
 		#expect(CreditsLoader.splitGenres("Comedy, Drama") == ["Comedy", "Drama"])
 		#expect(CreditsLoader.splitGenres("Comedy,Drama ,") == ["Comedy", "Drama"])
 		#expect(CreditsLoader.splitGenres("").isEmpty)
+	}
+}
+
+// MARK: - Images
+
+@MainActor
+struct ImageGalleryTests {
+
+	/// A series payload: posters out of rating order, a backdrop, a logo, and a
+	/// poster with no file path — TMDb does return those.
+	private let json = """
+	{"backdrops":[
+	  {"file_path":"/b.jpg","width":1920,"height":1080,"aspect_ratio":1.778,
+	   "vote_average":5.3,"iso_639_1":null}
+	 ],
+	 "logos":[
+	  {"file_path":"/l.svg","width":800,"height":310,"vote_average":9,"iso_639_1":"en"},
+	  {"file_path":"/l.png","width":800,"height":310,"vote_average":0,"iso_639_1":"en"}
+	 ],
+	 "posters":[
+	  {"file_path":"/low.jpg","width":1000,"height":1500,"vote_average":1.2,"iso_639_1":"hi"},
+	  {"file_path":"/best.jpg","width":2000,"height":3000,"vote_average":8.4,"iso_639_1":null},
+	  {"file_path":"/wide-tie.jpg","width":1400,"height":2100,"vote_average":1.2,"iso_639_1":""},
+	  {"width":500,"height":750,"vote_average":9.9,"iso_639_1":"en"}
+	 ]}
+	"""
+
+	@Test func groupsRunPostersThenBackdropsThenLogos() throws {
+		let set: TMDbImageSet = try decode(json)
+		let gallery = CreditsLoader.gallery(from: set)
+
+		#expect(gallery.groups.map(\.kind) == [.poster, .backdrop, .logo])
+		#expect(gallery.count == 5)
+	}
+
+	@Test func dropsKindsTMDbHasNothingFor() throws {
+		// A season payload: posters only, so no empty headings for the rest.
+		let set: TMDbImageSet = try decode("""
+		{"posters":[{"file_path":"/s.jpg","width":1000,"height":1500,"vote_average":5}]}
+		""")
+		let gallery = CreditsLoader.gallery(from: set)
+
+		#expect(gallery.groups.map(\.kind) == [.poster])
+		#expect(!gallery.isEmpty)
+	}
+
+	@Test func anEmptyPayloadIsAnEmptyGallery() throws {
+		#expect(CreditsLoader.gallery(from: try decode("{}")).isEmpty)
+		#expect(CreditsLoader.gallery(from: try decode("{\"stills\":[]}")).isEmpty)
+	}
+
+	@Test func bestRatedFirstWithTheWiderFileBreakingTies() throws {
+		let set: TMDbImageSet = try decode(json)
+		let posters = CreditsLoader.gallery(from: set).groups[0].entries
+
+		// 8.4 first; the two 1.2s are split by width, widest first.
+		#expect(posters.map(\.id) == ["/best.jpg", "/wide-tie.jpg", "/low.jpg"])
+	}
+
+	@Test func skipsAnImageWithNoFilePath() throws {
+		let set: TMDbImageSet = try decode(json)
+		let posters = CreditsLoader.gallery(from: set).groups[0].entries
+
+		// The 9.9-rated entry has no path, so it would otherwise lead the group.
+		#expect(posters.count == 3)
+	}
+
+	@Test func buildsAThumbnailAndAFullSizeURL() throws {
+		let set: TMDbImageSet = try decode(json)
+		let best = CreditsLoader.gallery(from: set).groups[0].entries[0]
+
+		#expect(best.thumbURL.hasSuffix("/w342/best.jpg"))
+		#expect(best.fullURL.hasSuffix("/original/best.jpg"))
+	}
+
+	/// TMDb serves SVG logos as markup at every size, "original" included, so
+	/// UIImage can never decode them — they'd be tiles that only ever fail.
+	@Test func dropsSVGLogosNothingCanDecode() throws {
+		let set: TMDbImageSet = try decode(json)
+		let logos = try #require(CreditsLoader.gallery(from: set).groups.last)
+
+		#expect(logos.kind == .logo)
+		// The SVG is the better-rated of the two, so it would otherwise lead.
+		#expect(logos.entries.map(\.id) == ["/l.png"])
+	}
+
+	@Test func aMissingOrEmptyLanguageMeansTextless() throws {
+		let set: TMDbImageSet = try decode(json)
+		let posters = CreditsLoader.gallery(from: set).groups[0].entries
+		let backdrop = try #require(CreditsLoader.gallery(from: set).groups[1].entries.first)
+
+		#expect(posters[0].language == nil)          // null
+		#expect(posters[1].language == nil)          // ""
+		#expect(posters[2].language == "hi")
+		#expect(backdrop.languageLabel == "No text")
+	}
+
+	@Test func aspectRatioComesFromTheFileAndFallsBackToTheKind() throws {
+		let set: TMDbImageSet = try decode(json)
+		let poster = CreditsLoader.gallery(from: set).groups[0].entries[0]
+		#expect(abs(poster.aspectRatio - 2.0 / 3.0) < 0.001)
+		#expect(poster.dimensions == "2000 × 3000")
+
+		// No width/height at all: the tile still needs a shape to draw.
+		let sizeless: TMDbImageSet = try decode("{\"stills\":[{\"file_path\":\"/x.jpg\"}]}")
+		let still = try #require(CreditsLoader.gallery(from: sizeless).groups.first?.entries.first)
+		#expect(abs(still.aspectRatio - 16.0 / 9.0) < 0.001)
+		#expect(still.dimensions.isEmpty)
+		#expect(still.voteAverage == 0)
+	}
+
+	@Test func theViewerPagesThroughEveryGroupInDisplayOrder() throws {
+		let set: TMDbImageSet = try decode(json)
+		let gallery = CreditsLoader.gallery(from: set)
+
+		#expect(gallery.all.map(\.kind) == [.poster, .poster, .poster, .backdrop, .logo])
+		#expect(gallery.all.count == gallery.count)
 	}
 }

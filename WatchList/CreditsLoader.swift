@@ -2,8 +2,9 @@
 //  CreditsLoader.swift
 //  WatchList
 //
-//  The @MainActor half of the Cast and Similar tabs, mirroring TriviaLoader and
-//  SimilarLoader: TMDbService does the I/O, this owns the mapping and the cache.
+//  The @MainActor half of the Cast, Similar and Images tabs, mirroring
+//  TriviaLoader and SimilarLoader: TMDbService does the I/O, this owns the
+//  mapping and the cache.
 //
 //  Nothing here is persisted. A tab is fetched the first time it is opened and
 //  then held for the rest of the session, keyed per title / season / episode —
@@ -64,6 +65,92 @@ struct SimilarEntry: Identifiable, Hashable {
 	let sharedGenres: [String]
 }
 
+/// One piece of artwork in an Images tab.
+struct ImageEntry: Identifiable, Hashable {
+
+	/// Which array of the TMDb `/images` payload this came from. The kind
+	/// decides the shape it's drawn in, so it travels with the entry.
+	enum Kind: String, Hashable {
+		case poster, still, backdrop, logo
+
+		/// Heading over a group.
+		var title: String { singular + "s" }
+
+		/// What one image of this kind is called, for the viewer's caption.
+		var singular: String {
+			switch self {
+			case .poster:   return "Poster"
+			case .still:    return "Still"
+			case .backdrop: return "Backdrop"
+			case .logo:     return "Logo"
+			}
+		}
+
+		var systemImage: String {
+			switch self {
+			case .poster:   return "rectangle.portrait"
+			case .still:    return "photo"
+			case .backdrop: return "photo.on.rectangle"
+			case .logo:     return "textformat"
+			}
+		}
+
+		/// The shape a tile is drawn in, and the fallback when TMDb omits an
+		/// image's dimensions.
+		var nominalAspect: Double {
+			switch self {
+			case .poster:            return 2.0 / 3.0
+			case .still, .backdrop:  return 16.0 / 9.0
+			case .logo:              return 3.0
+			}
+		}
+
+		/// Logos are transparent PNGs of wildly varying shape — they're fitted
+		/// inside their tile rather than cropped to fill it.
+		var fitsInsideTile: Bool { self == .logo }
+	}
+
+	let id: String              // TMDb file path — unique within a gallery
+	let kind: Kind
+	let thumbURL: String
+	let fullURL: String
+	let width: Int
+	let height: Int
+	/// ISO-639-1 code of the text on the image; nil when it's textless.
+	let language: String?
+	let voteAverage: Double
+
+	var aspectRatio: Double {
+		guard width > 0, height > 0 else { return kind.nominalAspect }
+		return Double(width) / Double(height)
+	}
+
+	var dimensions: String { width > 0 && height > 0 ? "\(width) × \(height)" : "" }
+
+	/// "English", "No text" — what the viewer prints under the image.
+	var languageLabel: String {
+		guard let language, !language.isEmpty else { return "No text" }
+		return Locale.current.localizedString(forLanguageCode: language) ?? language.uppercased()
+	}
+}
+
+/// Everything TMDb has for one title, season or episode, grouped by kind.
+struct ImageGroup: Identifiable, Hashable {
+	let kind: ImageEntry.Kind
+	let entries: [ImageEntry]
+	var id: ImageEntry.Kind { kind }
+}
+
+struct ImageGallery: Hashable {
+	/// Only non-empty groups, in the order they're drawn.
+	var groups: [ImageGroup] = []
+
+	var isEmpty: Bool { groups.isEmpty }
+	var count: Int { groups.reduce(0) { $0 + $1.entries.count } }
+	/// Every image in display order — what the full-screen viewer pages through.
+	var all: [ImageEntry] { groups.flatMap(\.entries) }
+}
+
 // MARK: - Loader
 
 @MainActor
@@ -81,6 +168,9 @@ enum CreditsLoader {
 	private static var seasonCastIDCache: [SeasonKey: [Int]] = [:]
 	private static var episodeCache: [EpisodeKey: EpisodeCredits] = [:]
 	private static var similarCache: [Int: [SimilarEntry]] = [:]
+	private static var seriesImageCache: [Int: ImageGallery] = [:]
+	private static var seasonImageCache: [SeasonKey: ImageGallery] = [:]
+	private static var episodeImageCache: [EpisodeKey: ImageGallery] = [:]
 	/// The genre id -> name table, fetched at most once per session.
 	private static var genreNames: [Int: String] = [:]
 
@@ -169,6 +259,43 @@ enum CreditsLoader {
 		return entries
 	}
 
+	// MARK: Images
+
+	/// Every poster, backdrop and logo TMDb holds for the series.
+	static func seriesImages(tvID: Int) async -> ImageGallery {
+		if let cached = seriesImageCache[tvID] { return cached }
+		guard let set = try? await TMDbService.shared.tvImages(tvID: tvID) else { return ImageGallery() }
+		let built = gallery(from: set)
+		seriesImageCache[tvID] = built
+		return built
+	}
+
+	/// One season's own posters. Unlike Similar, TMDb does have per-season
+	/// artwork, so this doesn't fall back to the series' — a season with none
+	/// simply drops the tab.
+	static func seasonImages(tvID: Int, season: Int) async -> ImageGallery {
+		let key = SeasonKey(tvID: tvID, season: season)
+		if let cached = seasonImageCache[key] { return cached }
+		guard let set = try? await TMDbService.shared.seasonImages(tvID: tvID, seasonNumber: season) else {
+			return ImageGallery()
+		}
+		let built = gallery(from: set)
+		seasonImageCache[key] = built
+		return built
+	}
+
+	/// One episode's stills.
+	static func episodeImages(tvID: Int, season: Int, episode: Int) async -> ImageGallery {
+		let key = EpisodeKey(tvID: tvID, season: season, episode: episode)
+		if let cached = episodeImageCache[key] { return cached }
+		guard let set = try? await TMDbService.shared.episodeImages(tvID: tvID, season: season, episode: episode) else {
+			return ImageGallery()
+		}
+		let built = gallery(from: set)
+		episodeImageCache[key] = built
+		return built
+	}
+
 	// MARK: Mapping
 
 	/// Aggregate credits -> rows, sorted by episode count descending. Ties keep
@@ -237,6 +364,50 @@ enum CreditsLoader {
 			                    posterURL: TMDbConfig.poster(item.poster_path),
 			                    sharedGenres: shared)
 		}
+	}
+
+	/// An `/images` payload -> the grouped gallery. Empty arrays are dropped
+	/// rather than drawn as a heading with nothing under it, and the groups run
+	/// posters, stills, backdrops, logos — portrait art first, chrome last.
+	static func gallery(from set: TMDbImageSet) -> ImageGallery {
+		let groups: [(ImageEntry.Kind, [TMDbImage]?)] = [(.poster, set.posters),
+		                                                 (.still, set.stills),
+		                                                 (.backdrop, set.backdrops),
+		                                                 (.logo, set.logos)]
+		return ImageGallery(groups: groups.compactMap { kind, images in
+			let entries = imageEntries(from: images ?? [], kind: kind)
+			return entries.isEmpty ? nil : ImageGroup(kind: kind, entries: entries)
+		})
+	}
+
+	/// Best-rated first, widest breaking ties. TMDb mostly returns them this way
+	/// already, but an explicit rule — with the payload's own order as the final
+	/// tiebreak — keeps a grid from reshuffling between fetches.
+	///
+	/// A handful of logos are SVGs, which TMDb serves as markup at every size,
+	/// not just "original". UIImage can't decode those, so they're dropped
+	/// rather than drawn as tiles that can never load.
+	static func imageEntries(from images: [TMDbImage], kind: ImageEntry.Kind) -> [ImageEntry] {
+		images
+			.enumerated()
+			.compactMap { index, image -> (Int, ImageEntry)? in
+				guard let path = image.file_path, !path.isEmpty,
+				      !path.lowercased().hasSuffix(".svg") else { return nil }
+				return (index, ImageEntry(id: path,
+				                          kind: kind,
+				                          thumbURL: TMDbConfig.galleryThumb(path),
+				                          fullURL: TMDbConfig.fullSize(path),
+				                          width: image.width ?? 0,
+				                          height: image.height ?? 0,
+				                          language: image.iso_639_1.flatMap { $0.isEmpty ? nil : $0 },
+				                          voteAverage: image.vote_average ?? 0))
+			}
+			.sorted { lhs, rhs in
+				if lhs.1.voteAverage != rhs.1.voteAverage { return lhs.1.voteAverage > rhs.1.voteAverage }
+				if lhs.1.width != rhs.1.width { return lhs.1.width > rhs.1.width }
+				return lhs.0 < rhs.0
+			}
+			.map(\.1)
 	}
 
 	// MARK: Helpers

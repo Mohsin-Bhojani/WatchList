@@ -30,6 +30,13 @@ enum TMDbConfig {
 	/// Cast headshot (2:3). Small, because it's drawn as a 44pt circle.
 	static func profile(_ path: String?) -> String { image(path, size: "w185") }
 
+	/// A tile in the Images tab. Deliberately small — a popular show has a few
+	/// hundred of these and they are drawn barely 100pt wide.
+	static func galleryThumb(_ path: String?) -> String { image(path, size: "w342") }
+
+	/// What the full-screen viewer loads.
+	static func fullSize(_ path: String?) -> String { image(path, size: "original") }
+
 	private static func image(_ path: String?, size: String) -> String {
 		guard let path, !path.isEmpty else { return "" }
 		return "\(imageBase)/\(size)\(path)"
@@ -227,6 +234,30 @@ struct TMDbGenre: Decodable {
 
 struct TMDbGenreList: Decodable { let genres: [TMDbGenre] }
 
+// MARK: - Image DTOs
+
+/// One artwork file. `iso_639_1` is the language of any text burnt into it —
+/// null means textless, which is why the images endpoints must not be asked in
+/// a single language (see `TMDbService.get(localized:)`).
+struct TMDbImage: Decodable {
+	let file_path: String?
+	let width: Int?
+	let height: Int?
+	let aspect_ratio: Double?
+	let vote_average: Double?
+	let iso_639_1: String?
+}
+
+/// The `/images` payload. Which arrays come back depends on the endpoint:
+/// a series has posters/backdrops/logos, a season only posters, an episode
+/// only stills.
+struct TMDbImageSet: Decodable {
+	let posters: [TMDbImage]?
+	let backdrops: [TMDbImage]?
+	let logos: [TMDbImage]?
+	let stills: [TMDbImage]?
+}
+
 // MARK: - Service
 
 struct TMDbService {
@@ -295,14 +326,37 @@ struct TMDbService {
 		return list.genres
 	}
 
+	// MARK: Images
+	//
+	// All three go out unlocalised. TMDb filters `/images` by the `language`
+	// parameter, so the usual en-US would return only English-titled artwork and
+	// drop every textless poster — the opposite of what the Images tab is for.
+
+	/// Every poster, backdrop and logo TMDb holds for a series.
+	func tvImages(tvID: Int) async throws -> TMDbImageSet {
+		try await get("/tv/\(tvID)/images", localized: false)
+	}
+
+	/// One season's posters.
+	func seasonImages(tvID: Int, seasonNumber: Int) async throws -> TMDbImageSet {
+		try await get("/tv/\(tvID)/season/\(seasonNumber)/images", localized: false)
+	}
+
+	/// One episode's stills.
+	func episodeImages(tvID: Int, season: Int, episode: Int) async throws -> TMDbImageSet {
+		try await get("/tv/\(tvID)/season/\(season)/episode/\(episode)/images", localized: false)
+	}
+
 	// MARK: Networking
 
-	private func get<T: Decodable>(_ path: String, query: [String: String] = [:]) async throws -> T {
+	private func get<T: Decodable>(_ path: String,
+	                               query: [String: String] = [:],
+	                               localized: Bool = true) async throws -> T {
 		guard TMDbConfig.isConfigured else { throw TMDbError.notConfigured }
 
 		var components = URLComponents(string: TMDbConfig.apiBase + path)
-		var items = [URLQueryItem(name: "api_key", value: TMDbConfig.apiKey),
-		             URLQueryItem(name: "language", value: "en-US")]
+		var items = [URLQueryItem(name: "api_key", value: TMDbConfig.apiKey)]
+		if localized { items.append(URLQueryItem(name: "language", value: "en-US")) }
 		for (k, v) in query { items.append(URLQueryItem(name: k, value: v)) }
 		components?.queryItems = items
 		guard let url = components?.url else { throw TMDbError.badURL }

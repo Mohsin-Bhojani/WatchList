@@ -109,13 +109,14 @@ struct ShowDetailView: View {
 
 	// MARK: - Tabs
 
-	/// Cast and Similar both need a TMDb id, so a hand-added show keeps the
-	/// single-column page it has today.
+	/// Cast, Similar and Images all need a TMDb id, so a hand-added show keeps
+	/// the single-column page it has today.
 	private var tabItems: [DetailTabItem] {
 		var items = [DetailTabItem(tab: .details, title: "Details")]
 		guard show.tmdbID != nil else { return items }
 		if !emptyTabs.contains(.cast) { items.append(DetailTabItem(tab: .cast, title: "Cast")) }
 		if !emptyTabs.contains(.similar) { items.append(DetailTabItem(tab: .similar, title: "Similar")) }
+		if !emptyTabs.contains(.images) { items.append(DetailTabItem(tab: .images, title: "Images")) }
 		return items
 	}
 
@@ -145,6 +146,12 @@ struct ShowDetailView: View {
 			if let tmdbID = show.tmdbID {
 				SimilarTitlesTab(tvID: tmdbID, parentGenres: show.genre) { found in
 					if !found { drop(.similar) }
+				}
+			}
+		case .images:
+			if let tmdbID = show.tmdbID {
+				ImagesTabView(source: .series(tvID: tmdbID)) { found in
+					if !found { drop(.images) }
 				}
 			}
 		}
