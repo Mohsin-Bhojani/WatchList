@@ -74,6 +74,16 @@ open WatchList.xcodeproj
 Pick your own team under **Signing & Capabilities** (the project ships with no
 team set), choose an iOS 26 simulator, and run.
 
+> **One thing to watch:** once you set a team, Xcode writes it back into
+> `project.pbxproj` as `DEVELOPMENT_TEAM = ABCDE12345`. That is your own
+> identifier and does not belong in a shared commit, so drop it before you push:
+>
+> ```bash
+> git checkout -- WatchList.xcodeproj/project.pbxproj
+> ```
+>
+> Simulator builds and CI need no team at all.
+
 ## Running the tests
 
 ```bash
