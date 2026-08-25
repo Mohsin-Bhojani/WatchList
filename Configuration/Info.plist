@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Xcode still generates the standard keys (see the INFOPLIST_KEY_*
+	     build settings); they are merged into this file at build time. This
+	     holds only what the generator has no setting for. -->
+	<key>TMDBAPIKey</key>
+	<string>$(TMDB_API_KEY)</string>
+</dict>
+</plist>

@@ -1,0 +1,38 @@
+# API keys and other local-only build settings.
+# Copy Configuration/Secrets.example.xcconfig to Configuration/Secrets.xcconfig.
+Configuration/Secrets.xcconfig
+
+# Xcode — user-specific state, never shared
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Xcode — build products
+build/
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# CocoaPods / Carthage, if they are ever added
+Pods/
+Carthage/Build/
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# macOS
+.DS_Store
+
+# Claude Code working directories (these hold full copies of the tree)
+.claude/

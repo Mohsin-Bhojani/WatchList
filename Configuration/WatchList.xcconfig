@@ -1,0 +1,20 @@
+//
+//  WatchList.xcconfig
+//  WatchList
+//
+//  Base configuration for the app target.
+//
+//  Secrets.xcconfig holds the TMDb API key and is deliberately untracked. Copy
+//  Secrets.example.xcconfig next to this file, rename it Secrets.xcconfig and
+//  paste your own key in — see README.md.
+//
+//  The `#include?` form is optional: without the file the project still builds,
+//  and the app reports the key as missing rather than failing to compile.
+//
+
+#include? "Secrets.xcconfig"
+
+// Configuration/Info.plist holds only TMDBAPIKey, whose value is this setting
+// substituted at build time; Xcode merges its generated keys into that file.
+// TMDbConfig.apiKey reads it back out of the bundle at runtime.
+INFOPLIST_FILE = Configuration/Info.plist
