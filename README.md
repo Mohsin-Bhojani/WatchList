@@ -1,5 +1,7 @@
 # WatchList
 
+[![CI](https://github.com/Mohsin-Bhojani/WatchList/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohsin-Bhojani/WatchList/actions/workflows/ci.yml)
+
 An iOS app for keeping track of the films and TV you mean to watch, are part-way
 through, and have finished — built with SwiftUI and SwiftData, with everything
 about a title pulled from [The Movie Database](https://www.themoviedb.org).
@@ -79,7 +81,9 @@ xcodebuild test -project WatchList.xcodeproj -scheme WatchList -destination 'pla
 ```
 
 The unit tests are pure logic — decoding TMDb payloads and the mapping either
-side of the network calls — so they pass without an API key.
+side of the network calls — so they pass without an API key. That is also why
+CI (`.github/workflows/ci.yml`) needs no secret configured: it checks out,
+picks whichever iPhone simulator the runner has, and runs the same command.
 
 ## Project layout
 

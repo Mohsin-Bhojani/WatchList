@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch cancels the run still going for the first.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    # Pinned rather than macos-latest: WatchList targets iOS 26.2, and the
+    # label only moved to a Tahoe image that carries the iOS 26 SDKs recently.
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # No Configuration/Secrets.xcconfig is written here on purpose. The unit
+      # tests are pure logic — decoding TMDb payloads and the mapping either
+      # side of the network calls — so they need no API key, and the app builds
+      # without one. If a test ever does need to reach TMDb, write the file from
+      # a repository secret at this point.
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # Resolved rather than hard-coded: the runner image adds and drops
+      # simulator runtimes over time, so a pinned "iPhone 17 Pro, OS=26.3.1"
+      # would go stale. This takes the newest iPhone simulator on the machine.
+      - name: Pick a simulator
+        id: sim
+        run: |
+          destination=$(xcodebuild -project WatchList.xcodeproj -scheme WatchList -showdestinations 2>/dev/null \
+            | tr -d '\r' \
+            | sed -n 's/.*{ *\(platform:iOS Simulator[^}]*\)}.*/\1/p' \
+            | grep 'name:iPhone' \
+            | awk -F'OS:' 'NF>1 {split($2, a, ","); print a[1] "\t" $0}' \
+            | sort -V -r \
+            | head -1)
+          if [ -z "$destination" ]; then
+            echo "No iPhone simulator on this runner. Destinations offered:"
+            xcodebuild -project WatchList.xcodeproj -scheme WatchList -showdestinations
+            exit 1
+          fi
+          echo "Using:$(printf '%s' "$destination" | cut -f2-)"
+          printf 'id=%s\n' "$(printf '%s' "$destination" | sed -n 's/.*id:\([0-9A-Fa-f-]*\).*/\1/p')" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project WatchList.xcodeproj \
+            -scheme WatchList \
+            -destination "id=${{ steps.sim.outputs.id }}" \
+            -only-testing:WatchListTests \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+          | xcbeautify --renderer github-actions
+
+      - name: Upload results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: TestResults
+          path: TestResults.xcresult
+          retention-days: 7
