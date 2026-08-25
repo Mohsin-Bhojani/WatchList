@@ -33,24 +33,45 @@ jobs:
 
       # Resolved rather than hard-coded: the runner image adds and drops
       # simulator runtimes over time, so a pinned "iPhone 17 Pro, OS=26.3.1"
-      # would go stale. This takes the newest iPhone simulator on the machine.
+      # would go stale. simctl is asked rather than
+      # "xcodebuild -showdestinations", which on a cold runner reports only
+      # placeholder destinations until CoreSimulator has enumerated devices.
       - name: Pick a simulator
         id: sim
         run: |
-          destination=$(xcodebuild -project WatchList.xcodeproj -scheme WatchList -showdestinations 2>/dev/null \
-            | tr -d '\r' \
-            | sed -n 's/.*{ *\(platform:iOS Simulator[^}]*\)}.*/\1/p' \
-            | grep 'name:iPhone' \
-            | awk -F'OS:' 'NF>1 {split($2, a, ","); print a[1] "\t" $0}' \
-            | sort -V -r \
-            | head -1)
-          if [ -z "$destination" ]; then
-            echo "No iPhone simulator on this runner. Destinations offered:"
-            xcodebuild -project WatchList.xcodeproj -scheme WatchList -showdestinations
+          xcrun simctl list runtimes
+          resolved=$(xcrun simctl list devices available --json | python3 -c '
+          import json, re, sys
+
+          devices = json.load(sys.stdin).get("devices", {})
+          best = None
+          for runtime, entries in devices.items():
+              match = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not match:
+                  continue
+              version = (int(match.group(1)), int(match.group(2)))
+              # WatchList deploys to iOS 26.2. An older runtime would only fail
+              # later, deep in a build log, so it is rejected here.
+              if version < (26, 2):
+                  continue
+              for device in entries:
+                  if not device.get("isAvailable"):
+                      continue
+                  if not device.get("name", "").startswith("iPhone"):
+                      continue
+                  if best is None or version > best[0]:
+                      best = (version, device["udid"], device["name"])
+          if best:
+              print("%s\t%s\tiOS %d.%d" % (best[1], best[2], best[0][0], best[0][1]))
+          ')
+          if [ -z "$resolved" ]; then
+            echo "No iPhone simulator running iOS 26.2 or newer on this runner."
+            echo "Devices present:"
+            xcrun simctl list devices
             exit 1
           fi
-          echo "Using:$(printf '%s' "$destination" | cut -f2-)"
-          printf 'id=%s\n' "$(printf '%s' "$destination" | sed -n 's/.*id:\([0-9A-Fa-f-]*\).*/\1/p')" >> "$GITHUB_OUTPUT"
+          echo "Using $(printf '%s' "$resolved" | cut -f2) on $(printf '%s' "$resolved" | cut -f3)"
+          printf 'id=%s\n' "$(printf '%s' "$resolved" | cut -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Test
         run: |
