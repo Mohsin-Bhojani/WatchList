@@ -24,12 +24,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		CEA6DF492F8F71C8004545F7 /* WatchList.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WatchList.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		CEA6DF5A2F8F71D5004545F7 /* WatchListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WatchListTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CEA6DF642F8F71D5004545F7 /* WatchListUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WatchListUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE1A0F0100000000000000A2 /* WatchList.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = WatchList.xcconfig; sourceTree = "<group>"; };
 		CE1A0F0100000000000000A3 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
 		CE1A0F0100000000000000A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CEA6DF492F8F71C8004545F7 /* WatchList.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WatchList.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CEA6DF5A2F8F71D5004545F7 /* WatchListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WatchListTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CEA6DF642F8F71D5004545F7 /* WatchListUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WatchListUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +75,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CE1A0F0100000000000000A1 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				CE1A0F0100000000000000A2 /* WatchList.xcconfig */,
+				CE1A0F0100000000000000A3 /* Secrets.example.xcconfig */,
+				CE1A0F0100000000000000A4 /* Info.plist */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
 		CEA6DF402F8F71C8004545F7 = {
 			isa = PBXGroup;
 			children = (
@@ -84,16 +94,6 @@
 				CEA6DF672F8F71D5004545F7 /* WatchListUITests */,
 				CEA6DF4A2F8F71C8004545F7 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		CE1A0F0100000000000000A1 /* Configuration */ = {
-			isa = PBXGroup;
-			children = (
-				CE1A0F0100000000000000A2 /* WatchList.xcconfig */,
-				CE1A0F0100000000000000A3 /* Secrets.example.xcconfig */,
-				CE1A0F0100000000000000A4 /* Info.plist */,
-			);
-			path = Configuration;
 			sourceTree = "<group>";
 		};
 		CEA6DF4A2F8F71C8004545F7 /* Products */ = {
@@ -292,7 +292,7 @@
 				CODE_SIGN_ENTITLEMENTS = WatchList/WatchList.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = WQXS3525ZF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -326,7 +326,7 @@
 				CODE_SIGN_ENTITLEMENTS = WatchList/WatchList.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = WQXS3525ZF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

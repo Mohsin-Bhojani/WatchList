@@ -5,10 +5,10 @@
 //  Home screen. Splits the library into Shows and Films via an editorial
 //  underline tab control, with status stats and a poster grid.
 //
-//  Bottom dock (Mail-style): a Library/home button on the left, a Search bar in
-//  the middle, and an Add (+) button on the right. Stats and Settings live in
-//  the top navigation bar; Settings opens this app's page in the iOS Settings
-//  app, where preferences are stored (see Settings.bundle).
+//  Bottom dock (iPhone-style): one floating capsule holding Stats, the accented
+//  Add (+) button and Settings, then a hairline and Search on the right.
+//  Settings opens this app's page in the iOS Settings app, where preferences
+//  are stored (see Settings.bundle).
 //
 
 import SwiftUI
@@ -143,11 +143,24 @@ struct LibraryView: View {
 				}
 
 				// Fade the content into the paper behind the bar so it scrolls
-				// away smoothly instead of appearing sharply under the dock.
-				LinearGradient(colors: [.clear, Glass.paper], startPoint: .top, endPoint: .bottom)
+				// away smoothly instead of appearing sharply under the dock. The
+				// gradient reaches solid paper just above the dock and holds it all
+				// the way to the bottom bezel, so nothing shows through behind it.
+				LinearGradient(
+					stops: [
+						.init(color: .clear, location: 0),
+						.init(color: Glass.paper, location: 0.45),
+						.init(color: Glass.paper, location: 1),
+					],
+					startPoint: .top, endPoint: .bottom
+				)
 					.frame(maxWidth: .infinity)
-					.frame(height: 130)
+					.frame(height: 100)
 					.allowsHitTesting(false)
+					// ignoresSafeArea alone leaves the home-indicator strip uncovered
+					// here, so pull the gradient past the bezel explicitly. The bottom
+					// half is solid paper, so overshooting costs nothing.
+					.padding(.bottom, -50)
 					.ignoresSafeArea(edges: .bottom)
 
 				dock()
@@ -189,64 +202,53 @@ struct LibraryView: View {
 		}
 	}
 
-	// MARK: Bottom tab bar (Search · Stats · [+] · Settings)
+	// MARK: Bottom dock — [Stats · + · Settings | Search]
 
+	/// A single floating capsule in the iPhone dock idiom: the action group on
+	/// the left (Stats, the accented Add button, Settings), a hairline, then
+	/// Search on the right. Sits low, just clear of the home indicator.
 	private func dock() -> some View {
-		ZStack {
-			// Equal-width halves either side of the notch gap, so the gap stays
-			// on rect.midX where NotchedBar carves it (and the [+] sits).
-			HStack(spacing: 0) {
-				HStack(spacing: 0) {
-					tabButton("magnifyingglass", "Search") { Haptics.tap(); showingSearch = true }
-					tabButton("chart.bar.fill", "Stats") { Haptics.tap(); showingStats = true }
-				}
-				.frame(maxWidth: .infinity)
+		HStack(spacing: 0) {
+			dockButton("chart.bar.fill", "Stats") { Haptics.tap(); showingStats = true }
+			dockButton("plus", "Add", filled: true) { Haptics.tap(.medium); showingAdd = true }
+			dockButton("gearshape.fill", "Settings") { Haptics.tap(); showingSettings = true }
 
-				Color.clear.frame(width: 84)
+			Rectangle()
+				.fill(Glass.hairline.opacity(0.14))
+				.frame(width: 1, height: 28)
+				.padding(.horizontal, 4)
 
-				HStack(spacing: 0) {
-					tabButton("gearshape.fill", "Settings") { Haptics.tap(); showingSettings = true }
-				}
-				.frame(maxWidth: .infinity)
-			}
-			.padding(.horizontal, 12)
-			.frame(height: 62)
-			.frame(maxWidth: .infinity)
-
-			// Raised center Add button, cradled by the notch.
-			Button {
-				Haptics.tap(.medium); showingAdd = true
-			} label: {
-				Image(systemName: "plus")
-					.font(.system(size: 26, weight: .bold))
-					.foregroundStyle(.white)
-					.frame(width: 58, height: 58)
-					.background(Circle().fill(Glass.accent))
-					.shadow(color: Glass.accent.opacity(0.35), radius: 8, y: 3)
-			}
-			.buttonStyle(.pressable)
-			.offset(y: -26)
+			dockButton("magnifyingglass", "Search") { Haptics.tap(); showingSearch = true }
 		}
+		.padding(.horizontal, 10)
+		.frame(height: 62)
 		.background(
-			NotchedBar(cornerRadius: 26, notchRadius: 38)
+			Capsule()
 				.fill(Glass.surface)
-				.overlay(
-					NotchedBar(cornerRadius: 26, notchRadius: 38)
-						.stroke(Glass.hairline.opacity(0.12), lineWidth: 1)
-				)
-				.shadow(color: .black.opacity(0.08), radius: 12, y: -3)
-				.ignoresSafeArea(edges: .bottom)
+				.overlay(Capsule().strokeBorder(Glass.hairline.opacity(0.12), lineWidth: 1))
+				.shadow(color: .black.opacity(0.10), radius: 12, y: 4)
 		)
+		// Ride lower, into the bottom safe area but clear of the home indicator.
+		.padding(.bottom, -12)
 	}
 
-	private func tabButton(_ icon: String, _ label: String, _ action: @escaping () -> Void) -> some View {
+	/// One dock item. `filled` draws the primary action (+) as an accent disc so
+	/// it still leads the row now that it sits inline instead of in a notch.
+	private func dockButton(_ icon: String, _ label: String,
+	                        filled: Bool = false,
+	                        _ action: @escaping () -> Void) -> some View {
 		Button(action: action) {
-			VStack(spacing: 3) {
-				Image(systemName: icon).font(.system(size: 18, weight: .semibold))
-				Text(label).font(.system(size: 10, weight: .semibold, design: .rounded))
+			VStack(spacing: 4) {
+				Image(systemName: icon)
+					.font(.system(size: filled ? 17 : 18, weight: filled ? .bold : .semibold))
+					.foregroundStyle(filled ? Color.white : Color.primary.opacity(0.55))
+					.frame(width: 32, height: 32)
+					.background { if filled { Circle().fill(Glass.accent) } }
+				Text(label)
+					.font(.system(size: 10, weight: .semibold, design: .rounded))
+					.foregroundStyle(filled ? Glass.accent : Color.secondary)
 			}
-			.foregroundStyle(.secondary)
-			.frame(maxWidth: .infinity)
+			.frame(width: 58)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.pressable)
@@ -380,36 +382,5 @@ struct LibraryView: View {
 		Button(role: .destructive) { withAnimation { action() } } label: {
 			Label("Delete", systemImage: "trash")
 		}
-	}
-}
-
-// MARK: - Notched bottom-bar shape
-
-/// A filled bottom-bar shape: rounded top corners, a concave semicircular notch
-/// centered on the top edge (cradling the raised Add button), and a flat bottom
-/// so the bar fills to the screen edge.
-struct NotchedBar: Shape {
-	var cornerRadius: CGFloat = 26
-	var notchRadius: CGFloat = 38
-
-	func path(in rect: CGRect) -> Path {
-		let w = rect.width, h = rect.height
-		let cr = min(cornerRadius, h)
-		let nr = notchRadius
-		let cx = rect.midX
-		var p = Path()
-		p.move(to: CGPoint(x: 0, y: h))                       // bottom-left (square)
-		p.addLine(to: CGPoint(x: 0, y: cr))                    // up the left edge
-		p.addArc(center: CGPoint(x: cr, y: cr), radius: cr,
-		         startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)  // top-left corner
-		p.addLine(to: CGPoint(x: cx - nr, y: 0))               // top edge to notch
-		p.addArc(center: CGPoint(x: cx, y: 0), radius: nr,
-		         startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)      // concave notch (dips in)
-		p.addLine(to: CGPoint(x: w - cr, y: 0))                // top edge after notch
-		p.addArc(center: CGPoint(x: w - cr, y: cr), radius: cr,
-		         startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)     // top-right corner
-		p.addLine(to: CGPoint(x: w, y: h))                     // down the right edge
-		p.closeSubpath()                                       // flat bottom
-		return p
 	}
 }
