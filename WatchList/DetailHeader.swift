@@ -5,7 +5,7 @@
 //  Shared hero header for Show / Season / Episode / Film pages. The landscape
 //  backdrop (or still) fills the entire top section, with the title, subtitle,
 //  meta and an optional IMDb link overlaid on a legibility scrim.
-//
+// 	This line was added from GitHub iPad
 
 import SwiftUI
 
