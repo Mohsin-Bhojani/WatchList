@@ -2,8 +2,8 @@
 //  CreditsLoader.swift
 //  WatchList
 //
-//  The @MainActor half of the Cast, Similar and Images tabs: TMDbService does
-//  the I/O, this owns the mapping and the cache.
+//  The @MainActor half of the title pages' cast rows and artwork gallery:
+//  TMDbService does the I/O, this owns the mapping and the cache.
 //
 //  Nothing here is persisted. A tab is fetched the first time it is opened and
 //  then held for the rest of the session, keyed per title / season / episode —
@@ -49,18 +49,6 @@ struct TitleCredits: Hashable {
 	var people: [CastEntry] = []
 
 	var isEmpty: Bool { directedBy.isEmpty && writtenBy.isEmpty && people.isEmpty }
-}
-
-/// One row of a Similar tab. There is deliberately no match percentage —
-/// neither `/similar` endpoint returns one, so the honest figures are TMDb's
-/// vote average and the genres the two titles actually share.
-struct SimilarEntry: Identifiable, Hashable {
-	let id: Int                 // TMDb show or movie id
-	let title: String
-	let year: String
-	let voteAverage: Double
-	let posterURL: String
-	let sharedGenres: [String]
 }
 
 /// One piece of artwork in an Images tab.
@@ -159,34 +147,18 @@ enum CreditsLoader {
 	private struct SeasonKey: Hashable { let tvID: Int; let season: Int }
 	private struct EpisodeKey: Hashable { let tvID: Int; let season: Int; let episode: Int }
 
-	private static var seriesCastCache: [Int: [CastEntry]] = [:]
 	private static var seasonCastCache: [SeasonKey: [CastEntry]] = [:]
 	/// Just the person ids per season, which is all "new this season" needs.
 	/// Reading seasons in order otherwise re-fetches season 1 every time.
 	private static var seasonCastIDCache: [SeasonKey: [Int]] = [:]
 	private static var episodeCache: [EpisodeKey: TitleCredits] = [:]
 	private static var movieCastCache: [Int: TitleCredits] = [:]
-	private static var similarCache: [Int: [SimilarEntry]] = [:]
-	private static var movieSimilarCache: [Int: [SimilarEntry]] = [:]
 	private static var seriesImageCache: [Int: ImageGallery] = [:]
 	private static var seasonImageCache: [SeasonKey: ImageGallery] = [:]
 	private static var episodeImageCache: [EpisodeKey: ImageGallery] = [:]
 	private static var movieImageCache: [Int: ImageGallery] = [:]
-	/// The genre id -> name tables, fetched at most once each per session. TMDb
-	/// numbers films and shows separately, so the two must not be merged.
-	private static var tvGenreNames: [Int: String] = [:]
-	private static var movieGenreNames: [Int: String] = [:]
 
 	// MARK: Cast
-
-	/// Everyone in the series, most episodes first.
-	static func seriesCast(tvID: Int) async -> [CastEntry] {
-		if let cached = seriesCastCache[tvID] { return cached }
-		guard let credits = try? await TMDbService.shared.aggregateCredits(tvID: tvID) else { return [] }
-		let entries = castEntries(from: credits)
-		seriesCastCache[tvID] = entries
-		return entries
-	}
 
 	/// One season's cast, with anyone who didn't appear in an earlier season
 	/// flagged. Season 1 flags nobody — everybody is new, so the flag would be
@@ -253,45 +225,6 @@ enum CreditsLoader {
 		return built
 	}
 
-	// MARK: Similar
-
-	/// Shows TMDb considers similar, annotated with the genres they share with
-	/// `parentGenres` (the comma-joined string stored on the Show).
-	static func similar(tvID: Int, parentGenres: String) async -> [SimilarEntry] {
-		if let cached = similarCache[tvID] { return cached }
-
-		guard let results = try? await TMDbService.shared.similar(tvID: tvID) else { return [] }
-
-		if tvGenreNames.isEmpty, let genres = try? await TMDbService.shared.tvGenres() {
-			tvGenreNames = genreTable(genres)
-		}
-
-		let entries = similarEntries(from: results, parentGenres: parentGenres, genreNames: tvGenreNames)
-		similarCache[tvID] = entries
-		return entries
-	}
-
-	/// The same for films, against TMDb's separate movie genre table.
-	static func similar(movieID: Int, parentGenres: String) async -> [SimilarEntry] {
-		if let cached = movieSimilarCache[movieID] { return cached }
-
-		guard let results = try? await TMDbService.shared.similar(movieID: movieID) else { return [] }
-
-		if movieGenreNames.isEmpty, let genres = try? await TMDbService.shared.movieGenres() {
-			movieGenreNames = genreTable(genres)
-		}
-
-		let entries = similarEntries(from: results, parentGenres: parentGenres, genreNames: movieGenreNames)
-		movieSimilarCache[movieID] = entries
-		return entries
-	}
-
-	private static func genreTable(_ genres: [TMDbGenre]) -> [Int: String] {
-		Dictionary(uniqueKeysWithValues: genres.compactMap { genre in
-			genre.name.map { (genre.id, $0) }
-		})
-	}
-
 	// MARK: Images
 
 	/// Every poster, backdrop and logo TMDb holds for the series.
@@ -303,9 +236,8 @@ enum CreditsLoader {
 		return built
 	}
 
-	/// One season's own posters. Unlike Similar, TMDb does have per-season
-	/// artwork, so this doesn't fall back to the series' — a season with none
-	/// simply drops the tab.
+	/// One season's own posters. TMDb keeps artwork per season, so this doesn't
+	/// fall back to the series'.
 	static func seasonImages(tvID: Int, season: Int) async -> ImageGallery {
 		let key = SeasonKey(tvID: tvID, season: season)
 		if let cached = seasonImageCache[key] { return cached }
@@ -387,53 +319,6 @@ enum CreditsLoader {
 		return built
 	}
 
-	/// Similar shows -> rows, each annotated with the genres it shares with the
-	/// title you came from.
-	static func similarEntries(from results: [TMDbSimilarTV],
-	                           parentGenres: String,
-	                           genreNames: [Int: String]) -> [SimilarEntry] {
-		let parent = splitGenres(parentGenres)
-		return results.map { item in
-			SimilarEntry(id: item.id,
-			             title: item.name ?? "",
-			             year: String((item.first_air_date ?? "").prefix(4)),
-			             voteAverage: item.vote_average ?? 0,
-			             posterURL: TMDbConfig.poster(item.poster_path),
-			             sharedGenres: sharedGenres(ids: item.genre_ids,
-			                                        parent: parent,
-			                                        genreNames: genreNames))
-		}
-	}
-
-	/// The same for films. `title` / `release_date` in place of the TV payload's
-	/// `name` / `first_air_date` is the only real difference.
-	static func similarEntries(from results: [TMDbSimilarMovie],
-	                           parentGenres: String,
-	                           genreNames: [Int: String]) -> [SimilarEntry] {
-		let parent = splitGenres(parentGenres)
-		return results.map { item in
-			SimilarEntry(id: item.id,
-			             title: item.title ?? "",
-			             year: String((item.release_date ?? "").prefix(4)),
-			             voteAverage: item.vote_average ?? 0,
-			             posterURL: TMDbConfig.poster(item.poster_path),
-			             sharedGenres: sharedGenres(ids: item.genre_ids,
-			                                        parent: parent,
-			                                        genreNames: genreNames))
-		}
-	}
-
-	/// Which of the parent's genres this result also carries, kept in the
-	/// parent's own order so the line reads the same way the header above it does.
-	private static func sharedGenres(ids: [Int]?,
-	                                 parent: [String],
-	                                 genreNames: [Int: String]) -> [String] {
-		let own = (ids ?? []).compactMap { genreNames[$0] }
-		return parent.filter { genre in
-			own.contains { $0.compare(genre, options: .caseInsensitive) == .orderedSame }
-		}
-	}
-
 	/// An `/images` payload -> the grouped gallery. Empty arrays are dropped
 	/// rather than drawn as a heading with nothing under it, and the groups run
 	/// posters, stills, backdrops, logos — portrait art first, chrome last.
@@ -495,13 +380,5 @@ enum CreditsLoader {
 			.compactMap { $0.name }
 			.filter { !$0.isEmpty && seen.insert($0).inserted }
 			.joined(separator: ", ")
-	}
-
-	/// "Comedy, Drama" -> ["Comedy", "Drama"].
-	static func splitGenres(_ genres: String) -> [String] {
-		genres
-			.components(separatedBy: ",")
-			.map { $0.trimmingCharacters(in: .whitespaces) }
-			.filter { !$0.isEmpty }
 	}
 }

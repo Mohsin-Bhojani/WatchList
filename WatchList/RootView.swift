@@ -3,9 +3,10 @@
 //  WatchList
 //
 //  Top-level shell. Sets the Editorial Paper chrome (refined serif navigation
-//  titles over the paper canvas) and hosts the Library screen, which owns the
-//  custom Mail-style dock. Also re-applies the user's accent color when the app
-//  returns to the foreground (e.g. after changing it in the iOS Settings app).
+//  titles over the paper canvas), then hosts PhoneRootView on every device: the
+//  Liquid Glass tab bar on iPhone, the floating tab bar and sidebar on iPad. Also
+//  re-applies the user's accent color when the app returns to the foreground
+//  (e.g. after changing it in the iOS Settings app).
 //
 
 import SwiftUI
@@ -40,11 +41,17 @@ struct RootView: View {
 	}
 
 	var body: some View {
-		LibraryView()
+		shell
 			.tint(Glass.accent)
 			.environmentObject(theme)
 			.onChange(of: scenePhase) { _, phase in
 				if phase == .active { theme.refreshFromDefaults() }
 			}
+	}
+
+	/// PhoneRootView tells iPad from iPhone itself, by device rather than size
+	/// class, so an iPad in Split View or Slide Over keeps its sidebar.
+	private var shell: some View {
+		PhoneRootView()
 	}
 }

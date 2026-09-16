@@ -3,9 +3,13 @@
 //  WatchList
 //
 //  On-device image caching so posters/backdrops download only once. Images are
-//  kept in a fast in-memory NSCache and persisted to disk (Caches directory),
-//  keyed by a stable SHA-256 of the URL. After the first fetch a poster loads
-//  instantly and works offline — no repeated TMDb requests.
+//  kept decoded in a fast in-memory NSCache and persisted to disk (Caches
+//  directory), keyed by a stable SHA-256 of the URL. After the first fetch a
+//  poster loads instantly and works offline — no repeated TMDb requests.
+//
+//  Reading, downloading and decoding all happen off the main thread, several at
+//  once, so drawing a poster never waits on decoding it. The disk cache is kept
+//  under a size cap; anything trimmed downloads again when it's next needed.
 //
 //  `CachedAsyncImage` is a drop-in replacement for SwiftUI's `AsyncImage`: it
 //  uses the same `AsyncImagePhase` content closure, so existing call sites only
@@ -21,60 +25,90 @@ import CryptoKit
 actor ImageCache {
 	static let shared = ImageCache()
 
-	private let memory = NSCache<NSString, UIImage>()
-	private let directory: URL
-	private let fileManager = FileManager.default
-	// Coalesce concurrent requests for the same URL into one download.
+	/// Decoded images by URL, costed by their bytes. NSCache is thread-safe, so
+	/// views read it straight away for art that's already in.
+	nonisolated(unsafe) private let memory = NSCache<NSString, UIImage>()
+	// Coalesce concurrent requests for the same URL into one load.
 	private var inFlight: [String: Task<UIImage?, Never>] = [:]
 
 	init() {
-		let caches = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-		directory = caches.appendingPathComponent("PosterCache", isDirectory: true)
-		try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-		memory.countLimit = 300
+		try? FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
+		memory.countLimit = 400
+		memory.totalCostLimit = 150 * 1024 * 1024
 	}
 
-	private func key(for url: URL) -> String {
+	private nonisolated static var directory: URL {
+		FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+			.appendingPathComponent("PosterCache", isDirectory: true)
+	}
+
+	private nonisolated static func fileName(for url: URL) -> String {
 		let digest = SHA256.hash(data: Data(url.absoluteString.utf8))
 		return digest.map { String(format: "%02x", $0) }.joined()
 	}
 
+	/// The image for `url` if it's already decoded in memory.
+	nonisolated func cached(_ url: URL) -> UIImage? {
+		memory.object(forKey: url.absoluteString as NSString)
+	}
+
 	func image(for url: URL) async -> UIImage? {
-		let k = key(for: url)
+		let key = url.absoluteString
+		if let cached = memory.object(forKey: key as NSString) { return cached }
+		if let existing = inFlight[key] { return await existing.value }
 
-		// 1. In-memory.
-		if let cached = memory.object(forKey: k as NSString) { return cached }
-
-		// 2. On disk (cache).
-		let fileURL = directory.appendingPathComponent(k)
-		if let data = try? Data(contentsOf: fileURL), let image = UIImage(data: data) {
-			memory.setObject(image, forKey: k as NSString)
-			return image
+		// Detached, so loads run side by side instead of queueing on this actor.
+		let task = Task.detached(priority: .userInitiated) { await Self.load(url) }
+		inFlight[key] = task
+		let image = await task.value
+		inFlight[key] = nil
+		if let image {
+			memory.setObject(image, forKey: key as NSString, cost: Self.cost(of: image))
 		}
+		return image
+	}
 
-		// 3. Local file (e.g. a manually-picked poster) — read directly, no network.
+	/// From the disk cache, a local file (a manually-picked poster) or the
+	/// network, decoded ready to draw.
+	private nonisolated static func load(_ url: URL) async -> UIImage? {
+		let cacheFile = directory.appendingPathComponent(fileName(for: url))
+		if let data = try? Data(contentsOf: cacheFile), let image = decoded(data) { return image }
 		if url.isFileURL {
-			guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
-			memory.setObject(image, forKey: k as NSString)
-			return image
+			return (try? Data(contentsOf: url)).flatMap(decoded)
 		}
+		guard let download = try? await URLSession.shared.data(from: url),
+		      let image = decoded(download.0) else { return nil }
+		try? download.0.write(to: cacheFile, options: .atomic)
+		return image
+	}
 
-		// 4. Download (de-duplicated).
-		if let existing = inFlight[k] { return await existing.value }
-		let task = Task<UIImage?, Never> {
-			defer { inFlight[k] = nil }
-			do {
-				let (data, _) = try await URLSession.shared.data(from: url)
-				guard let image = UIImage(data: data) else { return nil }
-				memory.setObject(image, forKey: k as NSString)
-				try? data.write(to: fileURL, options: .atomic)
-				return image
-			} catch {
-				return nil
-			}
+	/// Decodes now, rather than lazily on the main thread the first time the
+	/// image is drawn.
+	private nonisolated static func decoded(_ data: Data) -> UIImage? {
+		guard let image = UIImage(data: data) else { return nil }
+		return image.preparingForDisplay() ?? image
+	}
+
+	private nonisolated static func cost(of image: UIImage) -> Int {
+		guard let cgImage = image.cgImage else { return 1 }
+		return cgImage.bytesPerRow * cgImage.height
+	}
+
+	/// Keeps the disk cache under `limit` bytes, dropping the files written
+	/// longest ago first.
+	nonisolated static func trimDisk(to limit: Int = 200 * 1024 * 1024) {
+		let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .contentModificationDateKey]
+		guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: keys)
+		else { return }
+		let entries = files.compactMap { file -> (file: URL, size: Int, written: Date)? in
+			guard let values = try? file.resourceValues(forKeys: Set(keys)) else { return nil }
+			return (file, values.totalFileAllocatedSize ?? 0, values.contentModificationDate ?? .distantPast)
 		}
-		inFlight[k] = task
-		return await task.value
+		var total = entries.reduce(0) { $0 + $1.size }
+		for entry in entries.sorted(by: { $0.written < $1.written }) where total > limit {
+			try? FileManager.default.removeItem(at: entry.file)
+			total -= entry.size
+		}
 	}
 }
 
@@ -112,11 +146,14 @@ struct CachedAsyncImage<Content: View>: View {
 	private let url: URL?
 	private let content: (AsyncImagePhase) -> Content
 
-	@State private var phase: AsyncImagePhase = .empty
+	@State private var phase: AsyncImagePhase
 
 	init(url: URL?, @ViewBuilder content: @escaping (AsyncImagePhase) -> Content) {
 		self.url = url
 		self.content = content
+		// Art already in memory shows at once, without a placeholder frame first.
+		_phase = State(initialValue: url.flatMap { ImageCache.shared.cached($0) }
+			.map { AsyncImagePhase.success(Image(uiImage: $0)) } ?? .empty)
 	}
 
 	var body: some View {

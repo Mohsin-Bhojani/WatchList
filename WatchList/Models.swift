@@ -7,6 +7,11 @@
 //  Hierarchy:
 //    Show  ->  Season  ->  Episode      (TV)
 //    Film                                (movies)
+//    TitleCollection                     (your own collections, by title id)
+//    SuggestionDecision                  (Discover suggestions turned down or put off)
+//
+//  Watched dates, verdict dates and hand-picked stars live on the titles
+//  themselves, kept in step with status and verdict by WatchTracking.swift.
 //
 //  - Synopses live on Shows, Episodes and Films.
 //  - Technical specs live on Films and Episodes only (per the product spec).
@@ -162,8 +167,14 @@ final class Show {
 	var tmdbID: Int?
 	var status: WatchStatus
 	var rating: Rating?
+	/// Stars picked by hand; nil shows the verdict's own.
+	var stars: Double?
+	/// When its verdict was last given or changed; nil while it has none.
+	var ratedAt: Date?
 	var notes: String
 	var dateAdded: Date
+	/// When it was marked Watched; nil while it isn't.
+	var watchedAt: Date?
 
 	@Relationship(deleteRule: .cascade, inverse: \Season.show)
 	var seasons: [Season]
@@ -190,8 +201,10 @@ final class Show {
 		self.tmdbID = tmdbID
 		self.status = status
 		self.rating = rating
+		self.ratedAt = rating == nil ? nil : Date()
 		self.notes = notes
 		self.dateAdded = Date()
+		self.watchedAt = status == .watched ? Date() : nil
 		self.seasons = []
 	}
 
@@ -216,6 +229,10 @@ final class Season {
 	var airYear: String
 	var status: WatchStatus
 	var rating: Rating?
+	/// Stars picked by hand; nil shows the verdict's own.
+	var stars: Double?
+	/// When its verdict was last given or changed; nil while it has none.
+	var ratedAt: Date?
 	var dateAdded: Date
 	var show: Show?
 
@@ -237,6 +254,7 @@ final class Season {
 		self.airYear = airYear
 		self.status = status
 		self.rating = rating
+		self.ratedAt = rating == nil ? nil : Date()
 		self.dateAdded = Date()
 		self.episodes = []
 	}
@@ -261,6 +279,7 @@ final class Episode {
 	var specs: TechSpecs?           // technical specs (films + episodes only)
 	var status: WatchStatus
 	var episodeTier: EpisodeTier?   // Skip / Watch / Rewatch (episode-only rating)
+	var watchedAt: Date?            // when it was marked Watched; nil while it isn't
 	var imdbID: String?             // this episode's own IMDb id, for the link out
 	var tmdbShowID: Int?            // needed to resolve episode external ids
 	var season: Season?
@@ -288,6 +307,7 @@ final class Episode {
 		self.specs = specs
 		self.status = status
 		self.episodeTier = episodeTier
+		self.watchedAt = status == .watched ? Date() : nil
 		self.imdbID = imdbID
 		self.tmdbShowID = tmdbShowID
 	}
@@ -312,8 +332,14 @@ final class Film {
 	var specs: TechSpecs?           // technical specs
 	var status: WatchStatus
 	var rating: Rating?
+	/// Stars picked by hand; nil shows the verdict's own.
+	var stars: Double?
+	/// When its verdict was last given or changed; nil while it has none.
+	var ratedAt: Date?
 	var notes: String
 	var dateAdded: Date
+	/// When it was marked Watched; nil while it isn't.
+	var watchedAt: Date?
 
 	init(title: String,
 	     synopsis: String = "",
@@ -339,8 +365,56 @@ final class Film {
 		self.specs = specs
 		self.status = status
 		self.rating = rating
+		self.ratedAt = rating == nil ? nil : Date()
 		self.notes = notes
 		self.dateAdded = Date()
+		self.watchedAt = status == .watched ? Date() : nil
+	}
+}
+
+// MARK: - Collection
+
+/// One of your own collections: a name and the titles in it, in the order they
+/// were added. Titles are kept by id, so a title can be in any number of
+/// collections and deleting a collection never deletes a title.
+@Model
+final class TitleCollection {
+	var id: UUID
+	var name: String
+	/// Show and film ids, in the order they were added.
+	var titleIDs: [UUID]
+	var created: Date
+
+	init(name: String, titleIDs: [UUID] = [], created: Date = .now) {
+		self.id = UUID()
+		self.name = name
+		self.titleIDs = titleIDs
+		self.created = created
+	}
+}
+
+// MARK: - Discover
+
+/// What you did with one of Discover's suggestions. Adding one needs no record:
+/// being in the library keeps it out of the queue.
+enum SuggestionChoice: String, Codable {
+	/// Never offered again.
+	case notInterested
+	/// Back of the queue, offered again once the fresh suggestions run out.
+	case later
+}
+
+@Model
+final class SuggestionDecision {
+	/// The title's kind and TMDb id, as `AddCandidate` keys them.
+	@Attribute(.unique) var key: String
+	var choice: SuggestionChoice
+	var decidedAt: Date
+
+	init(key: String, choice: SuggestionChoice, decidedAt: Date = .now) {
+		self.key = key
+		self.choice = choice
+		self.decidedAt = decidedAt
 	}
 }
 

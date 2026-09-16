@@ -2,10 +2,10 @@
 //  CreditsTests.swift
 //  WatchListTests
 //
-//  Covers the parts of the Cast, Similar and Images tabs that are pure logic:
-//  decoding what TMDb's credits, similar and images endpoints actually return,
-//  and the mapping that turns them into rows — sort order, the guest-star and
-//  multi-role cases, which genres two titles share, and how artwork is grouped.
+//  Covers the parts of the cast rows and artwork gallery that are pure logic:
+//  decoding what TMDb's credits and images endpoints actually return, and the
+//  mapping that turns them into rows — sort order, the guest-star and
+//  multi-role cases, and how artwork is grouped.
 //  Both the TV and the film shapes, since the two pages share the mapping.
 //
 //  These need no API key, which is the point: they pin the behaviour either
@@ -148,125 +148,6 @@ struct EpisodeCreditsTests {
 	@Test func anUnairedEpisodeIsEmpty() throws {
 		let credits: TMDbCredits = try decode("{\"cast\":[],\"crew\":[],\"guest_stars\":[]}")
 		#expect(CreditsLoader.titleCredits(from: credits).isEmpty)
-	}
-}
-
-// MARK: - Similar
-
-@MainActor
-struct SimilarEntryTests {
-
-	private let genreNames = [35: "Comedy", 18: "Drama", 10759: "Action & Adventure"]
-
-	private let json = """
-	{"results":[
-	  {"id":100,"name":"Panchayat","first_air_date":"2020-04-03","vote_average":8.6,
-	   "poster_path":"/p.jpg","genre_ids":[35,18]},
-	  {"id":101,"name":"Kota Factory","first_air_date":"2019-04-16","vote_average":8.1,
-	   "poster_path":null,"genre_ids":[10759]}
-	]}
-	"""
-
-	@Test func mapsYearAndVoteAverage() throws {
-		let response: TMDbSimilarResponse = try decode(json)
-		let entries = CreditsLoader.similarEntries(from: response.results,
-		                                           parentGenres: "Comedy, Drama",
-		                                           genreNames: genreNames)
-
-		#expect(entries[0].title == "Panchayat")
-		#expect(entries[0].year == "2020")
-		#expect(entries[0].voteAverage == 8.6)
-		#expect(entries[1].posterURL.isEmpty)
-	}
-
-	@Test func namesOnlyTheGenresBothTitlesHave() throws {
-		let response: TMDbSimilarResponse = try decode(json)
-		let entries = CreditsLoader.similarEntries(from: response.results,
-		                                           parentGenres: "Comedy, Drama",
-		                                           genreNames: genreNames)
-
-		#expect(entries[0].sharedGenres == ["Comedy", "Drama"])
-		#expect(entries[1].sharedGenres.isEmpty)
-	}
-
-	@Test func sharedGenresFollowTheParentTitlesOrder() throws {
-		let response: TMDbSimilarResponse = try decode(json)
-		let entries = CreditsLoader.similarEntries(from: response.results,
-		                                           parentGenres: "Drama, Comedy",
-		                                           genreNames: genreNames)
-
-		#expect(entries[0].sharedGenres == ["Drama", "Comedy"])
-	}
-
-	@Test func genreIDsWeCannotNameAreIgnored() throws {
-		let response: TMDbSimilarResponse = try decode(json)
-		let entries = CreditsLoader.similarEntries(from: response.results,
-		                                           parentGenres: "Comedy, Drama",
-		                                           genreNames: [:])
-
-		#expect(entries[0].sharedGenres.isEmpty)
-	}
-
-	@Test func splitsTheStoredGenreString() {
-		#expect(CreditsLoader.splitGenres("Comedy, Drama") == ["Comedy", "Drama"])
-		#expect(CreditsLoader.splitGenres("Comedy,Drama ,") == ["Comedy", "Drama"])
-		#expect(CreditsLoader.splitGenres("").isEmpty)
-	}
-}
-
-// MARK: - Similar (films)
-
-/// `/movie/{id}/similar` differs from its TV counterpart only in the two field
-/// names, and in resolving genre ids against TMDb's separate movie table.
-@MainActor
-struct SimilarMovieEntryTests {
-
-	private let genreNames = [28: "Action", 878: "Science Fiction", 12: "Adventure"]
-
-	private let json = """
-	{"results":[
-	  {"id":200,"title":"Sicario","release_date":"2015-09-17","vote_average":7.4,
-	   "poster_path":"/s.jpg","genre_ids":[28]},
-	  {"id":201,"title":"The Man from Earth","release_date":"2007-11-13","vote_average":7.6,
-	   "poster_path":null,"genre_ids":[878]}
-	]}
-	"""
-
-	@Test func readsTitleAndReleaseDateRatherThanTheTVFields() throws {
-		let response: TMDbSimilarMovieResponse = try decode(json)
-		let entries = CreditsLoader.similarEntries(from: response.results,
-		                                           parentGenres: "Action, Science Fiction",
-		                                           genreNames: genreNames)
-
-		#expect(entries[0].title == "Sicario")
-		#expect(entries[0].year == "2015")
-		#expect(entries[0].voteAverage == 7.4)
-		#expect(entries[1].posterURL.isEmpty)
-	}
-
-	@Test func namesOnlyTheGenresBothFilmsHave() throws {
-		let response: TMDbSimilarMovieResponse = try decode(json)
-		let entries = CreditsLoader.similarEntries(from: response.results,
-		                                           parentGenres: "Action, Science Fiction",
-		                                           genreNames: genreNames)
-
-		#expect(entries[0].sharedGenres == ["Action"])
-		#expect(entries[1].sharedGenres == ["Science Fiction"])
-	}
-
-	/// A missing release date must not crash the year prefix.
-	@Test func survivesAMissingReleaseDate() throws {
-		let response: TMDbSimilarMovieResponse = try decode("""
-		{"results":[{"id":202,"title":"Unreleased","release_date":null,"vote_average":null,
-		  "poster_path":null,"genre_ids":null}]}
-		""")
-		let entries = CreditsLoader.similarEntries(from: response.results,
-		                                           parentGenres: "Action",
-		                                           genreNames: genreNames)
-
-		#expect(entries[0].year.isEmpty)
-		#expect(entries[0].voteAverage == 0)
-		#expect(entries[0].sharedGenres.isEmpty)
 	}
 }
 
