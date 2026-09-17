@@ -85,12 +85,12 @@ final class WatchSync: NSObject {
 		debounce = Task {
 			try? await Task.sleep(for: .milliseconds(700))
 			guard !Task.isCancelled else { return }
-			send()
+			await send()
 		}
 	}
 
-	private func send() {
-		guard watchIsThere, let data = packedSnapshot() else { return }
+	private func send() async {
+		guard watchIsThere, let data = await packedSnapshot() else { return }
 		do {
 			try WCSession.default.updateApplicationContext([WatchLink.snapshotKey: data])
 		} catch {
@@ -100,21 +100,36 @@ final class WatchSync: NSObject {
 
 	/// The snapshot as it travels, trimmed until it fits WatchConnectivity's
 	/// limit: fewer episodes to come and fewer seeds before anything's dropped.
-	fileprivate func packedSnapshot() -> Data? {
+	fileprivate func packedSnapshot() async -> Data? {
 		guard let context else { return nil }
 		let shows = (try? context.fetch(FetchDescriptor<Show>(sortBy: [SortDescriptor(\.dateAdded, order: .reverse)]))) ?? []
 		let films = (try? context.fetch(FetchDescriptor<Film>(sortBy: [SortDescriptor(\.dateAdded, order: .reverse)]))) ?? []
 		let decisions = (try? context.fetch(FetchDescriptor<SuggestionDecision>())) ?? []
+		let artwork = await heroArtwork(for: HomeFeed.watching(shows))
 		let applied = Set(appliedActions().map(\.id))
 		var packed: Data?
 		for (upcoming, seeds) in [(Self.upcomingCount, 200), (3, 80), (1, 30)] {
 			let snapshot = WatchSnapshotBuilder.snapshot(shows: shows, films: films, decisions: decisions,
-			                                             applied: applied, upcoming: upcoming, seeds: seeds)
+			                                             applied: applied, artwork: artwork,
+			                                             upcoming: upcoming, seeds: seeds)
 			packed = WatchLink.pack(snapshot)
 			if let packed, packed.count <= WatchLink.payloadBudget { return packed }
 		}
 		log.error("The watch snapshot is over budget at \(packed?.count ?? 0) bytes")
 		return packed
+	}
+
+	/// The artwork Home's hero shows for each show — a textless backdrop from
+	/// TMDb's gallery when there is one — so the watch's Up Next matches it. The
+	/// galleries are Home's session cache, so this rarely waits on TMDb.
+	private func heroArtwork(for shows: [Show]) async -> [UUID: String] {
+		var artwork: [UUID: String] = [:]
+		for show in shows {
+			var gallery: ImageGallery?
+			if let tmdbID = show.tmdbID { gallery = await CreditsLoader.seriesImages(tvID: tmdbID) }
+			artwork[show.id] = HomeFeed.heroArtURL(for: show, gallery: gallery)
+		}
+		return artwork
 	}
 
 	// MARK: The watch's actions
@@ -239,7 +254,7 @@ extension WatchSync: WCSessionDelegate {
 		guard message[WatchLink.refreshKey] != nil else { return replyHandler([:]) }
 		let reply = UncheckedReply(send: replyHandler)
 		Task { @MainActor in
-			let data = WatchSync.shared.packedSnapshot()
+			let data = await WatchSync.shared.packedSnapshot()
 			reply.send(data.map { [WatchLink.snapshotKey: $0] } ?? [:])
 		}
 	}
@@ -310,6 +325,7 @@ enum WatchActionApplier {
 /// The snapshot's pieces, worked out from the library.
 enum WatchSnapshotBuilder {
 	static func snapshot(shows: [Show], films: [Film], decisions: [SuggestionDecision], applied: Set<UUID>,
+	                     artwork: [UUID: String] = [:],
 	                     upcoming: Int = WatchSync.upcomingCount, seeds seedLimit: Int = 200,
 	                     now: Date = .now) -> PhoneSnapshot {
 		var library = Set<String>()
@@ -326,18 +342,20 @@ enum WatchSnapshotBuilder {
 		let seeds = DiscoverFeed.seeds(shows: shows, films: films).prefix(seedLimit).map {
 			DiscoverSeed(id: $0.id, kind: $0.kind, tmdbID: $0.tmdbID, title: $0.title)
 		}
-		return PhoneSnapshot(upNext: upNext(shows, upcoming: upcoming), seeds: Array(seeds), library: library,
+		return PhoneSnapshot(upNext: upNext(shows, artwork: artwork, upcoming: upcoming), seeds: Array(seeds), library: library,
 		                     notInterested: notInterested, putOff: putOff, applied: applied, sentAt: now)
 	}
 
 	/// The shows Home's hero pages through, in the order given, each with its
-	/// first `upcoming` episodes not yet watched.
-	static func upNext(_ shows: [Show], upcoming limit: Int = WatchSync.upcomingCount) -> [UpNextShow] {
+	/// first `upcoming` episodes not yet watched, and the hero's artwork when
+	/// `artwork` has it.
+	static func upNext(_ shows: [Show], artwork: [UUID: String] = [:],
+	                   upcoming limit: Int = WatchSync.upcomingCount) -> [UpNextShow] {
 		HomeFeed.watching(shows).map { show in
 			let unwatched = HomeFeed.runningOrder(of: show).filter { $0.status != .watched }
 			return UpNextShow(id: show.id,
 			                  title: show.title,
-			                  artworkURL: show.backdropURL.isEmpty ? show.posterURL : show.backdropURL,
+			                  artworkURL: artwork[show.id] ?? (show.backdropURL.isEmpty ? show.posterURL : show.backdropURL),
 			                  upcoming: unwatched.prefix(limit).map { episode($0) },
 			                  remaining: unwatched.count,
 			                  episodeCount: show.episodeCount)

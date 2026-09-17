@@ -56,6 +56,18 @@ struct WatchLinkTests {
 		#expect(upNext[0].upcoming[0].status == .toWatch)
 	}
 
+	@Test func upNextCarriesHomesHeroArtworkOrWhatTheShowWasSavedWith() {
+		let withHero = show("Hero", status: .watching, [(1, 1)])
+		let saved = show("Saved", status: .watching, [(1, 1)])
+		saved.backdropURL = "https://image.tmdb.org/t/p/w780/backdrop.jpg"
+		let posterOnly = show("Poster", status: .watching, [(1, 1)])
+		posterOnly.posterURL = "https://image.tmdb.org/t/p/w500/poster.jpg"
+		let hero = "https://image.tmdb.org/t/p/original/textless.jpg"
+
+		let upNext = WatchSnapshotBuilder.upNext([withHero, saved, posterOnly], artwork: [withHero.id: hero])
+		#expect(upNext.map(\.artworkURL) == [hero, saved.backdropURL, posterOnly.posterURL])
+	}
+
 	@Test func theSnapshotKeysTheLibraryAndSplitsTheDecisions() {
 		let owned = show("Owned", status: .watched, tmdbID: 7, [])
 		let byHand = show("By hand", status: .toWatch, [])
