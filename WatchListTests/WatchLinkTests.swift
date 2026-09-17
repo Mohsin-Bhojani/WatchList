@@ -198,6 +198,20 @@ struct WatchLinkTests {
 		#expect(outbox.entries.count == 1)
 	}
 
+	@Test func aFailedTransferGoesBackToWaiting() {
+		var outbox = WatchOutbox()
+		let first = WatchAction(change: .later(key: "Show-1")), second = WatchAction(change: .later(key: "Show-2"))
+		outbox.add(first)
+		outbox.add(second)
+		outbox.markHandedOver([first.id, second.id])
+		#expect(outbox.unsent.isEmpty)
+
+		outbox.markUnsent(second.id)
+		#expect(outbox.unsent == [second])
+		// Still laid over the snapshot meanwhile.
+		#expect(outbox.decisions["Show-2"]?.choice == .later)
+	}
+
 	@Test func decisionsOnTheWatchShapeWhatDiscoverLeavesOut() {
 		let sent = snapshot(library: ["Show-1"], notInterested: ["Film-2", "Film-3"],
 		                    putOff: ["Show-4": now, "Show-5": now], sentAt: now)

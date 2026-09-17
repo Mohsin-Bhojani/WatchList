@@ -10,8 +10,9 @@
 //      latest one matters, and the watch keeps it for when the iPhone's away.
 //    - WatchAction, from the watch: an episode marked watched or put back, and
 //      a suggestion added, turned down or put off. Queued with transferUserInfo,
-//      so each one arrives, once and in order, whenever the iPhone is next
-//      there.
+//      so each one arrives, in order, whenever the iPhone is next there — and,
+//      while the iPhone is reachable, sent as a message too, so it shows there
+//      straight away. The iPhone applies each action once, by its id.
 //    - a refresh: a message the watch sends while the iPhone is reachable,
 //      answered there and then with a snapshot.
 //  Each travels as LZFSE-compressed JSON.
@@ -26,8 +27,10 @@ import Foundation
 enum WatchLink {
 	/// The application-context and reply key a snapshot travels under.
 	nonisolated static let snapshotKey = "snapshot"
-	/// The user-info key an action travels under.
+	/// The user-info and message key an action travels under.
 	nonisolated static let actionKey = "action"
+	/// The user-info key naming the action, for a transfer that comes back failed.
+	nonisolated static let actionIDKey = "actionID"
 	/// The message key that asks for a snapshot straight away.
 	nonisolated static let refreshKey = "refresh"
 	/// WatchConnectivity turns away payloads much past 65 KB; a snapshot is
@@ -153,6 +156,13 @@ struct WatchOutbox: Codable, Equatable {
 	mutating func markHandedOver(_ ids: Set<UUID>) {
 		for index in entries.indices where ids.contains(entries[index].action.id) {
 			entries[index].handedOver = true
+		}
+	}
+
+	/// A transfer that failed: to be handed over again.
+	mutating func markUnsent(_ id: UUID) {
+		for index in entries.indices where entries[index].action.id == id {
+			entries[index].handedOver = false
 		}
 	}
 

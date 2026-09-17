@@ -7,11 +7,12 @@
 //    - sends a PhoneSnapshot as the application context shortly after the
 //      library is saved and whenever the app comes to the front, while a paired
 //      watch has the watch app installed
-//    - applies the watch's actions, queued with transferUserInfo, through the
-//      same code the iPhone's own screens use: HomeFeed.markWatched for a
-//      rating, ImportCoordinator for Add, a SuggestionDecision for Not
-//      interested and Later. Each is applied once, and named in the snapshots
-//      after it so the watch can stop laying it over what it shows.
+//    - applies the watch's actions through the same code the iPhone's own
+//      screens use: HomeFeed.markWatched for a rating, ImportCoordinator for Add,
+//      a SuggestionDecision for Not interested and Later. Each comes queued with
+//      transferUserInfo, and as a message too while the watch can reach the
+//      iPhone; it's applied once, whichever copy is first, and named in the
+//      snapshots after it so the watch can stop laying it over what it shows.
 //    - answers the watch's refresh message with a snapshot there and then
 //  An action that arrives before the library does — the app woken in the
 //  background, before its window — waits in UserDefaults until it's here.
@@ -222,6 +223,12 @@ extension WatchSync: WCSessionDelegate {
 
 	nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
 		guard let data = userInfo[WatchLink.actionKey] as? Data else { return }
+		Task { @MainActor in WatchSync.shared.receive(data) }
+	}
+
+	/// An action sent live, ahead of its queued copy.
+	nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+		guard let data = message[WatchLink.actionKey] as? Data else { return }
 		Task { @MainActor in WatchSync.shared.receive(data) }
 	}
 
