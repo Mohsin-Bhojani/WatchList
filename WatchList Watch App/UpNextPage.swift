@@ -150,6 +150,9 @@ private struct ShowPage: View {
 			details
 		}
 		.background { tone.ignoresSafeArea() }
+		// Down into the space the page keeps free below, which the details
+		// otherwise leave empty.
+		.ignoresSafeArea(edges: .bottom)
 	}
 
 	/// The top two-thirds of the screen, faded as the iPhone's hero fades: over
@@ -209,7 +212,7 @@ private struct ShowPage: View {
 			}
 		}
 		.padding(.horizontal, 12)
-		.padding(.bottom, dots == nil ? 4 : 0)
+		.padding(.bottom, dots == nil ? 12 : 8)
 	}
 
 	/// In Mark Watched's place for a few seconds after marking.
