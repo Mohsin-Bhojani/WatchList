@@ -4,9 +4,8 @@
 //
 //  Up Next, after the iPhone's Home hero: a page for each show set to Watching,
 //  swiped sideways and round and round (HeroLoop, shared with the iPhone). Each
-//  page has the still of the episode it's up to — the show's hero artwork when
-//  TMDb has no still — fading into its colour, the episode, the title, and Mark
-//  Watched in Liquid Glass. Mark Watched opens the
+//  page has the hero's artwork fading into the show's colour, the episode it's
+//  up to, its title, and Mark Watched in Liquid Glass. Mark Watched opens the
 //  rating — Skip, Watch or Rewatch — and picking one is what marks the episode;
 //  closing it changes nothing. Double Tap presses Mark Watched on the show in
 //  view. Once marked, the button makes way for Undo for six seconds.
@@ -42,7 +41,7 @@ struct UpNextPage: View {
 				}
 			}
 		}
-		.onChange(of: items.flatMap(\.upcomingArt), initial: true) { _, urls in
+		.onChange(of: items.map(\.show.artworkURL), initial: true) { _, urls in
 			// While the iPhone or Wi-Fi is about, so the art is there without them.
 			Artwork.prefetch(urls.map(Artwork.backdrop))
 		}
@@ -106,7 +105,7 @@ struct UpNextPage: View {
 	}
 
 	private func tone(for item: UpNextItem) -> Color {
-		tones[item.id] ?? Artwork.cached(Artwork.backdrop(item.artURL))?.tone
+		tones[item.id] ?? Artwork.cached(Artwork.backdrop(item.show.artworkURL))?.tone
 			?? Artwork.placeholderTone(for: item.show.title)
 	}
 
@@ -130,7 +129,7 @@ struct UpNextPage: View {
 
 // MARK: - A show's page
 
-/// One show, laid out as the iPhone's hero page: the episode's still across the top,
+/// One show, laid out as the iPhone's hero page: the artwork across the top,
 /// fading in at its top and out into the show's colour below, with the episode,
 /// the title and Mark Watched on the fade.
 private struct ShowPage: View {
@@ -157,7 +156,7 @@ private struct ShowPage: View {
 	/// its top quarter and its bottom 40%.
 	private var artwork: some View {
 		GeometryReader { proxy in
-			ArtworkImage(url: Artwork.backdrop(item.artURL), onTone: onTone) {
+			ArtworkImage(url: Artwork.backdrop(item.show.artworkURL), onTone: onTone) {
 				Color.clear
 			}
 			.frame(width: proxy.size.width, height: proxy.size.height * 0.68)
@@ -285,16 +284,6 @@ struct MarkedNote: Identifiable, Equatable {
 	let showID: UUID
 	let episode: UpNextEpisode
 	let tier: EpisodeTier?
-}
-
-extension UpNextItem {
-	/// What the page shows: the still of the episode it's up to, or the show's
-	/// hero artwork when there's no still or nothing's left.
-	var artURL: String { next?.stillURL ?? show.artworkURL }
-
-	/// The pictures this show can move through as episodes are marked here —
-	/// fetched ahead so they're on the watch without the iPhone.
-	var upcomingArt: [String] { show.upcoming.compactMap(\.stillURL) + [show.artworkURL] }
 }
 
 extension UpNextEpisode {
