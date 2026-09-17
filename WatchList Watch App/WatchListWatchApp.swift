@@ -6,6 +6,8 @@
 //  without the iPhone app — and syncs with the iPhone app when both are there
 //  (PhoneSync). What it shows is kept on the watch (WatchStore).
 //
+//  Two pages, a Crown turn apart: Up Next on top, Discover below.
+//
 
 import SwiftUI
 
@@ -17,7 +19,7 @@ struct WatchListWatchApp: App {
 	@Environment(\.scenePhase) private var scenePhase
 
 	init() {
-		let store = WatchStore()
+		let store = WatchStore.launching()
 		_store = State(initialValue: store)
 		sync = PhoneSync(store: store)
 		sync.start()
@@ -25,31 +27,50 @@ struct WatchListWatchApp: App {
 
 	var body: some Scene {
 		WindowGroup {
-			SyncStatusView()
+			WatchRootView()
 				.environment(store)
 		}
 		.onChange(of: scenePhase) { _, phase in
-			if phase == .active { sync.refresh() }
+			guard phase == .active else { return }
+			// Anything that failed to go, and whatever's changed on the iPhone.
+			sync.flush()
+			sync.refresh()
 		}
 	}
 }
 
-/// What's arrived from the iPhone so far. Stands in until Up Next and Discover.
-struct SyncStatusView: View {
-	@Environment(WatchStore.self) private var store
+enum WatchPage: Hashable {
+	case upNext, discover
+}
+
+/// Up Next above Discover, as vertical pages: turn the Crown or swipe to move
+/// between them. The one NavigationStack holds both, and each page puts its
+/// own buttons in its toolbar.
+struct WatchRootView: View {
+	@State private var page: WatchPage = .upNext
 
 	var body: some View {
-		List {
-			LabeledContent("iPhone app", value: "\(store.phone)")
-			LabeledContent("Reachable", value: store.phoneIsReachable ? "Yes" : "No")
-			if let snapshot = store.snapshot {
-				LabeledContent("Up Next", value: "\(snapshot.upNext.count)")
-				LabeledContent("Seeds", value: "\(snapshot.seeds.count)")
-				LabeledContent("Sent", value: snapshot.sentAt.formatted(date: .omitted, time: .standard))
-			} else {
-				Text("Nothing from the iPhone yet")
+		NavigationStack {
+			TabView(selection: $page) {
+				UpNextPage()
+					.tag(WatchPage.upNext)
+				DiscoverPage(page: $page)
+					.tag(WatchPage.discover)
 			}
-			LabeledContent("Outbox", value: "\(store.outbox.entries.count)")
+			.tabViewStyle(.verticalPage)
 		}
+	}
+}
+
+extension WatchStore {
+	/// The store the app runs on. In a Debug build, -WatchListSample swaps in a
+	/// made-up library that's never saved, to try the app with no iPhone.
+	static func launching() -> WatchStore {
+		#if DEBUG
+		if ProcessInfo.processInfo.arguments.contains("-WatchListSample") {
+			return WatchStore(preview: .sample)
+		}
+		#endif
+		return WatchStore()
 	}
 }

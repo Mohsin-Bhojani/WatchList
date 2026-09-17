@@ -8,9 +8,14 @@
 //    - each action taken here goes with transferUserInfo, which queues it and
 //      delivers it whenever the iPhone is next there. Until the session is
 //      active, or while the iPhone app isn't installed, actions wait in the
-//      store's outbox and go when that changes.
-//    - while the iPhone is reachable, a refresh message asks for a snapshot
-//      there and then: as the app opens, and when the iPhone comes back
+//      store's outbox and go when that changes. A transfer that fails goes
+//      back to waiting.
+//    - while the iPhone is reachable, messages for what's live:
+//        - the same action again, so the iPhone shows it straight away rather
+//          than whenever the queue is delivered — it applies each action once,
+//          whichever copy comes first
+//        - a refresh, asking for a snapshot there and then: as the app opens,
+//          and when the iPhone comes back
 //
 
 import Foundation
@@ -43,7 +48,13 @@ final class PhoneSync: NSObject {
 		var handed = Set<UUID>()
 		for action in unsent {
 			guard let data = WatchLink.pack(action) else { continue }
-			session.transferUserInfo([WatchLink.actionKey: data])
+			session.transferUserInfo([WatchLink.actionKey: data, WatchLink.actionIDKey: action.id.uuidString])
+			if session.isReachable {
+				session.sendMessage([WatchLink.actionKey: data], replyHandler: nil) { error in
+					let message = error.localizedDescription
+					Task { @MainActor in self.log.info("Live action not delivered, queued instead: \(message, privacy: .public)") }
+				}
+			}
 			handed.insert(action.id)
 		}
 		store.markHandedOver(handed)
@@ -101,13 +112,26 @@ extension PhoneSync: WCSessionDelegate {
 		}
 	}
 
+	/// A queued action that didn't go: back to waiting, to go again.
+	nonisolated func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
+		guard let error else { return }
+		let id = (userInfoTransfer.userInfo[WatchLink.actionIDKey] as? String).flatMap(UUID.init(uuidString:))
+		let message = error.localizedDescription
+		Task { @MainActor in
+			self.log.error("An action transfer failed: \(message, privacy: .public)")
+			if let id { self.store.markUnsent(id) }
+		}
+	}
+
 	nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
 		let installed = session.isCompanionAppInstalled
 		let reachable = session.isReachable
 		Task { @MainActor in
 			let cameBack = reachable && !self.store.phoneIsReachable
 			self.update(installed: installed, reachable: reachable)
-			if cameBack { self.refresh() }
+			guard cameBack else { return }
+			self.flush()
+			self.refresh()
 		}
 	}
 }

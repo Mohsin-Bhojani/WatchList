@@ -95,6 +95,67 @@ final class WatchStore {
 		write(outbox, to: Self.outboxFile)
 	}
 
+	func markUnsent(_ id: UUID) {
+		outbox.markUnsent(id)
+		write(outbox, to: Self.outboxFile)
+	}
+
+	// MARK: Up Next
+
+	/// The shows set to Watching, each at the episode it's up to — counting what's
+	/// been marked here.
+	var upNext: [UpNextItem] {
+		snapshot?.upNext(markedOnWatch: outbox.watched) ?? []
+	}
+
+	/// Marks the episode watched, rated or not, as the iPhone's rating sheet does.
+	@discardableResult
+	func markWatched(_ episode: UpNextEpisode, tier: EpisodeTier?) -> WatchAction {
+		record(.markWatched(episode: episode.id, tier: tier))
+	}
+
+	/// Puts the episode back to the status and rating the iPhone last sent.
+	func undoWatched(_ episode: UpNextEpisode) {
+		record(.putBack(episode: episode.id, status: episode.status, tier: episode.tier))
+	}
+
+	// MARK: Discover
+
+	/// The card up, and what's ready behind it, as the iPhone's Discover deals.
+	var deal: DiscoverDeal<DiscoverSeed> {
+		DiscoverDeal(seeds: snapshot?.seeds ?? [], filter: filter, rotation: rotation,
+		             similar: loader.similar, fetched: loader.fetched,
+		             excluded: snapshot?.excluded(with: outbox) ?? [],
+		             putOff: snapshot?.putOff(with: outbox) ?? [:])
+	}
+
+	/// Fetches suggestions from TMDb until enough are ready for `deal`.
+	func fill(_ deal: DiscoverDeal<DiscoverSeed>) async {
+		await loader.fill(from: deal.ordered, wanted: DiscoverFeed.readyAhead, excluding: deal.skipped,
+		                  matching: filter, counting: deal.dealing, rotation: rotation)
+	}
+
+	/// A swipe or a button in the synopsis: counted against the title it came
+	/// from, and sent to the iPhone.
+	func decide(_ decision: CardDecision, on suggestion: Suggestion) {
+		if let seed = suggestion.seeds.first { rotation.record(decision, from: seed) }
+		switch decision {
+		case .add:           record(.add(kind: suggestion.kind, tmdbID: suggestion.tmdbID))
+		case .notInterested: record(.notInterested(key: suggestion.id))
+		case .later:         record(.later(key: suggestion.id))
+		}
+	}
+
+	/// The genres the filter offers for its type, once TMDb's names are in.
+	var genreOptions: [String] {
+		DiscoverFilter.genreOptions(for: filter.kind, tv: loader.tvGenres, movie: loader.movieGenres)
+	}
+
+	/// The seeds More like can narrow to, for the filter's type.
+	var moreLikeOptions: [DiscoverSeed] {
+		(snapshot?.seeds ?? []).filter { filter.kind.includes($0.kind) }
+	}
+
 	// MARK: Files
 
 	private static let snapshotFile = "snapshot.json"
