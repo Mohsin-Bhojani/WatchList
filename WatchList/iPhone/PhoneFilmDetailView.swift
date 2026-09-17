@@ -68,7 +68,9 @@ struct PhoneFilmDetailView: View {
 				}
 				PageTrailerCard(backdropURL: film.backdropURL)
 				if !film.synopsis.isEmpty { PageSynopsisCard(text: film.synopsis) }
-				PageSection(title: "Everyone on WatchList") { PlaceholderSlot(height: 150) }
+				if let tmdbID = film.tmdbID {
+					CommunitySection(title: .film(tmdbID: tmdbID), scale: .verdict, yours: film.rating?.rawValue)
+				}
 				PageSection(title: "Details") { detailsCard }
 				if !cast.isEmpty { PageSection(title: "Cast") { PageCastRow(cast: cast) } }
 			}

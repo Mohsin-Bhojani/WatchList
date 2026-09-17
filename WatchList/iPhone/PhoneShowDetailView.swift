@@ -70,7 +70,9 @@ struct PhoneShowDetailView: View {
 				seasonsSection
 				PageSection(title: "Trailer") { PageTrailerCard(backdropURL: show.backdropURL) }
 				if !show.overview.isEmpty { PageSynopsisCard(text: show.overview) }
-				PageSection(title: "Everyone on WatchList") { PlaceholderSlot(height: 150) }
+				if let tmdbID = show.tmdbID {
+					CommunitySection(title: .show(tmdbID: tmdbID), scale: .verdict, yours: show.rating?.rawValue)
+				}
 			}
 			.padding(.horizontal, 18)
 			.padding(.bottom, 32)

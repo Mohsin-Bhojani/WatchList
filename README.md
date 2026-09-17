@@ -31,6 +31,11 @@ about a title pulled from [The Movie Database](https://www.themoviedb.org).
   its menu, and any image there can be made the title's poster (portrait) or its
   landscape artwork. What's chosen is what the app draws it from everywhere,
   Home's hero and the watch included.
+- **Everyone on WatchList** — how everyone who rated a title rated it: the
+  rating most gave as a headline, the spread beneath it, and where yours sits.
+  The ratings come through one seam (`CommunitySource`); the only source today
+  is the device itself, so the count is your own rating and nothing is sent
+  anywhere. A server can go behind the same seam later.
 - **Six accent palettes**, changeable in-app or from the iOS Settings app.
 - **Apple Watch** — a companion app that also runs on its own. *Up Next* pages
   sideways through the shows set to Watching; Mark Watched opens Skip / Watch /

@@ -48,7 +48,11 @@ struct PhoneEpisodeView: View {
 				statusSwitch
 				ratingSection
 				if !episode.synopsis.isEmpty { PageSynopsisCard(text: episode.synopsis) }
-				PageSection(title: "Everyone on WatchList") { PlaceholderSlot(height: 120) }
+				if let tmdbShowID {
+					CommunitySection(title: .episode(tmdbID: tmdbShowID, season: episode.seasonNumber,
+					                                episode: episode.episodeNumber),
+					                 scale: .tier, yours: episode.episodeTier?.rawValue)
+				}
 				PageSection(title: "Details") { detailsCard }
 				if !credits.people.isEmpty {
 					PageSection(title: "In this episode") { PageCastRow(cast: Array(credits.people.prefix(15))) }
