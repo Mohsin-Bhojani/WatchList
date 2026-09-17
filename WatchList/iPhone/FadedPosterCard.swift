@@ -15,7 +15,7 @@ struct FadedPosterCard: View {
 
 	@State private var tone: UIColor?
 
-	private static let unratedColor = Color(red: 0.36, green: 0.37, blue: 0.41)
+	private static let unratedColor = Color(.unratedTone)
 
 	init(item: WatchedTitle) {
 		self.item = item
@@ -23,7 +23,7 @@ struct FadedPosterCard: View {
 	}
 
 	/// A neutral dark until the poster's colour is in, or when there's no poster.
-	private var toneColor: Color { Color(uiColor: tone ?? UIColor(white: 0.2, alpha: 1)) }
+	private var toneColor: Color { Color(uiColor: tone ?? UIColor(resource: .posterToneFallback)) }
 	private var verdictColor: Color { item.rating.map { Glass.tint($0) } ?? Self.unratedColor }
 
 	/// The verdict, then the kind and size: "Go For It · 3 seasons · 19 ep".

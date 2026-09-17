@@ -16,7 +16,7 @@ struct StarRatingPicker: View {
 	var size: CGFloat = 28
 	var spacing: CGFloat = 6
 
-	static let gold = Color(hex: "#F5C451")
+	static let gold = Color(.starGold)
 
 	/// Touchable room left of the first star, where the rating is 0.
 	private static let zeroRoom: CGFloat = 14

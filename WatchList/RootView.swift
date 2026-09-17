@@ -19,11 +19,7 @@ struct RootView: View {
 
 	init() {
 		// Serif, ink-colored navigation titles for the editorial feel.
-		let ink = UIColor { trait in
-			trait.userInterfaceStyle == .dark
-				? UIColor(red: 0.949, green: 0.925, blue: 0.878, alpha: 1)
-				: UIColor(red: 0.149, green: 0.129, blue: 0.110, alpha: 1)
-		}
+		let ink = UIColor(resource: .ink)
 		func serif(_ size: CGFloat, _ weight: UIFont.Weight) -> UIFont {
 			let base = UIFont.systemFont(ofSize: size, weight: weight)
 			if let d = base.fontDescriptor.withDesign(.serif) {

@@ -38,7 +38,7 @@ struct PhoneFilmDetailView: View {
 	@State private var theme: UIColor?
 
 	/// The design's teal, for Watched and Save rating.
-	static let teal = Color(hex: "#3FC6B6")
+	static let teal = Color(.pageWatched)
 
 	init(film: Film) {
 		_film = Bindable(film)

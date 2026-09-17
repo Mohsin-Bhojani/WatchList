@@ -88,7 +88,7 @@ struct PhoneShowsView: View {
 				}
 				.reportsListAtTop($atTop)
 			}
-			.toolbar(.hidden, for: .navigationBar)
+			.screenBar(kind.title)
 			// Genres the new type doesn't have would hide everything.
 			.onChange(of: kind) { pickedGenres.formIntersection(availableGenres) }
 			.sheet(isPresented: $showingFilters) { filterSheet }

@@ -252,13 +252,13 @@ struct RecentlyWatchedCard: View {
 	private static let width: CGFloat = 132
 	private static let posterHeight: CGFloat = 198
 	private static let height: CGFloat = 234
-	private static let unratedColor = Color(red: 0.36, green: 0.37, blue: 0.41)
+	private static let unratedColor = Color(.unratedTone)
 
 	/// Sampled poster colours by URL, so a card scrolled back into view doesn't
 	/// flash through the placeholder tone again.
 	private static var tones: [String: UIColor] = [:]
 
-	private var topColor: Color { Color(uiColor: tone ?? UIColor(white: 0.22, alpha: 1)) }
+	private var topColor: Color { Color(uiColor: tone ?? UIColor(resource: .heroToneFallback)) }
 	private var bottomColor: Color { item.rating.map { Glass.tint($0) } ?? Self.unratedColor }
 
 	var body: some View {

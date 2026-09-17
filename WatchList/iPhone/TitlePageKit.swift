@@ -20,7 +20,7 @@ import SwiftData
 @MainActor
 enum PageTheme {
 	/// The design's slate, until the artwork is in or when there is none.
-	static let fallback = UIColor(Color(hex: "#34465A"))
+	static let fallback = UIColor(resource: .pageFallback)
 
 	private static var sampled: [String: UIColor] = [:]
 

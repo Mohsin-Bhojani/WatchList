@@ -5,7 +5,8 @@
 //  User-selectable accent color. The choice is stored in UserDefaults (and
 //  surfaced in the iOS Settings app via Settings.bundle, key "accentColorID").
 //  `Glass.accent` / `accent2` / `accent3` read from the current palette, so the
-//  whole app re-tints when the selection changes.
+//  whole app re-tints when the selection changes. Each palette's three colours
+//  are colour sets in Assets.xcassets, under Colors/Themes.
 //
 
 import SwiftUI
@@ -23,12 +24,12 @@ enum AccentCatalog {
 	static let defaultID = "classicRed"
 
 	static let all: [AccentPalette] = [
-		AccentPalette(id: "classicRed",  name: "Classic Red",  accent: Color(hex: "#B23A2F"), accent2: Color(hex: "#8C2C24"), accent3: Color(hex: "#8A6D4F")),
-		AccentPalette(id: "cobaltBlue",  name: "Cobalt Blue",  accent: Color(hex: "#2D5BFF"), accent2: Color(hex: "#1E3FB0"), accent3: Color(hex: "#5E6E8C")),
-		AccentPalette(id: "forestGreen", name: "Forest Green", accent: Color(hex: "#3E7D5A"), accent2: Color(hex: "#2C5C42"), accent3: Color(hex: "#6E7A5E")),
-		AccentPalette(id: "plum",        name: "Plum",         accent: Color(hex: "#7A3E8C"), accent2: Color(hex: "#5C2C6B"), accent3: Color(hex: "#7C6A80")),
-		AccentPalette(id: "amber",       name: "Amber",        accent: Color(hex: "#C0801C"), accent2: Color(hex: "#946012"), accent3: Color(hex: "#8A7558")),
-		AccentPalette(id: "graphite",    name: "Graphite",     accent: Color(hex: "#454545"), accent2: Color(hex: "#262626"), accent3: Color(hex: "#7A7A7A")),
+		AccentPalette(id: "classicRed",  name: "Classic Red",  accent: Color(.classicRedAccent), accent2: Color(.classicRedAccent2), accent3: Color(.classicRedAccent3)),
+		AccentPalette(id: "cobaltBlue",  name: "Cobalt Blue",  accent: Color(.cobaltBlueAccent), accent2: Color(.cobaltBlueAccent2), accent3: Color(.cobaltBlueAccent3)),
+		AccentPalette(id: "forestGreen", name: "Forest Green", accent: Color(.forestGreenAccent), accent2: Color(.forestGreenAccent2), accent3: Color(.forestGreenAccent3)),
+		AccentPalette(id: "plum",        name: "Plum",         accent: Color(.plumAccent), accent2: Color(.plumAccent2), accent3: Color(.plumAccent3)),
+		AccentPalette(id: "amber",       name: "Amber",        accent: Color(.amberAccent), accent2: Color(.amberAccent2), accent3: Color(.amberAccent3)),
+		AccentPalette(id: "graphite",    name: "Graphite",     accent: Color(.graphiteAccent), accent2: Color(.graphiteAccent2), accent3: Color(.graphiteAccent3)),
 	]
 
 	static func palette(for id: String) -> AccentPalette {

@@ -3,7 +3,8 @@
 //  WatchList
 //
 //  The iPhone Home tab, after the "1a Home" design:
-//    - "Home" and a profile button across the top, over the hero
+//    - "Home" and a profile button across the top, over the hero — on an iPad,
+//      either side of the floating tab bar
 //    - a full-bleed hero with one swipeable page per show you're Watching,
 //      showing the episode it's up to and Mark Watched
 //    - To Watch: shows and films still to watch, newest added first, leaving out
@@ -78,7 +79,7 @@ struct PhoneHomeView: View {
 			}
 			.ignoresSafeArea(edges: .top)
 			.background(GlassBackground())
-			.toolbar(.hidden, for: .navigationBar)
+			.screenBar("Home", onBand: !watching.isEmpty)
 			.navigationDestination(item: $openedShow) { PhoneShowDetailView(show: $0) }
 		}
 		// Measured here, outside the scroll view that ignores the top safe area
@@ -194,8 +195,8 @@ struct PhoneHomeView: View {
 				.padding(.top, 6)
 		}
 		.padding(.horizontal, 36)
-		// Clear of the header laid over the top.
-		.padding(.top, max(screen.topInset, 20) + 56)
+		// Clear of the header laid over the top — on an iPad it's in the bar.
+		.padding(.top, max(screen.topInset, 20) + (ScreenHeader.isInBar ? 0 : 56))
 		.frame(maxWidth: .infinity)
 		.frame(height: heroHeight * 0.8)
 		.background(LinearGradient(colors: [Glass.accent.opacity(0.16), .clear],

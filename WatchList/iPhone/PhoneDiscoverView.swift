@@ -16,8 +16,10 @@
 //      added it gets 5 more, otherwise the next title takes over (DiscoverRotation)
 //    - Compared with your library: a sheet of how alike it is to every title in
 //      the library, the closest first
-//    - Filter, from a second tap on Discover: TV shows, films or both, and any
-//      of TMDb's genres; a line under the header says what's set
+//    - Filter, from a second tap on Discover: TV shows, films or both; any of
+//      TMDb's genres, in rows that scroll sideways; and More like, the one
+//      library title suggestions come from. A line under the header says
+//      what's set
 //  What's offered, in what order and how alike: DiscoverFeed.
 //
 
@@ -67,24 +69,15 @@ struct PhoneDiscoverView: View {
 		DiscoverFilter.genreOptions(for: filter.kind, tv: loader.tvGenres, movie: loader.movieGenres)
 	}
 
-	/// The type and genres, while either narrows what's suggested.
-	private var filterSummary: String? {
-		var parts: [String] = []
-		if filter.kind != .all { parts.append(filter.kind.title) }
-		switch filter.genres.count {
-		case 0:    break
-		case 1, 2: parts.append(filter.genres.sorted().joined(separator: ", "))
-		default:   parts.append("\(filter.genres.count) genres")
-		}
-		return parts.isEmpty ? nil : parts.joined(separator: " · ")
-	}
-
 	var body: some View {
 		let library = shows.map(WatchedTitle.show) + films.map(WatchedTitle.film)
 		// Only seeds of the chosen type: a seed is suggested titles of its own kind.
 		let seeds = DiscoverFeed.seeds(shows: shows, films: films).filter { filter.kind.includes($0.kind) }
+		// More like narrows Discover to the one title's suggestions.
+		let pickedSeed = seeds.first { $0.id == filter.seed }
+		let drawingSeeds = pickedSeed.map { [$0] } ?? seeds
 		// Titles moved on from go to the back; suggestions come from the rest first.
-		let seedOrder = rotation.order(seeds.map(\.id))
+		let seedOrder = rotation.order(drawingSeeds.map(\.id))
 		let drawing = seedOrder.filter { !rotation.passed.contains($0) }
 		let putOff = putOffDates()
 		let excluded = excludedIDs(library)
@@ -106,7 +99,7 @@ struct PhoneDiscoverView: View {
 		NavigationStack {
 			VStack(spacing: 0) {
 				ScreenHeader(title: "Discover", onBand: current != nil)
-				if let filterSummary {
+				if let filterSummary = filter.summary(seedTitle: pickedSeed?.title) {
 					FilterSummaryButton(summary: filterSummary) { showingFilters = true }
 						.frame(maxWidth: .infinity, alignment: .leading)
 						.padding(.horizontal, 20)
@@ -127,7 +120,7 @@ struct PhoneDiscoverView: View {
 						.padding(.top, 14)
 						.padding(.bottom, 12)
 				} else {
-					placeholder(seeds: seeds)
+					placeholder(seeds: drawingSeeds)
 					Spacer(minLength: 0)
 				}
 			}
@@ -135,7 +128,7 @@ struct PhoneDiscoverView: View {
 			.frame(maxHeight: .infinity, alignment: .top)
 			.background { backdrop(tinted: current != nil) }
 			.environment(\.colorScheme, current == nil ? systemScheme : .dark)
-			.toolbar(.hidden, for: .navigationBar)
+			.screenBar("Discover", onBand: current != nil)
 			.onAppear { atTop = true }
 			.onDisappear { atTop = false }
 			.task { await loader.loadGenres() }
@@ -148,30 +141,38 @@ struct PhoneDiscoverView: View {
 			                          fetched: loader.fetched.count, filter: filter), initial: true) {
 				let matching = filter
 				let turn = rotation
-				let byID = Dictionary(seeds.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+				let byID = Dictionary(drawingSeeds.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 				let ordered = seedOrder.compactMap { byID[$0] }
 				Task {
 					await loader.fill(from: ordered, wanted: DiscoverFeed.readyAhead, excluding: skipped,
 					                  matching: matching, counting: dealing, rotation: turn)
 				}
 			}
-			// Genres the new type doesn't have would hide everything.
-			.onChange(of: filter.kind) { filter.genres.formIntersection(genreOptions) }
+			// Genres the new type doesn't have would hide everything, and so would
+			// a title of the other type.
+			.onChange(of: filter.kind) {
+				filter.genres.formIntersection(genreOptions)
+				if filter.seed != nil && pickedSeed == nil { filter.seed = nil }
+			}
 			.sheet(item: $comparing) { comparisonSheet($0, library: library) }
 		}
 		// Outside the page's dark colouring, so the filter sheet takes the system's.
-		.sheet(isPresented: $showingFilters) { filterSheet }
+		.sheet(isPresented: $showingFilters) { filterSheet(seeds: seeds) }
 		.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
 	}
 
-	private var filterSheet: some View {
-		FilterSheet(title: "Filter", canReset: !filter.isDefault) {
+	/// Type, Genre, then More like — opened tall enough to show all three.
+	private func filterSheet(seeds: [WatchedTitle]) -> some View {
+		FilterSheet(title: "Filter", canReset: !filter.isDefault, phoneDetents: [.fraction(0.68), .large]) {
 			filter = DiscoverFilter()
 		} content: {
 			SegmentedFilter(title: "Type", options: BrowseKind.allCases, selection: $filter.kind) { $0.label }
 			let genres = genreOptions
 			if !genres.isEmpty {
-				TileFilter(title: "Genre", options: genres, picked: $filter.genres)
+				GenreRowsFilter(options: genres, picked: $filter.genres)
+			}
+			if !seeds.isEmpty {
+				MoreLikeFilter(seeds: seeds, picked: $filter.seed)
 			}
 		}
 	}
@@ -393,7 +394,7 @@ struct PhoneDiscoverView: View {
 				}
 			} else if !filter.isDefault {
 				EmptyState(icon: "line.3.horizontal.decrease.circle", title: "No matches",
-				           subtitle: "Nothing suggested fits this filter. Try another type or genre.")
+				           subtitle: "Nothing suggested fits this filter. Try another type, genre or title.")
 			} else {
 				EmptyState(icon: "checkmark.seal", title: "You're all caught up",
 				           subtitle: "That's every suggestion for now. Rate or add more titles and new ones show up here.")

@@ -20,6 +20,8 @@ struct FilterSheet<Content: View>: View {
 	let title: String
 	/// Whether anything differs from how the tab starts out.
 	let canReset: Bool
+	/// How tall it opens on a phone; an iPad's form sheet is always large.
+	var phoneDetents: Set<PresentationDetent> = [.medium, .large]
 	let reset: () -> Void
 	@ViewBuilder let content: () -> Content
 
@@ -51,7 +53,7 @@ struct FilterSheet<Content: View>: View {
 			}
 		}
 		// Half an iPad's form sheet cuts the last row off.
-		.presentationDetents(UIDevice.current.userInterfaceIdiom == .pad ? [.large] : [.medium, .large])
+		.presentationDetents(UIDevice.current.userInterfaceIdiom == .pad ? [.large] : phoneDetents)
 		.presentationDragIndicator(.visible)
 	}
 }
@@ -111,11 +113,7 @@ struct SortSegments<Sort: ListSort>: View {
 	@Namespace private var thumb
 
 	/// The system control's thumb: white, or a lighter grey in the dark.
-	private static var thumbColor: Color {
-		Color(uiColor: UIColor { traits in
-			traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.24) : .white
-		})
-	}
+	private static var thumbColor: Color { Color(.segmentThumb) }
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 8) {

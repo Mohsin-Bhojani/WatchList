@@ -87,10 +87,9 @@ struct PhoneCollectionsView: View {
 				}
 				.reportsListAtTop($atTop)
 			}
-			// Not shown — the bar is hidden — but it names the back button on a
-			// collection.
+			// Not shown, but it names the back button on a collection.
 			.navigationTitle("Collections")
-			.toolbar(.hidden, for: .navigationBar)
+			.screenBar("Collections")
 			.navigationDestination(item: $opened) { PhoneCollectionView(source: .mine($0)) }
 			.newCollectionAlert(isPresented: $naming) { opened = $0.id }
 			.confirmationDialog("Delete \u{201C}\(deleting?.name ?? "")\u{201D}?",
@@ -258,7 +257,7 @@ private struct CollectionCard: View {
 		_sampled = State(initialValue: posterURLs.first.flatMap { PageTheme.cached($0) })
 	}
 
-	private var color: Color { tint ?? sampled.map { Color(uiColor: $0) } ?? Color(white: 0.45) }
+	private var color: Color { tint ?? sampled.map { Color(uiColor: $0) } ?? Color(.collectionTintFallback) }
 
 	var body: some View {
 		let empty = posterURLs.isEmpty
@@ -289,7 +288,7 @@ private struct CollectionCard: View {
 		.frame(height: 100)
 		.background(LinearGradient(colors: [color.opacity(empty ? 0.12 : 0.5), .clear],
 		                           startPoint: .leading, endPoint: .trailing))
-		.background(Color(white: 0.08))
+		.background(Color(.collectionCardGround))
 		.clipShape(shape)
 		.overlay(shape.strokeBorder(color.opacity(empty ? 0.2 : 0.45), lineWidth: 1))
 		.accessibilityElement(children: .combine)

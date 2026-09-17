@@ -46,7 +46,7 @@ struct PhoneShowDetailView: View {
 	private static var voteCache: [Int: Votes] = [:]
 
 	/// Watching's side of the switch.
-	static let watchingFill = Color(hex: "#A9C8F2")
+	static let watchingFill = Color(.pageWatching)
 
 	init(show: Show) {
 		_show = Bindable(show)

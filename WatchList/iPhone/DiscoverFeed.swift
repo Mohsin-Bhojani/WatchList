@@ -11,6 +11,8 @@
 //      library or turned down, and putting titles put off for later at the back
 //    - how alike a suggestion is to every title in the library
 //    - what a swipe on the card decides
+//    - the filter: a type, genres, and — More like — the one library title
+//      suggestions come from, with See all's list of those titles
 //    - when to move on to the next library title: after 5 of its suggestions
 //      are decided, unless 3 or more of those were added, which earns it 5 more
 //  DiscoverLoader fetches the suggestions a few seeds at a time, keeping the
@@ -163,18 +165,69 @@ enum DiscoverFeed {
 	static func reason(for suggestion: Suggestion, in library: [WatchedTitle]) -> String? {
 		guard let seedID = suggestion.seeds.first,
 		      let seed = library.first(where: { $0.id == seedID }) else { return nil }
-		if let rating = seed.rating { return "Because you rated \(seed.title) \(rating.rawValue)" }
-		return "Because you added \(seed.title)"
+		return "Because \(becauseOf(seed))"
+	}
+
+	/// Under More like's posters: what picking a title narrows Discover to.
+	static func moreLikeCaption(for seed: WatchedTitle?) -> String {
+		guard let seed else { return "Suggestions from your whole library, best rated first." }
+		return "Only what\u{2019}s suggested because \(becauseOf(seed))."
+	}
+
+	/// "you rated Severance Perfection", or "you added Slow Horses".
+	private static func becauseOf(_ seed: WatchedTitle) -> String {
+		if let rating = seed.rating { return "you rated \(seed.title) \(rating.rawValue)" }
+		return "you added \(seed.title)"
+	}
+
+	/// A group on More like's See all: the seeds given one verdict, or the unrated.
+	struct SeedGroup: Identifiable {
+		let rating: Rating?
+		let titles: [WatchedTitle]
+
+		var id: String { name }
+		/// "Rated Perfection", or "Added".
+		var name: String { rating.map { "Rated \($0.rawValue)" } ?? "Added" }
+	}
+
+	/// More like's See all: `seeds` under their verdicts, best first, then the
+	/// unrated as Added — each group in seed order, and only the titles with
+	/// `search` in their name.
+	static func seedGroups(_ seeds: [WatchedTitle], matching search: String = "") -> [SeedGroup] {
+		let query = search.trimmingCharacters(in: .whitespaces)
+		let shown = query.isEmpty ? seeds : seeds.filter { $0.title.localizedCaseInsensitiveContains(query) }
+		let verdicts: [Rating?] = [.perfection, .goForIt, .timepass, nil]
+		return verdicts.compactMap { rating in
+			let titles = shown.filter { $0.rating == rating }
+			return titles.isEmpty ? nil : SeedGroup(rating: rating, titles: titles)
+		}
 	}
 }
 
 /// What Discover's filter narrows its suggestions to: TV shows, films or both,
-/// and any of some genres.
+/// any of some genres, and — More like — the one library title they come from.
 struct DiscoverFilter: Equatable {
 	var kind: BrowseKind = .all
 	var genres: Set<String> = []
+	/// The library title suggestions come from; nil for every title in turn.
+	var seed: UUID?
 
-	var isDefault: Bool { kind == .all && genres.isEmpty }
+	var isDefault: Bool { kind == .all && genres.isEmpty && seed == nil }
+
+	/// The line under Discover's header while anything's narrowed: the title
+	/// suggestions come from, the type, then the genres — "Severance · Drama,
+	/// Mystery". `seedTitle` is the picked title's name, when it's still there.
+	func summary(seedTitle: String?) -> String? {
+		var parts: [String] = []
+		if let seedTitle { parts.append(seedTitle) }
+		if kind != .all { parts.append(kind.title) }
+		switch genres.count {
+		case 0:    break
+		case 1, 2: parts.append(genres.sorted().joined(separator: ", "))
+		default:   parts.append("\(genres.count) genres")
+		}
+		return parts.isEmpty ? nil : parts.joined(separator: " · ")
+	}
 
 	/// Whether a suggestion fits: its kind, and — with genres picked — at least
 	/// one of them. TV and film genre names are lined up, so "Action" finds a

@@ -18,9 +18,8 @@ import UIKit
 /// Not tied to the main actor: views sample through `sampledColor` and
 /// `sampledThemeColor`, which do the work off the main thread.
 nonisolated enum ArtworkBand {
-	/// The design's blue (#1F7ED9): shown until the artwork loads, or when a
-	/// show has none.
-	static let fallback = UIColor(red: 31 / 255, green: 126 / 255, blue: 217 / 255, alpha: 1)
+	/// The design's blue: shown until the artwork loads, or when a show has none.
+	static let fallback = UIColor(resource: .artworkFallback)
 
 	/// Past this relative luminance, white text drops below 3:1 contrast (the
 	/// large-text minimum), so brighter samples are dimmed down to it.

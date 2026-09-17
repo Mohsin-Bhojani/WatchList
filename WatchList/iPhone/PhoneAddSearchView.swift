@@ -105,10 +105,10 @@ struct PhoneAddSearchView: View {
 				}
 				.scrollDismissesKeyboard(.interactively)
 			}
-			// Not shown — the bar is hidden — but it names the back button on a
-			// title opened from here.
+			// Not shown, but it names the back button on a title opened from here.
 			.navigationTitle("Search")
-			.toolbar(.hidden, for: .navigationBar)
+			// On an iPad the bar shows, and the search field is in it.
+			.screenBar("Search")
 			.searchable(text: $query, prompt: "Title, IMDb or TMDb link")
 			.task(id: trimmedQuery) { await refresh() }
 			.sheet(item: $manualDraft) { draft in

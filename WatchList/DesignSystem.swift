@@ -7,6 +7,8 @@
 //  single warm-red accent. Sophisticated magazine / print feel, adapts to
 //  light & dark. The public API (Glass, .glass(), GlassBackground, Haptics,
 //  etc.) is intentionally unchanged so every screen restyles automatically.
+//  Every colour is a colour set in Assets.xcassets, under Colors — light and
+//  dark variants included — and is referred to here by its generated name.
 //
 
 import SwiftUI
@@ -20,27 +22,27 @@ enum Glass {
 	static var accent2: Color { AppTheme.shared.palette.accent2 }
 	static var accent3: Color { AppTheme.shared.palette.accent3 }
 
-	// Status tints, kept muted and editorial.
-	static let toWatch     = Color(hex: "#A9762F")   // ochre
-	static let watching    = Color(hex: "#B23A2F")   // red
-	static let watched     = Color(hex: "#4F6B4E")   // muted green
+	// Status tints, kept muted and editorial (Colors/Status).
+	static let toWatch     = Color(.statusToWatch)    // ochre
+	static let watching    = Color(.statusWatching)   // red
+	static let watched     = Color(.statusWatched)    // muted green
 
-	// Rating tints (best -> worst), muted to match the editorial palette.
-	static let ratingPerfection = Color(hex: "#2E7D6B")   // teal-green
-	static let ratingGoForIt    = Color(hex: "#5E7A3E")   // olive
-	static let ratingTimepass   = Color(hex: "#B08A2E")   // amber
-	static let ratingSkip       = Color(hex: "#9A3B34")   // brick red
+	// Rating tints (best -> worst), muted to match the editorial palette (Colors/Verdicts).
+	static let ratingPerfection = Color(.ratingPerfection)   // teal-green
+	static let ratingGoForIt    = Color(.ratingGoForIt)      // olive
+	static let ratingTimepass   = Color(.ratingTimepass)     // amber
+	static let ratingSkip       = Color(.ratingSkip)         // brick red
 
-	// Episode rewatch-tier tints (worst -> best).
-	static let tierSkip    = Color(hex: "#9A8F86")   // muted taupe
-	static let tierWatch   = Color(hex: "#4F6B4E")   // green
-	static let tierRewatch = Color(hex: "#C6902A")   // gold
+	// Episode rewatch-tier tints (worst -> best) (Colors/Episode Tiers).
+	static let tierSkip    = Color(.tierSkip)      // muted taupe
+	static let tierWatch   = Color(.tierWatch)     // green
+	static let tierRewatch = Color(.tierRewatch)   // gold
 
-	// Paper surfaces (adapt to light / dark).
-	static let paper    = Color(light: "#F3ECDD", dark: "#141109")
-	static let surface  = Color(light: "#FBF7EE", dark: "#211C14")
-	static let hairline = Color(light: "#241F1A", dark: "#F0E9DB")
-	static let ink      = Color(light: "#26211C", dark: "#F2ECE0")
+	// Paper surfaces, light and dark (Colors/Paper).
+	static let paper    = Color(.paper)
+	static let surface  = Color(.surface)
+	static let hairline = Color(.hairline)
+	static let ink      = Color(.ink)
 
 	// Default corner radii — editorial favours gentle, restrained rounding.
 	static let corner: CGFloat = 14
@@ -82,29 +84,6 @@ enum Glass {
 
 	// Retained for source compatibility (no longer drawn as drifting blobs).
 	static let ambient: [Color] = [paper, surface, paper, surface]
-}
-
-// MARK: - Color helpers
-
-extension Color {
-	init(hex: String) {
-		let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-		var int: UInt64 = 0
-		Scanner(string: hex).scanHexInt64(&int)
-		let r = Double((int >> 16) & 0xFF) / 255
-		let g = Double((int >> 8) & 0xFF) / 255
-		let b = Double(int & 0xFF) / 255
-		self.init(red: r, green: g, blue: b)
-	}
-
-	/// A color that resolves differently in light vs dark mode.
-	init(light: String, dark: String) {
-		self.init(UIColor { trait in
-			trait.userInterfaceStyle == .dark
-				? UIColor(Color(hex: dark))
-				: UIColor(Color(hex: light))
-		})
-	}
 }
 
 // MARK: - Paper background

@@ -3,8 +3,9 @@
 //  WatchListTests
 //
 //  The Discover tab: which library titles suggestions start from, the order
-//  they're offered in, what TMDb's average comes to, and how alike a
-//  suggestion is to the titles in the library.
+//  they're offered in, what TMDb's average comes to, how alike a suggestion is
+//  to the titles in the library, and the filter — its type, genres and More
+//  like.
 //
 
 import Foundation
@@ -260,5 +261,53 @@ struct DiscoverFeedTests {
 		#expect(DiscoverFilter.genreOptions(for: .all, tv: ["Drama", "Action & Adventure"], movie: ["Action", "Drama"])
 			== ["Action", "Action & Adventure", "Drama"])
 		#expect(DiscoverFilter.genreOptions(for: .films, tv: ["Soap"], movie: ["Action"]) == ["Action"])
+	}
+
+	@Test func theSummaryLeadsWithTheTitleSuggestionsComeFrom() {
+		#expect(DiscoverFilter().summary(seedTitle: nil) == nil)
+		#expect(!DiscoverFilter(seed: UUID()).isDefault)
+		#expect(DiscoverFilter(genres: ["Mystery", "Drama"], seed: UUID()).summary(seedTitle: "Severance")
+			== "Severance · Drama, Mystery")
+		#expect(DiscoverFilter(kind: .films, genres: ["A", "B", "C"]).summary(seedTitle: nil) == "Films · 3 genres")
+		#expect(DiscoverFilter(kind: .shows, seed: UUID()).summary(seedTitle: "Dark") == "Dark · TV Shows")
+	}
+
+	@Test func moreLikeSaysWhatPickingATitleDoes() {
+		#expect(DiscoverFeed.moreLikeCaption(for: nil) == "Suggestions from your whole library, best rated first.")
+		let rated = Show(title: "Severance", tmdbID: 1, rating: .perfection)
+		#expect(DiscoverFeed.moreLikeCaption(for: .show(rated))
+			== "Only what\u{2019}s suggested because you rated Severance Perfection.")
+		let added = Show(title: "Slow Horses", tmdbID: 2)
+		#expect(DiscoverFeed.moreLikeCaption(for: .show(added))
+			== "Only what\u{2019}s suggested because you added Slow Horses.")
+	}
+
+	@Test func seeAllGroupsTitlesByVerdictThenAddedAndSearchesThem() {
+		let severance = Show(title: "Severance", tmdbID: 1, rating: .perfection)
+		let arrival = Film(title: "Arrival", tmdbID: 2, rating: .perfection)
+		let bear = Show(title: "The Bear", tmdbID: 3, rating: .goForIt)
+		let slowHorses = Show(title: "Slow Horses", tmdbID: 4)
+		let seeds: [WatchedTitle] = [.show(severance), .film(arrival), .show(bear), .show(slowHorses)]
+
+		let groups = DiscoverFeed.seedGroups(seeds)
+		#expect(groups.map(\.name) == ["Rated Perfection", "Rated Go For It", "Added"])
+		#expect(groups[0].titles.map(\.title) == ["Severance", "Arrival"])
+		#expect(groups[2].titles.map(\.title) == ["Slow Horses"])
+
+		let searched = DiscoverFeed.seedGroups(seeds, matching: " s ")
+		#expect(searched.map(\.name) == ["Rated Perfection", "Added"])
+		#expect(searched.flatMap(\.titles).map(\.title) == ["Severance", "Slow Horses"])
+		#expect(DiscoverFeed.seedGroups(seeds, matching: "zzz").isEmpty)
+	}
+
+	@Test func genreTilesAreDealtOntoTheShortestRowSoRowsEndLevel() {
+		// Widths straight from the names' lengths, 6 apart.
+		let rows = ChipRows.deal(["All", "Action", "Drama", "Comedy", "War", "Crime"], into: 3, spacing: 6) {
+			CGFloat($0.count * 10)
+		}
+		#expect(rows == [["All", "Comedy"], ["Action", "Crime"], ["Drama", "War"]])
+		#expect(ChipRows.deal(["A"], into: 3, spacing: 6) { _ in 10 } == [["A"]])
+		#expect(ChipRows.rowCount(for: 12) == 2)
+		#expect(ChipRows.rowCount(for: 28) == 3)
 	}
 }
