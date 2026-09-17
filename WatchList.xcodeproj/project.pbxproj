@@ -48,6 +48,11 @@
 			path = WatchListUITests;
 			sourceTree = "<group>";
 		};
+		7A1C0A042F9A000100C0FFEE /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,6 +95,7 @@
 			children = (
 				CE1A0F0100000000000000A1 /* Configuration */,
 				CEA6DF4B2F8F71C8004545F7 /* WatchList */,
+				7A1C0A042F9A000100C0FFEE /* Shared */,
 				CEA6DF5D2F8F71D5004545F7 /* WatchListTests */,
 				CEA6DF672F8F71D5004545F7 /* WatchListUITests */,
 				CEA6DF4A2F8F71C8004545F7 /* Products */,
@@ -123,6 +129,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				CEA6DF4B2F8F71C8004545F7 /* WatchList */,
+				7A1C0A042F9A000100C0FFEE /* Shared */,
 			);
 			name = WatchList;
 			packageProductDependencies = (
