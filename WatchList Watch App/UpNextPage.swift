@@ -3,12 +3,12 @@
 //  WatchList Watch App
 //
 //  Up Next, after the iPhone's Home hero: a page for each show set to Watching,
-//  swiped through sideways, each with the show's artwork fading into its colour,
-//  the episode it's up to and Mark Watched. Mark Watched opens the rating —
-//  Skip, Watch or Rewatch — and picking one is what marks the episode; closing
-//  it changes nothing. Double Tap presses Mark Watched on the show in view.
-//  Once marked, the button makes way for a note saying so, with Undo, for a
-//  few seconds.
+//  swiped sideways and round and round (HeroLoop, shared with the iPhone). Each
+//  page has the hero's artwork fading into the show's colour, the episode it's
+//  up to, its title, and Mark Watched in Liquid Glass. Mark Watched opens the
+//  rating — Skip, Watch or Rewatch — and picking one is what marks the episode;
+//  closing it changes nothing. Double Tap presses Mark Watched on the show in
+//  view. Once marked, the button makes way for Undo for six seconds.
 //
 
 import SwiftUI
@@ -16,7 +16,8 @@ import SwiftUI
 struct UpNextPage: View {
 	@Environment(WatchStore.self) private var store
 
-	@State private var selection: UUID?
+	/// The page in view, among HeroLoop's pages — copies at either end included.
+	@State private var page = 1
 	@State private var rating: UpNextItem?
 	@State private var note: MarkedNote?
 	/// Each show's colour, once its artwork is in.
@@ -47,19 +48,45 @@ struct UpNextPage: View {
 	}
 
 	private func pager(_ items: [UpNextItem]) -> some View {
-		let current = selection ?? items.first?.id
-		return TabView(selection: $selection) {
-			ForEach(items) { item in
-				ShowPage(item: item, isCurrent: item.id == current,
+		let count = items.count
+		let pages = HeroLoop.pages(count: count)
+		let current = HeroLoop.showIndex(ofPage: page, count: count)
+		return TabView(selection: $page) {
+			ForEach(Array(pages.enumerated()), id: \.offset) { offset, index in
+				let item = items[index]
+				ShowPage(item: item, tone: tone(for: item), isCurrent: offset == page,
 				         note: note?.showID == item.id ? note : nil,
+				         dots: count > 1 ? PageDots(count: count, current: index) : nil,
 				         onTone: { tones[item.id] = $0 },
 				         onMarkWatched: { rating = item },
 				         onUndo: undo)
-					.containerBackground(tone(for: item).gradient, for: .tabView)
-					.tag(Optional(item.id))
+					.tag(offset)
 			}
 		}
-		.tabViewStyle(.page(indexDisplayMode: items.count > 1 ? .always : .never))
+		.tabViewStyle(.page(indexDisplayMode: .never))
+		// Behind the time and the page indicator: the colour of the show in view.
+		.containerBackground(tone(for: items[min(current, count - 1)]), for: .tabView)
+		// A different set of shows starts again at the first.
+		.id(items.map(\.show.id))
+		.onChange(of: page) { _, landed in settle(landed, count: count) }
+		.onChange(of: count, initial: true) { _, newCount in
+			page = min(max(page, HeroLoop.start(count: newCount)), HeroLoop.pages(count: newCount).count - 1)
+		}
+	}
+
+	/// Resting on a loop copy at either end, swaps to the real page it copies
+	/// without animation, once the swipe has landed — the same show, so nothing
+	/// visibly moves — and the swipe can carry on round.
+	private func settle(_ landed: Int, count: Int) {
+		let real = HeroLoop.settled(landed, count: count)
+		guard real != landed else { return }
+		Task {
+			try? await Task.sleep(for: .milliseconds(350))
+			guard page == landed else { return }
+			var still = Transaction()
+			still.disablesAnimations = true
+			withTransaction(still) { page = real }
+		}
 	}
 
 	@ViewBuilder
@@ -88,7 +115,7 @@ struct UpNextPage: View {
 		let marked = MarkedNote(showID: show.id, episode: episode, tier: tier)
 		withAnimation(.smooth) { note = marked }
 		Task {
-			try? await Task.sleep(for: .seconds(4))
+			try? await Task.sleep(for: .seconds(6))
 			if note?.id == marked.id { withAnimation(.smooth) { note = nil } }
 		}
 	}
@@ -102,12 +129,17 @@ struct UpNextPage: View {
 
 // MARK: - A show's page
 
+/// One show, laid out as the iPhone's hero page: the artwork across the top,
+/// fading in at its top and out into the show's colour below, with the episode,
+/// the title and Mark Watched on the fade.
 private struct ShowPage: View {
 	let item: UpNextItem
+	let tone: Color
 	/// The page in view: only its button answers Double Tap.
 	let isCurrent: Bool
 	/// The episode just marked on this show, while Undo is offered.
 	let note: MarkedNote?
+	let dots: PageDots?
 	let onTone: (Color) -> Void
 	let onMarkWatched: () -> Void
 	let onUndo: (MarkedNote) -> Void
@@ -117,74 +149,136 @@ private struct ShowPage: View {
 			artwork
 			details
 		}
+		.background { tone.ignoresSafeArea() }
 	}
 
-	/// Across the top, fading in from above and out into the page's colour below.
+	/// The top two-thirds of the screen, faded as the iPhone's hero fades: over
+	/// its top quarter and its bottom 40%.
 	private var artwork: some View {
 		GeometryReader { proxy in
 			ArtworkImage(url: Artwork.backdrop(item.show.artworkURL), onTone: onTone) {
-				Image(systemName: "tv")
-					.font(.largeTitle)
-					.foregroundStyle(.white.opacity(0.25))
+				Color.clear
 			}
-			.frame(width: proxy.size.width, height: proxy.size.height * 0.62)
+			.frame(width: proxy.size.width, height: proxy.size.height * 0.68)
 			.mask {
 				LinearGradient(stops: [.init(color: .clear, location: 0),
-				                       .init(color: .black, location: 0.25),
-				                       .init(color: .black, location: 0.55),
+				                       .init(color: .black, location: 0.24),
+				                       .init(color: .black, location: 0.6),
 				                       .init(color: .clear, location: 1)],
 				               startPoint: .top, endPoint: .bottom)
 			}
 		}
 		.ignoresSafeArea()
+		.allowsHitTesting(false)
 		.accessibilityHidden(true)
 	}
 
 	private var details: some View {
-		VStack(spacing: 2) {
+		VStack(spacing: 1) {
 			Text(progressLine)
-				.font(.footnote.weight(.medium))
-				.foregroundStyle(.white.opacity(0.9))
+				.font(.system(size: 13, weight: .medium))
+				.foregroundStyle(.white.opacity(0.92))
 				.lineLimit(1)
+				.minimumScaleFactor(0.8)
+				.shadow(color: .black.opacity(0.25), radius: 3, y: 1)
 			Text(item.show.title)
-				.font(.title3.bold())
+				.font(.system(size: 18, weight: .bold))
+				.foregroundStyle(.white)
 				.multilineTextAlignment(.center)
 				.lineLimit(2)
-				.minimumScaleFactor(0.8)
-			if let note {
-				MarkedNoteView(note: note) { onUndo(note) }
-					.padding(.top, 6)
-					.transition(.opacity)
-			} else if item.next != nil {
-				Button(action: onMarkWatched) {
-					Text("Mark Watched")
-						.frame(maxWidth: .infinity)
+				.minimumScaleFactor(0.75)
+				.shadow(color: .black.opacity(0.25), radius: 5, y: 1)
+
+			Group {
+				if let note {
+					undoButton(note)
+				} else if item.next != nil {
+					Button(action: onMarkWatched) {
+						GlassPill { Text("Mark Watched") }
+					}
+					.buttonStyle(.plain)
+					.handGestureShortcut(.primaryAction, isEnabled: isCurrent)
+					.accessibilityLabel(item.next.map { "Mark \($0.line) watched" } ?? "Mark Watched")
 				}
-				.buttonStyle(.borderedProminent)
-				.handGestureShortcut(.primaryAction, isEnabled: isCurrent)
-				.padding(.top, 6)
-				.accessibilityHint(item.next.map { "Rates \($0.code) and marks it watched" } ?? "")
+			}
+			.padding(.top, 6)
+			.transition(.opacity)
+
+			if let dots {
+				dots.padding(.top, 5)
 			}
 		}
-		.shadow(color: .black.opacity(0.5), radius: 4, y: 1)
-		.padding(.horizontal, 8)
-		.padding(.bottom, 14)
+		.padding(.horizontal, 12)
+		.padding(.bottom, dots == nil ? 4 : 0)
 	}
 
-	/// The episode it's up to, or why there's none.
-	private var progressLine: String {
-		if let next = item.next {
-			return next.title.isEmpty ? next.code : "\(next.code) · \(next.title)"
+	/// In Mark Watched's place for a few seconds after marking.
+	private func undoButton(_ note: MarkedNote) -> some View {
+		Button { onUndo(note) } label: {
+			GlassPill { Label("Undo", systemImage: "arrow.uturn.backward") }
 		}
+		.buttonStyle(.plain)
+		.accessibilityLabel("Undo, \(note.episode.line) watched")
+	}
+
+	/// What the hero says above the title: the episode it's up to, or why
+	/// there's none.
+	private var progressLine: String {
+		if let next = item.next { return next.line }
 		if item.show.episodeCount == 0 { return "No episodes tracked" }
 		if item.show.remaining > item.show.upcoming.count { return "More on your iPhone" }
-		return "All caught up"
+		return "All \(item.show.episodeCount) episodes watched"
+	}
+}
+
+/// A button's label in a Liquid Glass capsule, sized to its text as the iPhone
+/// hero's Mark Watched is — smaller than the watch's standard glass button,
+/// with the tap area kept a little taller than the capsule.
+private struct GlassPill<Content: View>: View {
+	@ViewBuilder let content: Content
+
+	var body: some View {
+		content
+			.font(.system(size: 14, weight: .medium))
+			.foregroundStyle(.white)
+			.lineLimit(1)
+			.padding(.horizontal, 14)
+			.padding(.vertical, 8)
+			.glassEffect(.regular.interactive(), in: Capsule())
+			.padding(.vertical, 4)
+			.contentShape(Rectangle())
+	}
+}
+
+/// Dots for a handful of shows, following the show in view; past that, a count.
+private struct PageDots: View, Equatable {
+	let count: Int
+	let current: Int
+
+	var body: some View {
+		Group {
+			if count <= 8 {
+				HStack(spacing: 5) {
+					ForEach(0..<count, id: \.self) { index in
+						Circle()
+							.fill(.white.opacity(index == current ? 0.95 : 0.4))
+							.frame(width: 5, height: 5)
+					}
+				}
+			} else {
+				Text("\(current + 1) of \(count)")
+					.font(.system(size: 11, weight: .semibold))
+					.foregroundStyle(.white.opacity(0.85))
+			}
+		}
+		.accessibilityElement()
+		.accessibilityLabel("Show \(current + 1) of \(count)")
 	}
 }
 
 // MARK: - Marked
 
-/// An episode just marked, for the note that offers Undo.
+/// An episode just marked, for Undo.
 struct MarkedNote: Identifiable, Equatable {
 	let id = UUID()
 	let showID: UUID
@@ -192,31 +286,10 @@ struct MarkedNote: Identifiable, Equatable {
 	let tier: EpisodeTier?
 }
 
-/// "S1 · E4 watched", its rating, and Undo.
-private struct MarkedNoteView: View {
-	let note: MarkedNote
-	let onUndo: () -> Void
-
-	var body: some View {
-		HStack(spacing: 6) {
-			VStack(alignment: .leading, spacing: 0) {
-				Label("Watched", systemImage: "checkmark")
-					.font(.footnote.weight(.semibold))
-				Text(note.tier.map { "\(note.episode.code) · \($0.rawValue)" } ?? note.episode.code)
-					.font(.caption2)
-					.foregroundStyle(.secondary)
-					.lineLimit(1)
-			}
-			Spacer(minLength: 4)
-			Button("Undo", action: onUndo)
-				.buttonStyle(.bordered)
-				.buttonBorderShape(.capsule)
-				.fixedSize(horizontal: true, vertical: false)
-		}
-		.padding(.leading, 12)
-		.padding(.trailing, 4)
-		.padding(.vertical, 4)
-		.background(.black.opacity(0.6), in: Capsule())
-		.accessibilityElement(children: .contain)
+extension UpNextEpisode {
+	/// "Season 2 · Episode 8", as the iPhone's hero says it — "Specials" for season 0.
+	var line: String {
+		let season = seasonNumber == 0 ? "Specials" : "Season \(seasonNumber)"
+		return "\(season) · Episode \(episodeNumber)"
 	}
 }
