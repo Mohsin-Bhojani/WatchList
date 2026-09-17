@@ -254,15 +254,6 @@ struct HeroArtTests {
 		        == "https://image.tmdb.org/t/p/w1280/saved-backdrop.jpg")
 	}
 
-	@Test func theEpisodeUpNextShowsItsStillAtHeroSize() {
-		let next = Episode(episodeNumber: 3, seasonNumber: 1, title: "Three",
-		                   stillURL: "https://image.tmdb.org/t/p/w300/still.jpg")
-		#expect(HomeFeed.heroStillURL(for: next) == "https://image.tmdb.org/t/p/w1280/still.jpg")
-		// No still, or nothing left to watch: the show's own artwork stands in.
-		#expect(HomeFeed.heroStillURL(for: Episode(episodeNumber: 4, seasonNumber: 1, title: "Four")) == nil)
-		#expect(HomeFeed.heroStillURL(for: nil) == nil)
-	}
-
 	@Test func aPosterPickedFromPhotosIsUsedAsIs() {
 		let manual = Show(title: "Mine", posterURL: "file:///var/mobile/ManualPosters/mine.jpg")
 		#expect(HomeFeed.heroArtURL(for: manual, gallery: nil) == "file:///var/mobile/ManualPosters/mine.jpg")

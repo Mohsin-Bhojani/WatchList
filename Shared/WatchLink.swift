@@ -90,9 +90,6 @@ struct UpNextEpisode: Codable, Equatable, Identifiable {
 	/// As it was before the watch touched it, for Undo.
 	let status: WatchStatus
 	let tier: EpisodeTier?
-	/// Its still, which Up Next shows while it's the episode up next; nil when
-	/// TMDb has none — and from an iPhone that sent none.
-	var stillURL: String? = nil
 
 	/// "S2 · E8", or "Special · E1" for season 0.
 	var code: String {

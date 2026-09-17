@@ -11,10 +11,8 @@ import SwiftUI
 import UIKit
 import Observation
 
-/// One page of the Home hero, after the "1a Home" design. The artwork — the
-/// still of the episode the show is up to, or the show's own artwork when TMDb
-/// has no still — sits clear of the status bar and Dynamic Island and fades at
-/// top and bottom into
+/// One page of the Home hero, after the "1a Home" design. The artwork sits
+/// clear of the status bar and Dynamic Island and fades at top and bottom into
 /// the band colour behind it — drawn by `HeroBackdrop`, not the page, so it can
 /// run on into the rest of Home and change as the hero is swiped. The page
 /// samples that colour from its artwork (see `ArtworkBand`) and hands it up.
@@ -65,12 +63,8 @@ struct HomeHeroPage: View {
 	private var artTop: CGFloat { max(topInset, 20) + 28 }
 	private var artHeight: CGFloat { max(height - artTop - 23, 200) }
 
-	/// Re-runs the artwork load once the page knows its size, and when the show
-	/// moves on to another episode, whose still it shows.
-	private var loadKey: String {
-		let episode = HomeFeed.nextEpisode(of: show)?.id.uuidString ?? "none"
-		return "\(show.id)-\(episode)-\(Int(width))-\(Int(artHeight))"
-	}
+	/// Re-runs the artwork load once the page knows its size.
+	private var loadKey: String { "\(show.id)-\(Int(width))-\(Int(artHeight))" }
 
 	var body: some View {
 		let next = HomeFeed.nextEpisode(of: show)
@@ -144,15 +138,12 @@ struct HomeHeroPage: View {
 
 	private func loadArt() async {
 		guard width > 0 else { return }
-		var urlString = HomeFeed.heroStillURL(for: HomeFeed.nextEpisode(of: show)) ?? ""
-		if urlString.isEmpty {
-			var gallery: ImageGallery?
-			if let tmdbID = show.tmdbID {
-				// Shared with the Images tab's session cache, so this is one request a show.
-				gallery = await CreditsLoader.seriesImages(tvID: tmdbID)
-			}
-			urlString = HomeFeed.heroArtURL(for: show, gallery: gallery)
+		var gallery: ImageGallery?
+		if let tmdbID = show.tmdbID {
+			// Shared with the Images tab's session cache, so this is one request a show.
+			gallery = await CreditsLoader.seriesImages(tvID: tmdbID)
 		}
+		let urlString = HomeFeed.heroArtURL(for: show, gallery: gallery)
 		guard !urlString.isEmpty, let url = URL(string: urlString),
 		      let image = await ImageCache.shared.image(for: url),
 		      !Task.isCancelled else { return }

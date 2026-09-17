@@ -56,14 +56,6 @@ struct WatchLinkTests {
 		#expect(upNext[0].upcoming[0].status == .toWatch)
 	}
 
-	@Test func eachEpisodeToComeTakesItsStill() {
-		let watching = show("Stills", status: .watching, [(1, 2)])
-		let episodes = watching.sortedSeasons[0].sortedEpisodes
-		episodes[0].stillURL = "https://image.tmdb.org/t/p/w300/one.jpg"
-		let upcoming = WatchSnapshotBuilder.upNext([watching])[0].upcoming
-		#expect(upcoming.map(\.stillURL) == ["https://image.tmdb.org/t/p/w300/one.jpg", nil])
-	}
-
 	@Test func upNextCarriesHomesHeroArtworkOrWhatTheShowWasSavedWith() {
 		let withHero = show("Hero", status: .watching, [(1, 1)])
 		let saved = show("Saved", status: .watching, [(1, 1)])
