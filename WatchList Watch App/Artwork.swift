@@ -61,6 +61,16 @@ enum Artwork {
 		}
 	}
 
+	/// The colour a page's gradient runs down to, as the iPhone's Discover and
+	/// title pages deepen theirs: the same hue at 60% of the brightness.
+	static func deeper(_ tone: Color, by factor: CGFloat = 0.6) -> Color {
+		var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+		guard UIColor(tone).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) else {
+			return tone
+		}
+		return Color(hue: hue, saturation: saturation, brightness: brightness * factor)
+	}
+
 	/// A steady colour for a title without artwork, picked from its name.
 	static func placeholderTone(for title: String) -> Color {
 		let tones: [(Double, Double, Double)] = [(0.20, 0.27, 0.35), (0.18, 0.33, 0.32), (0.35, 0.25, 0.18),

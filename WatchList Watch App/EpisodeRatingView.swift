@@ -92,6 +92,16 @@ enum WatchColors {
 	}
 
 	static let starGold = Color(.starGold)
+
+	/// A verdict's colour, as the iPhone's Glass.tint gives it.
+	static func verdict(_ rating: Rating) -> Color {
+		switch rating {
+		case .perfection: return Color(.ratingPerfection)
+		case .goForIt:    return Color(.ratingGoForIt)
+		case .timepass:   return Color(.ratingTimepass)
+		case .skip:       return Color(.ratingSkip)
+		}
+	}
 }
 
 /// The watch's haptics, by what they mean.

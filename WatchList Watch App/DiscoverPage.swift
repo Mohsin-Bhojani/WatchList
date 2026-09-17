@@ -2,12 +2,16 @@
 //  DiscoverPage.swift
 //  WatchList Watch App
 //
-//  Discover, a Crown turn below Up Next: suggestions for your library one poster
-//  at a time, nothing but the poster on its own colour. The watch fetches them
-//  from TMDb itself, for the titles the iPhone sent, and deals them as the
-//  iPhone's Discover does (Shared/DiscoverQueue.swift).
-//    - tap the poster for the synopsis, with the three decisions as buttons
-//    - swipe right to add it to To Watch, left if not interested, up for later
+//  Discover, a Crown turn below Up Next, in the iPhone's Discover colours: one
+//  poster at a time on a gradient of its own colour, and nothing else. The watch
+//  fetches the suggestions from TMDb itself, for the titles the iPhone sent,
+//  and deals them as the iPhone's Discover does (Shared/DiscoverQueue.swift).
+//    - tap the poster for the rest of the iPhone's card — why it's suggested,
+//      TMDb's stars, the verdict and kind, the synopsis — with the three
+//      decisions as buttons
+//    - swipe right to add it to To Watch, left if not interested, up for later;
+//      the poster says which as it goes, with a tick as it passes the point of
+//      deciding, as the iPhone's card does
 //    - swipe down, or turn the Crown back, for Up Next
 //    - Filter, top left: TV shows, films or both, genres, and More like
 //
@@ -40,12 +44,13 @@ struct DiscoverPage: View {
 	var body: some View {
 		let deal = store.deal
 		content(deal)
-			.containerBackground(tone(for: deal.current).gradient, for: .tabView)
+			.containerBackground(for: .tabView) { backdrop(deal.current) }
 			.toolbar {
 				ToolbarItem(placement: .topBarLeading) { filterButton }
 			}
 			.sheet(item: $detail) { suggestion in
-				SuggestionDetailView(suggestion: suggestion) { decision in
+				SuggestionDetailView(suggestion: suggestion, reason: store.reason(for: suggestion),
+				                     tone: tone(for: suggestion)) { decision in
 					detail = nil
 					Task {
 						// Once the sheet is away, so the card is seen to go.
@@ -70,35 +75,40 @@ struct DiscoverPage: View {
 	@ViewBuilder
 	private func content(_ deal: DiscoverDeal<DiscoverSeed>) -> some View {
 		if let current = deal.current {
-			ZStack {
-				if let next = deal.queue.dropFirst().first(where: { $0.id != current.id }) {
-					PosterCard(suggestion: next) { tones[next.id] = $0 }
-						.scaleEffect(0.92 + 0.08 * pull)
-						.opacity(0.6)
-						.allowsHitTesting(false)
-						.accessibilityHidden(true)
-				}
-				PosterCard(suggestion: current) { tones[current.id] = $0 }
-					.overlay { stamp }
-					.offset(drag)
-					.rotationEffect(.degrees(Double(drag.width) / 12), anchor: .bottom)
-					.onTapGesture { detail = current }
-					.highPriorityGesture(swipe(current))
-					.id(current.id)
-					.accessibilityElement(children: .ignore)
-					.accessibilityLabel(current.title)
-					.accessibilityHint("Shows the synopsis")
-					.accessibilityAddTraits(.isButton)
-					.accessibilityActions {
-						ForEach([CardDecision.add, .notInterested, .later], id: \.self) { decision in
-							Button(decision.label) { commit(decision, current) }
-						}
+			PosterCard(suggestion: current) { tones[current.id] = $0 }
+				.overlay { stamp }
+				.offset(drag)
+				.rotationEffect(.degrees(Double(drag.width) / 12), anchor: .bottom)
+				.onTapGesture { detail = current }
+				.highPriorityGesture(swipe(current))
+				.id(current.id)
+				.transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.96)), removal: .opacity))
+				.accessibilityElement(children: .ignore)
+				.accessibilityLabel(current.title)
+				.accessibilityHint("Shows the synopsis")
+				.accessibilityAddTraits(.isButton)
+				.accessibilityActions {
+					ForEach([CardDecision.add, .notInterested, .later], id: \.self) { decision in
+						Button(decision.label) { commit(decision, current) }
 					}
-			}
-			.padding(.bottom, 6)
-			.ignoresSafeArea(edges: .bottom)
+				}
+				.padding(.horizontal, 6)
+				.padding(.bottom, 6)
+				.ignoresSafeArea(edges: .bottom)
 		} else {
 			emptyMessage(deal)
+		}
+	}
+
+	/// The iPhone's Discover backdrop: the poster's colour, deepening downwards.
+	/// Black while there's no card.
+	@ViewBuilder
+	private func backdrop(_ current: Suggestion?) -> some View {
+		if let current {
+			let base = tone(for: current)
+			LinearGradient(colors: [base, Artwork.deeper(base)], startPoint: .top, endPoint: .bottom)
+		} else {
+			Color.black
 		}
 	}
 
@@ -107,35 +117,37 @@ struct DiscoverPage: View {
 			Image(systemName: store.filter.isDefault ? "line.3.horizontal.decrease"
 			                                         : "line.3.horizontal.decrease.circle.fill")
 		}
+		// Plain glass rather than the red accent, which fights the poster's colour.
+		.tint(.white.opacity(0.35))
 		.accessibilityLabel(store.filter.isDefault ? "Filter" : "Filter, on")
 	}
 
 	// MARK: Swiping
 
-	/// How far the card has gone towards deciding, 0 to 1.
-	private var pull: CGFloat {
-		CardDecision.leaning(drag, threshold: Self.threshold)?.progress ?? 0
-	}
-
-	/// What the card says while it's swiped: the decision it's heading for.
+	/// What the card is about to decide, stamped on the poster and firming up as
+	/// it nears the point of deciding — the iPhone card's stamp.
 	@ViewBuilder
 	private var stamp: some View {
 		if let lean = CardDecision.leaning(drag, threshold: Self.threshold) {
 			Label(lean.decision.swipeLabel, systemImage: lean.decision.symbol)
-				.font(.footnote.weight(.heavy))
-				.padding(.horizontal, 10)
-				.padding(.vertical, 5)
+				.font(.system(size: 13, weight: .heavy))
+				.foregroundStyle(.white)
+				.lineLimit(1)
+				.padding(.horizontal, 11)
+				.padding(.vertical, 6)
 				.background(stampColor(lean.decision), in: Capsule())
-				.opacity(0.3 + 0.7 * lean.progress)
+				.scaleEffect(0.85 + 0.15 * lean.progress)
+				.opacity(Double(lean.progress))
 				.allowsHitTesting(false)
 		}
 	}
 
+	/// The iPhone's: Perfection's green for Add, Skip's red for Not interested.
 	private func stampColor(_ decision: CardDecision) -> Color {
 		switch decision {
-		case .add:           return .green.opacity(0.85)
-		case .notInterested: return .red.opacity(0.85)
-		case .later:         return .black.opacity(0.7)
+		case .add:           return Color(.ratingPerfection)
+		case .notInterested: return Color(.ratingSkip)
+		case .later:         return .black.opacity(0.6)
 		}
 	}
 
@@ -144,7 +156,12 @@ struct DiscoverPage: View {
 	private func swipe(_ suggestion: Suggestion) -> some Gesture {
 		DragGesture(minimumDistance: 6)
 			.onChanged { value in
-				if !flying { drag = value.translation }
+				guard !flying else { return }
+				let wasPast = CardDecision.forSwipe(translation: drag, predictedEnd: drag, threshold: Self.threshold) != nil
+				drag = value.translation
+				let isPast = CardDecision.forSwipe(translation: drag, predictedEnd: drag, threshold: Self.threshold) != nil
+				// A tick as it crosses the point of deciding, either way.
+				if isPast != wasPast { Haptics.click() }
 			}
 			.onEnded { value in
 				guard !flying else { return }
@@ -165,12 +182,13 @@ struct DiscoverPage: View {
 			}
 	}
 
-	/// Flies the card off the way the decision goes, then decides.
+	/// Flies the card off the way the decision goes, from wherever it's been
+	/// dragged, then decides; the next card comes in as the iPhone's does.
 	private func commit(_ decision: CardDecision, _ suggestion: Suggestion) {
 		guard !flying else { return }
 		flying = true
 		if decision == .add { Haptics.success() } else { Haptics.click() }
-		withAnimation(.easeIn(duration: 0.2)) {
+		withAnimation(.easeIn(duration: 0.22)) {
 			switch decision {
 			case .add:           drag = CGSize(width: 300, height: drag.height + 20)
 			case .notInterested: drag = CGSize(width: -300, height: drag.height + 20)
@@ -178,22 +196,21 @@ struct DiscoverPage: View {
 			}
 		}
 		Task {
-			try? await Task.sleep(for: .milliseconds(210))
+			try? await Task.sleep(for: .milliseconds(220))
 			var still = Transaction()
 			still.disablesAnimations = true
 			withTransaction(still) {
-				store.decide(decision, on: suggestion)
 				drag = .zero
 				flying = false
 			}
+			withAnimation(.smooth(duration: 0.3)) { store.decide(decision, on: suggestion) }
 		}
 	}
 
 	// MARK: Pieces
 
-	private func tone(for suggestion: Suggestion?) -> Color {
-		guard let suggestion else { return .black }
-		return tones[suggestion.id] ?? Artwork.cached(Artwork.poster(suggestion.posterURL))?.tone
+	private func tone(for suggestion: Suggestion) -> Color {
+		tones[suggestion.id] ?? Artwork.cached(Artwork.poster(suggestion.posterURL))?.tone
 			?? Artwork.placeholderTone(for: suggestion.title)
 	}
 
@@ -232,13 +249,14 @@ struct DiscoverPage: View {
 	}
 }
 
-/// A suggestion's poster, or its name on a colour until the poster's in.
+/// A suggestion's poster as the iPhone's card frames it — rounded, with a fine
+/// edge and a deep shadow — or its name on a colour until the poster's in.
 private struct PosterCard: View {
 	let suggestion: Suggestion
 	let onTone: (Color) -> Void
 
 	var body: some View {
-		let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+		let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 		ArtworkImage(url: Artwork.poster(suggestion.posterURL), onTone: onTone) {
 			ZStack {
 				LinearGradient(colors: [Artwork.placeholderTone(for: suggestion.title), .black],
@@ -247,7 +265,7 @@ private struct PosterCard: View {
 					Image(systemName: suggestion.placeholder)
 						.foregroundStyle(.white.opacity(0.6))
 					Text(suggestion.title)
-						.font(.headline)
+						.font(.system(size: 16, weight: .bold))
 						.multilineTextAlignment(.center)
 						.minimumScaleFactor(0.6)
 				}
@@ -256,7 +274,7 @@ private struct PosterCard: View {
 		}
 		.aspectRatio(2 / 3, contentMode: .fit)
 		.clipShape(shape)
-		.overlay(shape.strokeBorder(.white.opacity(0.15), lineWidth: 1))
-		.shadow(color: .black.opacity(0.4), radius: 6, y: 3)
+		.overlay(shape.strokeBorder(.white.opacity(0.14), lineWidth: 1))
+		.shadow(color: .black.opacity(0.35), radius: 12, y: 6)
 	}
 }

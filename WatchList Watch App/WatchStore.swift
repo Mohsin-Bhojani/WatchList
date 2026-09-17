@@ -146,6 +146,14 @@ final class WatchStore {
 		}
 	}
 
+	/// "Because you rated Arrival Perfection", from the first title it was
+	/// suggested from — as the iPhone's card says it.
+	func reason(for suggestion: Suggestion) -> String? {
+		guard let seedID = suggestion.seeds.first,
+		      let seed = snapshot?.seeds.first(where: { $0.id == seedID }) else { return nil }
+		return "Because \(DiscoverFeed.because(title: seed.title, rating: seed.rating))"
+	}
+
 	/// The genres the filter offers for its type, once TMDb's names are in.
 	var genreOptions: [String] {
 		DiscoverFilter.genreOptions(for: filter.kind, tv: loader.tvGenres, movie: loader.movieGenres)
