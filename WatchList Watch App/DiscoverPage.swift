@@ -3,7 +3,8 @@
 //  WatchList Watch App
 //
 //  Discover, a Crown turn below Up Next, in the iPhone's Discover colours: one
-//  poster at a time on a gradient of its own colour, and nothing else. The watch
+//  poster at a time on a gradient of its own colour, with its title under it as
+//  the iPhone's card has it. The watch
 //  fetches the suggestions from TMDb itself, for the titles the iPhone sent,
 //  and deals them as the iPhone's Discover does (Shared/DiscoverQueue.swift).
 //    - tap the poster for the rest of the iPhone's card — why it's suggested,
@@ -75,8 +76,19 @@ struct DiscoverPage: View {
 	@ViewBuilder
 	private func content(_ deal: DiscoverDeal<DiscoverSeed>) -> some View {
 		if let current = deal.current {
-			PosterCard(suggestion: current) { tones[current.id] = $0 }
-				.overlay { stamp }
+			VStack(spacing: 4) {
+				PosterCard(suggestion: current) { tones[current.id] = $0 }
+					.overlay { stamp }
+				Text(current.title)
+					.font(.system(size: 15, weight: .bold))
+					.foregroundStyle(.white)
+					.multilineTextAlignment(.center)
+					.lineLimit(2)
+					.minimumScaleFactor(0.8)
+					.fixedSize(horizontal: false, vertical: true)
+					.shadow(color: .black.opacity(0.25), radius: 4, y: 1)
+			}
+				.contentShape(Rectangle())
 				.offset(drag)
 				.rotationEffect(.degrees(Double(drag.width) / 12), anchor: .bottom)
 				.onTapGesture { detail = current }
