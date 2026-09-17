@@ -28,6 +28,13 @@ about a title pulled from [The Movie Database](https://www.themoviedb.org).
   most once a day. Additive only: your watch marks, ratings and notes are never
   touched.
 - **Six accent palettes**, changeable in-app or from the iOS Settings app.
+- **Apple Watch** — a companion app that also runs on its own. *Up Next* pages
+  sideways through the shows set to Watching; Mark Watched opens Skip / Watch /
+  Rewatch, and picking one marks the episode, with Undo. *Discover*, a Crown turn
+  below, deals suggestions one poster at a time, fetched from TMDb on the watch:
+  tap for the synopsis, swipe right to add, left if not interested, up for later,
+  with Filter top left. The watch keeps the last sync, so it works away from the
+  iPhone. See [Apple Watch](#apple-watch).
 
 ## Requirements
 
@@ -35,6 +42,7 @@ about a title pulled from [The Movie Database](https://www.themoviedb.org).
 |---|---|
 | Xcode | 26.2 or later (needs the iOS 26.2 SDK) |
 | iOS | 26.2 or later |
+| watchOS | 26.0 or later, for the watch app |
 | Swift | 5.0 language mode |
 
 No package dependencies — the project builds straight from a checkout.
@@ -84,6 +92,41 @@ team set), choose an iOS 26 simulator, and run.
 >
 > Simulator builds and CI need no team at all.
 
+## Apple Watch
+
+The watch app (`WatchList Watch App`, bundle ID `com.mohsin.WatchList.watchkitapp`)
+is embedded in the iPhone app and marked as able to run without it. No
+capabilities or entitlements are needed — no App Groups, iCloud or push — so a
+free Personal Team can sign it.
+
+- **The library stays on the iPhone.** `WatchList/WatchSync.swift` sends the watch
+  a snapshot — Up Next, the titles Discover starts from, and what it leaves out —
+  as the WatchConnectivity *application context* whenever the library changes.
+- **The watch's actions** (a mark, a rating, Undo, Add / Not interested / Later)
+  are queued with *transferUserInfo*, and also sent as a *message* while the
+  iPhone is reachable so they show at once. The iPhone applies each one once,
+  through the same code its own screens use, and names it in the next snapshot.
+  Until then the watch lays its actions over the last snapshot
+  (`WatchOutbox`), so it never waits for the iPhone.
+- **A refresh message** asks the iPhone for a snapshot straight away when the
+  watch app opens or the iPhone comes back in reach.
+- **Discover on the watch** fetches from TMDb itself, using the same queue,
+  filter and rotation as the iPhone (`Shared/DiscoverQueue.swift`). The watch
+  build reads the key from the same `Secrets.xcconfig`.
+- **Offline**, the watch shows the last snapshot (kept in Application Support)
+  and cached artwork, and holds its actions until the iPhone is back.
+
+### Trying it in the simulators
+
+Pair a watch simulator with an iPhone simulator, install the **iPhone app first,
+then the watch app** — the other way round, the iPhone's session reports the
+watch app as not installed. A Debug build of the watch app launched with
+`-WatchListSample` runs on a made-up library without an iPhone.
+
+Simulators deliver the application context and messages, but not queued
+`transferUserInfo`: a watch action taken while the iPhone is unreachable only
+reaches it on a real device.
+
 ## Running the tests
 
 ```bash
@@ -101,13 +144,16 @@ picks whichever iPhone simulator the runner has, and runs the same command.
 WatchList/
 ├── WatchListApp.swift        App entry point and SwiftData container
 ├── Models.swift              Show / Season / Episode / Film, statuses, ratings
-├── TMDbService.swift         Every TMDb request, and TMDbConfig (the key)
+├── WatchSync.swift           The iPhone's end of the watch link
 ├── ImportCoordinator.swift   A link or a search pick → populated models
 ├── CreditsLoader.swift       Cast / Similar / Images mapping and session cache
 ├── LibraryRefresher.swift    The once-a-day new-episode top-up
 ├── DesignSystem.swift        Colours, typography, materials
 ├── Components.swift          Shared rows, cards, pickers, tab bar
 └── *View.swift               Screens
+Shared/                       Compiled into both apps: library values, the TMDb
+                              client, Discover's queue, the watch link, app icon
+WatchList Watch App/          The watch app: PhoneSync, WatchStore, Up Next, Discover
 Configuration/                xcconfig files (the API key lives here, untracked)
 WatchListTests/               Swift Testing unit tests
 WatchListUITests/             XCUITest launch tests
