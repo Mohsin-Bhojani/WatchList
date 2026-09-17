@@ -120,8 +120,9 @@ free Personal Team can sign it.
 
 Pair a watch simulator with an iPhone simulator, install the **iPhone app first,
 then the watch app** — the other way round, the iPhone's session reports the
-watch app as not installed. A Debug build of the watch app launched with
-`-WatchListSample` runs on a made-up library without an iPhone.
+watch app as not installed. A Debug build of the watch app with `-WatchListSample`
+in the scheme's Run arguments runs on a made-up library without an iPhone
+(`simctl launch` doesn't pass arguments on to a watch app).
 
 Simulators deliver the application context and messages, but not queued
 `transferUserInfo`: a watch action taken while the iPhone is unreachable only
