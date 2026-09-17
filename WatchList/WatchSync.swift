@@ -369,7 +369,8 @@ enum WatchSnapshotBuilder {
 		              title: episode.title,
 		              runtimeMinutes: episode.runtimeMinutes ?? episode.specs?.runtimeMinutes,
 		              status: episode.status,
-		              tier: episode.episodeTier)
+		              tier: episode.episodeTier,
+		              stillURL: episode.stillURL.isEmpty ? nil : episode.stillURL)
 	}
 }
 

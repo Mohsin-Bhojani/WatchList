@@ -223,9 +223,18 @@ enum HomeFeed {
 		return nil
 	}
 
-	/// The hero's artwork, best first, for the design's wide frame: a textless
-	/// backdrop (no printed title under the one Home draws), then a textless
-	/// poster, then whatever backdrop or poster the show was saved with.
+	/// The hero's picture for the episode a show is up to: that episode's still,
+	/// asked for at hero size — TMDb saves it at list size. Nil when TMDb has no
+	/// still for it, or nothing's left to watch; `heroArtURL` stands in then.
+	static func heroStillURL(for episode: Episode?) -> String? {
+		guard let still = episode?.stillURL, !still.isEmpty else { return nil }
+		return still.replacingOccurrences(of: "/t/p/w300/", with: "/t/p/w1280/")
+	}
+
+	/// The hero's artwork when there's no episode still, best first, for the
+	/// design's wide frame: a textless backdrop (no printed title under the one
+	/// Home draws), then a textless poster, then whatever backdrop or poster the
+	/// show was saved with.
 	static func heroArtURL(for show: Show, gallery: ImageGallery?) -> String {
 		if let gallery {
 			if let backdrop = textless(.backdrop, in: gallery) {
