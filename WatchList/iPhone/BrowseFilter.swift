@@ -6,41 +6,11 @@
 //  in what order — and how titles are tested and ordered against them. The
 //  sort-either-way pieces, ListSort and ListOrder, are shared with the
 //  Collections tab.
+//  What it lists — BrowseKind — and the genre names a list offers are shared
+//  with the watch app, in Shared/BrowseKind.swift.
 //
 
 import Foundation
-
-/// What the Shows tab lists: TV shows and films together, or one kind.
-enum BrowseKind: CaseIterable, Identifiable {
-	case all, shows, films
-
-	var id: Self { self }
-
-	/// The tab header's name while it's chosen.
-	var title: String {
-		switch self {
-		case .all:   return "Shows"
-		case .shows: return "TV Shows"
-		case .films: return "Films"
-		}
-	}
-
-	/// Its segment in Filter & Sort.
-	var label: String { self == .all ? "All" : title }
-
-	var systemImage: String {
-		switch self {
-		case .all:   return "popcorn"
-		case .shows: return "tv"
-		case .films: return "film"
-		}
-	}
-
-	var includesShows: Bool { self != .films }
-	var includesFilms: Bool { self != .shows }
-
-	func includes(_ kind: MediaKind) -> Bool { kind == .show ? includesShows : includesFilms }
-}
 
 /// The status segments, in the order they're shown.
 enum StatusFilter: CaseIterable, Identifiable {
@@ -147,19 +117,7 @@ enum BrowseSort: ListSort {
 /// The Shows tab's order.
 typealias BrowseOrder = ListOrder<BrowseSort>
 
-enum BrowseFilter {
-	/// Every genre across these titles' comma-separated genre lists, once each
-	/// and A–Z. "Action, Drama" counts as both.
-	static func genres(in genreLists: [String]) -> [String] {
-		var seen = Set<String>()
-		var result: [String] = []
-		// Case-insensitive, keeping the first spelling met.
-		for genre in genreLists.flatMap(tokens(of:)) where seen.insert(genre.lowercased()).inserted {
-			result.append(genre)
-		}
-		return result.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-	}
-
+extension BrowseFilter {
 	/// Whether a title passes the status and the genres. With genres picked it
 	/// needs at least one of them, as one of its own genres rather than a word
 	/// inside one: "Action" doesn't pick up "Action & Adventure".
@@ -202,12 +160,5 @@ enum BrowseFilter {
 		case (nil, .some):        return false
 		case (nil, nil):          return nil
 		}
-	}
-
-	private static func tokens(of genreList: String) -> [String] {
-		genreList
-			.split(separator: ",")
-			.map { $0.trimmingCharacters(in: .whitespaces) }
-			.filter { !$0.isEmpty }
 	}
 }

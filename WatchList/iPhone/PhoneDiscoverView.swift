@@ -71,35 +71,17 @@ struct PhoneDiscoverView: View {
 
 	var body: some View {
 		let library = shows.map(WatchedTitle.show) + films.map(WatchedTitle.film)
-		// Only seeds of the chosen type: a seed is suggested titles of its own kind.
-		let seeds = DiscoverFeed.seeds(shows: shows, films: films).filter { filter.kind.includes($0.kind) }
-		// More like narrows Discover to the one title's suggestions.
-		let pickedSeed = seeds.first { $0.id == filter.seed }
-		let drawingSeeds = pickedSeed.map { [$0] } ?? seeds
-		// Titles moved on from go to the back; suggestions come from the rest first.
-		let seedOrder = rotation.order(drawingSeeds.map(\.id))
-		let drawing = seedOrder.filter { !rotation.passed.contains($0) }
-		let putOff = putOffDates()
-		let excluded = excludedIDs(library)
-		let queue = DiscoverFeed.queue(seedOrder: seedOrder, similar: loader.similar,
-		                               excluding: excluded, putOff: putOff).filter(filter.matches)
-		// Just moved on, with the next title's suggestions not in yet: wait for
-		// them rather than show the passed title's again.
-		let waitingForNext = queue.first.flatMap(\.seeds.first).map { rotation.passed.contains($0) } == true
-			&& drawing.contains { !loader.fetched.contains($0) }
-		let current = waitingForNext ? nil : queue.first
-		// Cards ready to come from the titles being drawn from — every title, once
-		// all of them have been passed.
-		let dealing = drawing.isEmpty ? seedOrder : drawing
-		let skipped = excluded.union(putOff.keys)
-		let ready = DiscoverFeed.ready(seedOrder: dealing, similar: loader.similar, excluding: skipped,
-		                               matching: filter, rotation: rotation, wanted: DiscoverFeed.readyAhead)
-		let upcoming = upcomingArtwork(after: current, in: queue)
+		// The card up, and what's ready behind it — worked out as the watch does.
+		let deal = DiscoverDeal(seeds: DiscoverFeed.seeds(shows: shows, films: films), filter: filter,
+		                        rotation: rotation, similar: loader.similar, fetched: loader.fetched,
+		                        excluded: excludedIDs(library), putOff: putOffDates())
+		let current = deal.current
+		let upcoming = upcomingArtwork(after: current, in: deal.queue)
 
 		NavigationStack {
 			VStack(spacing: 0) {
 				ScreenHeader(title: "Discover", onBand: current != nil)
-				if let filterSummary = filter.summary(seedTitle: pickedSeed?.title) {
+				if let filterSummary = filter.summary(seedTitle: deal.picked?.title) {
 					FilterSummaryButton(summary: filterSummary) { showingFilters = true }
 						.frame(maxWidth: .infinity, alignment: .leading)
 						.padding(.horizontal, 20)
@@ -120,7 +102,7 @@ struct PhoneDiscoverView: View {
 						.padding(.top, 14)
 						.padding(.bottom, 12)
 				} else {
-					placeholder(seeds: drawingSeeds)
+					placeholder(seeds: deal.drawingSeeds)
 					Spacer(minLength: 0)
 				}
 			}
@@ -137,12 +119,13 @@ struct PhoneDiscoverView: View {
 			.task(id: upcoming) {
 				for url in upcoming { _ = await PageTheme.load(url) }
 			}
-			.onChange(of: FillTrigger(seeds: seedOrder, runningLow: ready < DiscoverFeed.readyAhead,
+			.onChange(of: FillTrigger(seeds: deal.seedOrder, runningLow: deal.ready < DiscoverFeed.readyAhead,
 			                          fetched: loader.fetched.count, filter: filter), initial: true) {
 				let matching = filter
 				let turn = rotation
-				let byID = Dictionary(drawingSeeds.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-				let ordered = seedOrder.compactMap { byID[$0] }
+				let ordered = deal.ordered
+				let skipped = deal.skipped
+				let dealing = deal.dealing
 				Task {
 					await loader.fill(from: ordered, wanted: DiscoverFeed.readyAhead, excluding: skipped,
 					                  matching: matching, counting: dealing, rotation: turn)
@@ -152,12 +135,12 @@ struct PhoneDiscoverView: View {
 			// a title of the other type.
 			.onChange(of: filter.kind) {
 				filter.genres.formIntersection(genreOptions)
-				if filter.seed != nil && pickedSeed == nil { filter.seed = nil }
+				if filter.seed != nil && deal.picked == nil { filter.seed = nil }
 			}
 			.sheet(item: $comparing) { comparisonSheet($0, library: library) }
 		}
 		// Outside the page's dark colouring, so the filter sheet takes the system's.
-		.sheet(isPresented: $showingFilters) { filterSheet(seeds: seeds) }
+		.sheet(isPresented: $showingFilters) { filterSheet(seeds: deal.seeds) }
 		.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
 	}
 

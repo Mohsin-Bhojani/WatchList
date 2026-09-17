@@ -28,7 +28,7 @@ struct AddCandidate: Identifiable, Equatable {
 	/// arrive as both.
 	var id: String { Self.key(kind, tmdbID) }
 
-	static func key(_ kind: MediaKind, _ tmdbID: Int) -> String { "\(kind.rawValue)-\(tmdbID)" }
+	static func key(_ kind: MediaKind, _ tmdbID: Int) -> String { kind.key(tmdbID: tmdbID) }
 }
 
 extension AddCandidate {
