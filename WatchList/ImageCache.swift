@@ -147,13 +147,17 @@ struct CachedAsyncImage<Content: View>: View {
 	private let content: (AsyncImagePhase) -> Content
 
 	@State private var phase: AsyncImagePhase
+	/// The URL `phase` holds an image for, so a view whose URL changes in
+	/// place — artwork chosen from the gallery — loads the new one.
+	@State private var loaded: URL?
 
 	init(url: URL?, @ViewBuilder content: @escaping (AsyncImagePhase) -> Content) {
 		self.url = url
 		self.content = content
 		// Art already in memory shows at once, without a placeholder frame first.
-		_phase = State(initialValue: url.flatMap { ImageCache.shared.cached($0) }
-			.map { AsyncImagePhase.success(Image(uiImage: $0)) } ?? .empty)
+		let cached = url.flatMap { ImageCache.shared.cached($0) }
+		_phase = State(initialValue: cached.map { AsyncImagePhase.success(Image(uiImage: $0)) } ?? .empty)
+		_loaded = State(initialValue: cached == nil ? nil : url)
 	}
 
 	var body: some View {
@@ -162,13 +166,20 @@ struct CachedAsyncImage<Content: View>: View {
 	}
 
 	private func load() async {
-		guard let url else { phase = .empty; return }
-		// Keep an already-resolved image when the view re-renders.
-		if case .success = phase { return }
+		guard let url else {
+			phase = .empty
+			loaded = nil
+			return
+		}
+		// Keep an already-resolved image when the view re-renders — but not when
+		// it's of another URL than the one being asked for now.
+		if case .success = phase, loaded == url { return }
 		if let image = await ImageCache.shared.image(for: url) {
 			phase = .success(Image(uiImage: image))
+			loaded = url
 		} else {
 			phase = .failure(URLError(.cannotDecodeContentData))
+			loaded = nil
 		}
 	}
 }
