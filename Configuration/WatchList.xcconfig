@@ -2,7 +2,8 @@
 //  WatchList.xcconfig
 //  WatchList
 //
-//  Base configuration for the app target.
+//  Base configuration for both app targets, the iPhone app and the watch app:
+//  each reads the TMDb key from its own bundle.
 //
 //  Secrets.xcconfig holds the TMDb API key and is deliberately untracked. Copy
 //  Secrets.example.xcconfig next to this file, rename it Secrets.xcconfig and

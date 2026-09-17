@@ -6,7 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7A1C0A092F9A000100C0FFEE /* WatchList Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		7A1C0A0A2F9A000100C0FFEE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CEA6DF412F8F71C8004545F7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A1C0A012F9A000100C0FFEE;
+			remoteInfo = "WatchList Watch App";
+		};
 		CEA6DF5B2F8F71D5004545F7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = CEA6DF412F8F71C8004545F7 /* Project object */;
@@ -23,7 +34,22 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		7A1C0A082F9A000100C0FFEE /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				7A1C0A092F9A000100C0FFEE /* WatchList Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WatchList Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE1A0F0100000000000000A2 /* WatchList.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = WatchList.xcconfig; sourceTree = "<group>"; };
 		CE1A0F0100000000000000A3 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
 		CE1A0F0100000000000000A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -33,6 +59,16 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		7A1C0A032F9A000100C0FFEE /* WatchList Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "WatchList Watch App";
+			sourceTree = "<group>";
+		};
+		7A1C0A042F9A000100C0FFEE /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		CEA6DF4B2F8F71C8004545F7 /* WatchList */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = WatchList;
@@ -48,14 +84,16 @@
 			path = WatchListUITests;
 			sourceTree = "<group>";
 		};
-		7A1C0A042F9A000100C0FFEE /* Shared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Shared;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		7A1C0A062F9A000100C0FFEE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CEA6DF462F8F71C8004545F7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -95,6 +133,7 @@
 			children = (
 				CE1A0F0100000000000000A1 /* Configuration */,
 				CEA6DF4B2F8F71C8004545F7 /* WatchList */,
+				7A1C0A032F9A000100C0FFEE /* WatchList Watch App */,
 				7A1C0A042F9A000100C0FFEE /* Shared */,
 				CEA6DF5D2F8F71D5004545F7 /* WatchListTests */,
 				CEA6DF672F8F71D5004545F7 /* WatchListUITests */,
@@ -108,6 +147,7 @@
 				CEA6DF492F8F71C8004545F7 /* WatchList.app */,
 				CEA6DF5A2F8F71D5004545F7 /* WatchListTests.xctest */,
 				CEA6DF642F8F71D5004545F7 /* WatchListUITests.xctest */,
+				7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,6 +155,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		7A1C0A012F9A000100C0FFEE /* WatchList Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A1C0A0C2F9A000100C0FFEE /* Build configuration list for PBXNativeTarget "WatchList Watch App" */;
+			buildPhases = (
+				7A1C0A052F9A000100C0FFEE /* Sources */,
+				7A1C0A062F9A000100C0FFEE /* Frameworks */,
+				7A1C0A072F9A000100C0FFEE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7A1C0A032F9A000100C0FFEE /* WatchList Watch App */,
+				7A1C0A042F9A000100C0FFEE /* Shared */,
+			);
+			name = "WatchList Watch App";
+			packageProductDependencies = (
+			);
+			productName = "WatchList Watch App";
+			productReference = 7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
 		CEA6DF482F8F71C8004545F7 /* WatchList */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CEA6DF6D2F8F71D5004545F7 /* Build configuration list for PBXNativeTarget "WatchList" */;
@@ -122,14 +185,16 @@
 				CEA6DF452F8F71C8004545F7 /* Sources */,
 				CEA6DF462F8F71C8004545F7 /* Frameworks */,
 				CEA6DF472F8F71C8004545F7 /* Resources */,
+				7A1C0A082F9A000100C0FFEE /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7A1C0A0B2F9A000100C0FFEE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				CEA6DF4B2F8F71C8004545F7 /* WatchList */,
 				7A1C0A042F9A000100C0FFEE /* Shared */,
+				CEA6DF4B2F8F71C8004545F7 /* WatchList */,
 			);
 			name = WatchList;
 			packageProductDependencies = (
@@ -194,6 +259,9 @@
 				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
+					7A1C0A012F9A000100C0FFEE = {
+						CreatedOnToolsVersion = 26.3;
+					};
 					CEA6DF482F8F71C8004545F7 = {
 						CreatedOnToolsVersion = 26.3;
 					};
@@ -224,11 +292,19 @@
 				CEA6DF482F8F71C8004545F7 /* WatchList */,
 				CEA6DF592F8F71D5004545F7 /* WatchListTests */,
 				CEA6DF632F8F71D5004545F7 /* WatchListUITests */,
+				7A1C0A012F9A000100C0FFEE /* WatchList Watch App */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		7A1C0A072F9A000100C0FFEE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CEA6DF472F8F71C8004545F7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -253,6 +329,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		7A1C0A052F9A000100C0FFEE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CEA6DF452F8F71C8004545F7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -277,6 +360,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		7A1C0A0B2F9A000100C0FFEE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A1C0A012F9A000100C0FFEE /* WatchList Watch App */;
+			targetProxy = 7A1C0A0A2F9A000100C0FFEE /* PBXContainerItemProxy */;
+		};
 		CEA6DF5C2F8F71D5004545F7 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = CEA6DF482F8F71C8004545F7 /* WatchList */;
@@ -290,6 +378,74 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		7A1C0A0D2F9A000100C0FFEE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CE1A0F0100000000000000A2 /* WatchList.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WQXS3525ZF;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = WatchList;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.mohsin.WatchList;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohsin.WatchList.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		7A1C0A0E2F9A000100C0FFEE /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CE1A0F0100000000000000A2 /* WatchList.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WQXS3525ZF;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = WatchList;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.mohsin.WatchList;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohsin.WatchList.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 		CEA6DF6E2F8F71D5004545F7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CE1A0F0100000000000000A2 /* WatchList.xcconfig */;
@@ -570,6 +726,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		7A1C0A0C2F9A000100C0FFEE /* Build configuration list for PBXNativeTarget "WatchList Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A1C0A0D2F9A000100C0FFEE /* Debug */,
+				7A1C0A0E2F9A000100C0FFEE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		CEA6DF442F8F71C8004545F7 /* Build configuration list for PBXProject "WatchList" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
