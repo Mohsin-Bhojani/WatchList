@@ -48,6 +48,12 @@ struct Suggestion: Identifiable, Equatable {
 
 	/// The poster at the size the card draws it.
 	var largePosterURL: String { posterURL.replacingOccurrences(of: "/w500/", with: "/w780/") }
+
+	/// The average as stars out of 5, on the half-star scale.
+	var averageStars: Double? { averageScore.map { StarRating.snapped($0 / 2) } }
+
+	/// The verdict those stars come to.
+	var equivalentVerdict: Rating? { averageStars.flatMap { StarRating.verdict(for: $0) } }
 }
 
 /// A title from TMDb's `/recommendations` or `/similar`, which send the same
@@ -149,6 +155,13 @@ struct DiscoverDeal<Seed: SuggestionSeed> {
 }
 
 enum DiscoverFeed {
+	/// Why a title is suggested, after "Because": "you rated Severance
+	/// Perfection", or "you added Slow Horses".
+	static func because(title: String, rating: Rating?) -> String {
+		if let rating { return "you rated \(title) \(rating.rawValue)" }
+		return "you added \(title)"
+	}
+
 	/// How many cards to have ready to deal — enough to reach past the title in
 	/// use, so the next one's suggestions are in before Discover moves on.
 	static let readyAhead = 8

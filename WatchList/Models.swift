@@ -3,8 +3,8 @@
 //  WatchList
 //
 //  SwiftData models for the reworked app. The plain values they share with the
-//  watch app — a title's kind, watch status and an episode's rating — are in
-//  Shared/LibraryValues.swift.
+//  watch app — a title's kind, watch status, verdict and an episode's rating —
+//  are in Shared/LibraryValues.swift.
 //
 //  Hierarchy:
 //    Show  ->  Season  ->  Episode      (TV)
@@ -25,38 +25,8 @@ import SwiftUI
 
 // MARK: - Enums
 
-// MediaKind, WatchStatus and EpisodeTier are in Shared/LibraryValues.swift, shared
-// with the watch app.
-
-/// A personal verdict, set independently on shows, seasons, episodes and films.
-/// Optional on every model: `nil` means "not rated yet".
-enum Rating: String, Codable, CaseIterable, Identifiable {
-	case perfection = "Perfection"
-	case goForIt = "Go For It"
-	case timepass = "Timepass"
-	case skip = "Skip"
-
-	var id: String { rawValue }
-
-	var systemImage: String {
-		switch self {
-		case .perfection: return "crown.fill"
-		case .goForIt:    return "hand.thumbsup.fill"
-		case .timepass:   return "clock.fill"
-		case .skip:       return "hand.thumbsdown.fill"
-		}
-	}
-
-	/// Best -> worst, for sorting.
-	var sortRank: Int {
-		switch self {
-		case .perfection: return 0
-		case .goForIt:    return 1
-		case .timepass:   return 2
-		case .skip:       return 3
-		}
-	}
-}
+// MediaKind, WatchStatus, Rating and EpisodeTier are in Shared/LibraryValues.swift,
+// shared with the watch app.
 
 // MARK: - Technical specs (value type persisted by SwiftData)
 

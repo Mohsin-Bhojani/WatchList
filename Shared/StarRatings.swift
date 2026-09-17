@@ -10,6 +10,7 @@
 //      Go For It 4, Perfection 5
 //  Either is optional; setting one sets the other. Hand-picked stars are kept
 //  on the title itself (Rated, in WatchTracking.swift).
+//  Compiled into both apps: the watch shows TMDb's average on the same scale.
 //
 
 import Foundation

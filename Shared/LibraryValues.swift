@@ -3,7 +3,7 @@
 //  WatchList
 //
 //  The library's plain values, compiled into both the iPhone app and the watch
-//  app: a title's kind, a watch status, and an episode's rating. The SwiftData
+//  app: a title's kind, a watch status, a verdict, and an episode's rating. The SwiftData
 //  models that store them stay on the iPhone, in WatchList/Models.swift.
 //
 //  The store's schema is built from their names and raw values, so neither may
@@ -49,6 +49,36 @@ enum WatchStatus: String, Codable, CaseIterable, Identifiable {
 		case .toWatch:  return 0
 		case .watching: return 1
 		case .watched:  return 2
+		}
+	}
+}
+
+/// A personal verdict, set independently on shows, seasons, episodes and films.
+/// Optional on every model: `nil` means "not rated yet".
+enum Rating: String, Codable, CaseIterable, Identifiable {
+	case perfection = "Perfection"
+	case goForIt = "Go For It"
+	case timepass = "Timepass"
+	case skip = "Skip"
+
+	var id: String { rawValue }
+
+	var systemImage: String {
+		switch self {
+		case .perfection: return "crown.fill"
+		case .goForIt:    return "hand.thumbsup.fill"
+		case .timepass:   return "clock.fill"
+		case .skip:       return "hand.thumbsdown.fill"
+		}
+	}
+
+	/// Best -> worst, for sorting.
+	var sortRank: Int {
+		switch self {
+		case .perfection: return 0
+		case .goForIt:    return 1
+		case .timepass:   return 2
+		case .skip:       return 3
 		}
 	}
 }

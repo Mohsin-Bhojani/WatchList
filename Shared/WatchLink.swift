@@ -103,6 +103,9 @@ struct DiscoverSeed: Codable, Equatable, Identifiable, SuggestionSeed {
 	let kind: MediaKind
 	let tmdbID: Int?
 	let title: String
+	/// Its verdict, for "Because you rated …"; nil when it has none — and from an
+	/// iPhone that sent none.
+	var rating: Rating? = nil
 }
 
 // MARK: - Watch to iPhone

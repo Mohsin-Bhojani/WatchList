@@ -340,7 +340,7 @@ enum WatchSnapshotBuilder {
 			}
 		}
 		let seeds = DiscoverFeed.seeds(shows: shows, films: films).prefix(seedLimit).map {
-			DiscoverSeed(id: $0.id, kind: $0.kind, tmdbID: $0.tmdbID, title: $0.title)
+			DiscoverSeed(id: $0.id, kind: $0.kind, tmdbID: $0.tmdbID, title: $0.title, rating: $0.rating)
 		}
 		return PhoneSnapshot(upNext: upNext(shows, artwork: artwork, upcoming: upcoming), seeds: Array(seeds), library: library,
 		                     notInterested: notInterested, putOff: putOff, applied: applied, sentAt: now)

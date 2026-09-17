@@ -10,19 +10,10 @@
 //      then Go For It, then Timepass, each the most recently rated first, then
 //      the rest, the most recently added first
 //    - why a suggestion is offered, and More like's caption and See all groups
-//    - what TMDb's average comes to as stars and a verdict
 //    - how alike a suggestion is to every title in the library
 //
 
 import Foundation
-
-extension Suggestion {
-	/// The average as stars out of 5, on the half-star scale.
-	var averageStars: Double? { averageScore.map { StarRating.snapped($0 / 2) } }
-
-	/// The verdict those stars come to.
-	var equivalentVerdict: Rating? { averageStars.flatMap { StarRating.verdict(for: $0) } }
-}
 
 /// A show or film in the library, as a title Discover's suggestions come from.
 extension WatchedTitle: SuggestionSeed {}
@@ -65,8 +56,7 @@ extension DiscoverFeed {
 
 	/// "you rated Severance Perfection", or "you added Slow Horses".
 	private static func becauseOf(_ seed: WatchedTitle) -> String {
-		if let rating = seed.rating { return "you rated \(seed.title) \(rating.rawValue)" }
-		return "you added \(seed.title)"
+		because(title: seed.title, rating: seed.rating)
 	}
 
 	/// A group on More like's See all: the seeds given one verdict, or the unrated.
