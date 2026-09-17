@@ -2,7 +2,8 @@
 //  WatchListApp.swift
 //  WatchList
 //
-//  App entry point. Registers the new SwiftData models.
+//  App entry point. Registers the new SwiftData models, and starts the link
+//  with the watch app (WatchSync).
 //
 
 import SwiftUI
@@ -19,11 +20,14 @@ struct WatchListApp: App {
 			// Shows gain seasons after you add them; check once a day.
 			"autoCheckNewEpisodes": true,
 		])
+		// Before any window, so the watch's actions can arrive with the app in the background.
+		WatchSync.shared.activate()
 	}
 
 	var body: some Scene {
 		WindowGroup {
 			RootView()
+				.syncsWithWatch()
 		}
 		.modelContainer(for: [Show.self, Season.self, Episode.self, Film.self, TitleCollection.self,
 		                      SuggestionDecision.self])
