@@ -254,6 +254,19 @@ struct HeroArtTests {
 		        == "https://image.tmdb.org/t/p/w1280/saved-backdrop.jpg")
 	}
 
+	@Test func aLandscapeChosenByHandBeatsTMDbsPick() {
+		let gallery = ImageGallery(groups: [
+			ImageGroup(kind: .backdrop, entries: [entry("/textless.jpg", .backdrop, language: nil)]),
+		])
+		let show = savedShow()
+		#expect(HomeFeed.heroArtURL(for: show, gallery: gallery, chosenByHand: true)
+		        == "https://image.tmdb.org/t/p/w1280/saved-backdrop.jpg")
+		// Chosen, but nothing saved to show: TMDb's pick still stands in.
+		let bare = Show(title: "Bare", posterURL: "https://image.tmdb.org/t/p/w500/saved.jpg")
+		#expect(HomeFeed.heroArtURL(for: bare, gallery: gallery, chosenByHand: true)
+		        == "https://image.tmdb.org/t/p/original/textless.jpg")
+	}
+
 	@Test func aPosterPickedFromPhotosIsUsedAsIs() {
 		let manual = Show(title: "Mine", posterURL: "file:///var/mobile/ManualPosters/mine.jpg")
 		#expect(HomeFeed.heroArtURL(for: manual, gallery: nil) == "file:///var/mobile/ManualPosters/mine.jpg")

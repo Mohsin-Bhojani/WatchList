@@ -104,7 +104,13 @@ struct PhoneFilmDetailView: View {
 			ToolbarItem(placement: .topBarTrailing) { statusMenu }
 		}
 		.sheet(isPresented: $showingArtwork) {
-			if let tmdbID = film.tmdbID { ArtworkSheet(source: .movie(movieID: tmdbID)) }
+			if let tmdbID = film.tmdbID {
+				ArtworkSheet(source: .movie(movieID: tmdbID),
+				             target: ArtworkTarget(id: film.id,
+				                                   current: [.poster: film.posterURL, .landscape: film.backdropURL],
+				                                   apply: [.poster: { film.posterURL = $0 },
+				                                           .landscape: { film.backdropURL = $0 }]))
+			}
 		}
 		.newCollectionAlert(isPresented: $namingCollection, adding: film.id)
 		.confirmationDialog("Remove \u{201C}\(film.title)\u{201D}?", isPresented: $confirmingRemove,

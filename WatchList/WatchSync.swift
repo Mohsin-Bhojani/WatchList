@@ -119,15 +119,17 @@ final class WatchSync: NSObject {
 		return packed
 	}
 
-	/// The artwork Home's hero shows for each show — a textless backdrop from
-	/// TMDb's gallery when there is one — so the watch's Up Next matches it. The
+	/// The artwork Home's hero shows for each show — the landscape picture chosen
+	/// by hand, else a textless backdrop from TMDb's gallery — so the watch's Up
+	/// Next matches it. The
 	/// galleries are Home's session cache, so this rarely waits on TMDb.
 	private func heroArtwork(for shows: [Show]) async -> [UUID: String] {
 		var artwork: [UUID: String] = [:]
 		for show in shows {
 			var gallery: ImageGallery?
 			if let tmdbID = show.tmdbID { gallery = await CreditsLoader.seriesImages(tvID: tmdbID) }
-			artwork[show.id] = HomeFeed.heroArtURL(for: show, gallery: gallery)
+			artwork[show.id] = HomeFeed.heroArtURL(for: show, gallery: gallery,
+			                                       chosenByHand: ArtworkChoice.chosen(.landscape, for: show.id))
 		}
 		return artwork
 	}

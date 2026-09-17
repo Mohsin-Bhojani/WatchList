@@ -223,10 +223,14 @@ enum HomeFeed {
 		return nil
 	}
 
-	/// The hero's artwork, best first, for the design's wide frame: a textless
+	/// The hero's artwork, best first, for the design's wide frame: the landscape
+	/// picture chosen by hand when there is one (`chosenByHand`), then a textless
 	/// backdrop (no printed title under the one Home draws), then a textless
 	/// poster, then whatever backdrop or poster the show was saved with.
-	static func heroArtURL(for show: Show, gallery: ImageGallery?) -> String {
+	static func heroArtURL(for show: Show, gallery: ImageGallery?, chosenByHand: Bool = false) -> String {
+		if chosenByHand, !show.backdropURL.isEmpty {
+			return show.backdropURL.replacingOccurrences(of: "/t/p/w780/", with: "/t/p/w1280/")
+		}
 		if let gallery {
 			if let backdrop = textless(.backdrop, in: gallery) {
 				// A 1080p original reads sharp at hero size; bigger originals run

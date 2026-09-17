@@ -580,30 +580,6 @@ struct TitleShareLink<Label: View>: View {
 	}
 }
 
-/// The Artwork sheet the title pages open from their menus: TMDb's gallery.
-struct ArtworkSheet: View {
-	let source: ImageSource
-
-	@Environment(\.dismiss) private var dismiss
-
-	var body: some View {
-		NavigationStack {
-			ScrollView {
-				ImagesTabView(source: source)
-					.padding(18)
-			}
-			.background(GlassBackground())
-			.navigationTitle("Artwork")
-			.navigationBarTitleDisplayMode(.inline)
-			.toolbar {
-				ToolbarItem(placement: .confirmationAction) {
-					Button("Done") { dismiss() }
-				}
-			}
-		}
-	}
-}
-
 // MARK: - Removing
 
 extension ModelContext {

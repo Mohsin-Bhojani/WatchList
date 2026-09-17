@@ -4,6 +4,8 @@
 //
 //  The artwork gallery the title pages open from their menus: every poster,
 //  backdrop, logo and still TMDb holds for a series, season, episode or film.
+//  With slots to pick for, holding an image — or opening it — offers to use it
+//  as the title's poster or its landscape artwork (ArtworkPicker.swift).
 //  It fetches the first time it opens and reads from CreditsLoader's session
 //  cache after that.
 //
@@ -30,6 +32,9 @@ struct ImagesTabView: View {
 	let source: ImageSource
 	/// Reports whether the first fetch found anything worth a tab.
 	var onLoaded: (Bool) -> Void = { _ in }
+	/// The slots an image here can be picked for; none in the Images tab.
+	var picking: [ArtworkSlot] = []
+	var onPick: (ImageEntry, ArtworkSlot) -> Void = { _, _ in }
 
 	@State private var gallery = ImageGallery()
 	@State private var loading = true
@@ -68,7 +73,7 @@ struct ImagesTabView: View {
 		}
 		.task { await load() }
 		.fullScreenCover(item: $viewing) { entry in
-			ImageViewer(entries: gallery.all, start: entry)
+			ImageViewer(entries: gallery.all, start: entry, picking: picking, onPick: onPick)
 		}
 	}
 
@@ -93,6 +98,13 @@ struct ImagesTabView: View {
 					ImageTile(entry: entry)
 				}
 				.buttonStyle(.pressable)
+				.contextMenu {
+					ForEach(picking.filter { $0.fits(entry.kind) }, id: \.self) { slot in
+						Button { onPick(entry, slot) } label: {
+							Label(slot.action, systemImage: slot.systemImage)
+						}
+					}
+				}
 			}
 		}
 	}

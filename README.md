@@ -27,6 +27,10 @@ about a title pulled from [The Movie Database](https://www.themoviedb.org).
 - **New episodes** — shows are topped up with newly aired seasons and episodes at
   most once a day. Additive only: your watch marks, ratings and notes are never
   touched.
+- **Artwork** — every show, season, episode and film opens TMDb's gallery from
+  its menu, and any image there can be made the title's poster (portrait) or its
+  landscape artwork. What's chosen is what the app draws it from everywhere,
+  Home's hero and the watch included.
 - **Six accent palettes**, changeable in-app or from the iOS Settings app.
 - **Apple Watch** — a companion app that also runs on its own. *Up Next* pages
   sideways through the shows set to Watching; Mark Watched opens Skip / Watch /

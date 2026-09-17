@@ -89,7 +89,13 @@ struct PhoneSeasonView: View {
 			ToolbarItem(placement: .topBarTrailing) { statusMenu }
 		}
 		.sheet(isPresented: $showingArtwork) {
-			if let tmdbID = show?.tmdbID { ArtworkSheet(source: .season(tvID: tmdbID, season: season.seasonNumber)) }
+			if let tmdbID = show?.tmdbID {
+				// A season is drawn from its poster alone.
+				ArtworkSheet(source: .season(tvID: tmdbID, season: season.seasonNumber),
+				             target: ArtworkTarget(id: season.id,
+				                                   current: [.poster: season.posterURL],
+				                                   apply: [.poster: { season.posterURL = $0 }]))
+			}
 		}
 		.confirmationDialog("Remove \(season.displayName)?", isPresented: $confirmingRemove,
 		                    titleVisibility: .visible) {

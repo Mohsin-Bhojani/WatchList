@@ -143,7 +143,8 @@ struct HomeHeroPage: View {
 			// Shared with the Images tab's session cache, so this is one request a show.
 			gallery = await CreditsLoader.seriesImages(tvID: tmdbID)
 		}
-		let urlString = HomeFeed.heroArtURL(for: show, gallery: gallery)
+		let urlString = HomeFeed.heroArtURL(for: show, gallery: gallery,
+		                                    chosenByHand: ArtworkChoice.chosen(.landscape, for: show.id))
 		guard !urlString.isEmpty, let url = URL(string: urlString),
 		      let image = await ImageCache.shared.image(for: url),
 		      !Task.isCancelled else { return }

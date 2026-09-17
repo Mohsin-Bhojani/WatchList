@@ -226,6 +226,9 @@ struct ImageTile: View {
 struct ImageViewer: View {
 	let entries: [ImageEntry]
 	let start: ImageEntry
+	/// The slots the image in view can be picked for; none outside the Artwork sheet.
+	var picking: [ArtworkSlot] = []
+	var onPick: (ImageEntry, ArtworkSlot) -> Void = { _, _ in }
 
 	@Environment(\.dismiss) private var dismiss
 	@State private var selection = ""
@@ -246,6 +249,7 @@ struct ImageViewer: View {
 			VStack(spacing: 0) {
 				topBar
 				Spacer()
+				picks
 				caption
 			}
 		}
@@ -300,6 +304,27 @@ struct ImageViewer: View {
 		}
 		.padding(.horizontal, 16)
 		.padding(.top, 10)
+	}
+
+	/// Use as Poster / Use as Landscape, for the kinds the image in view suits.
+	@ViewBuilder private var picks: some View {
+		let slots = picking.filter { $0.fits(current.kind) }
+		if !slots.isEmpty {
+			HStack(spacing: 10) {
+				ForEach(slots, id: \.self) { slot in
+					Button { onPick(current, slot) } label: {
+						Label(slot.action, systemImage: slot.systemImage)
+							.font(.system(size: 14, weight: .semibold))
+							.foregroundStyle(.white)
+							.padding(.horizontal, 14)
+							.frame(height: 40)
+					}
+					.buttonStyle(.plain)
+					.glassEffect(.regular.interactive(), in: Capsule())
+				}
+			}
+			.padding(.bottom, 10)
+		}
 	}
 
 	private var caption: some View {

@@ -78,7 +78,12 @@ struct PhoneEpisodeView: View {
 		}
 		.sheet(isPresented: $showingArtwork) {
 			if let tmdbShowID {
-				ArtworkSheet(source: .episode(tvID: tmdbShowID, season: episode.seasonNumber, episode: episode.episodeNumber))
+				// An episode is drawn from its still, which is landscape.
+				ArtworkSheet(source: .episode(tvID: tmdbShowID, season: episode.seasonNumber,
+				                              episode: episode.episodeNumber),
+				             target: ArtworkTarget(id: episode.id,
+				                                   current: [.landscape: episode.stillURL],
+				                                   apply: [.landscape: { episode.stillURL = $0 }]))
 			}
 		}
 		.confirmationDialog("Remove \u{201C}\(episode.displayTitle)\u{201D}?", isPresented: $confirmingRemove,

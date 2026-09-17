@@ -106,7 +106,13 @@ struct PhoneShowDetailView: View {
 		}
 		.sheet(item: $ratingEpisode) { EpisodeRatingSheet(episode: $0) }
 		.sheet(isPresented: $showingArtwork) {
-			if let tmdbID = show.tmdbID { ArtworkSheet(source: .series(tvID: tmdbID)) }
+			if let tmdbID = show.tmdbID {
+				ArtworkSheet(source: .series(tvID: tmdbID),
+				             target: ArtworkTarget(id: show.id,
+				                                   current: [.poster: show.posterURL, .landscape: show.backdropURL],
+				                                   apply: [.poster: { show.posterURL = $0 },
+				                                           .landscape: { show.backdropURL = $0 }]))
+			}
 		}
 		.newCollectionAlert(isPresented: $namingCollection, adding: show.id)
 		.confirmationDialog("Remove \u{201C}\(show.title)\u{201D}?", isPresented: $confirmingRemove,
