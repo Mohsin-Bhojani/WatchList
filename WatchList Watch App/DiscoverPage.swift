@@ -3,31 +3,30 @@
 //  WatchList Watch App
 //
 //  Discover, a Crown turn below Up Next, in the iPhone's Discover colours: one
-//  poster at a time on a gradient of its own colour, with its title under it as
-//  the iPhone's card has it. The watch
-//  fetches the suggestions from TMDb itself, for the titles the iPhone sent,
-//  and deals them as the iPhone's Discover does (Shared/DiscoverQueue.swift).
-//    - tap the poster for the rest of the iPhone's card — why it's suggested,
-//      TMDb's stars, the verdict and kind, the synopsis — with the three
-//      decisions as buttons
+//  poster at a time, as big as the screen allows and centred, on a gradient of
+//  its own colour. The watch fetches the suggestions from TMDb itself, for the
+//  titles the iPhone sent, and deals them as the iPhone's Discover does
+//  (Shared/DiscoverQueue.swift).
+//    - tap the poster for the rest of the iPhone's card — the title, why it's
+//      suggested, TMDb's stars, the verdict and kind, the synopsis — with the
+//      three decisions as buttons
 //    - swipe right to add it to To Watch, left if not interested, up for later;
 //      the poster says which as it goes, with a tick as it passes the point of
 //      deciding, as the iPhone's card does
-//    - swipe down, or turn the Crown back, for Up Next
-//    - Filter, top left: TV shows, films or both, genres, and More like
+//    - turn the Crown back for Up Next, on for Filter (DiscoverFilterPage.swift)
 //
 
 import SwiftUI
 
 struct DiscoverPage: View {
 	@Environment(WatchStore.self) private var store
-	@Binding var page: WatchPage
+	/// The backdrop's colour, for Filter's page below to carry on from.
+	@Binding var backdropTone: Color?
 
 	@State private var drag: CGSize = .zero
 	/// Set while a decided card flies off, so it can't be decided twice.
 	@State private var flying = false
 	@State private var detail: Suggestion?
-	@State private var showingFilter = false
 	/// Each poster's colour, once it's in.
 	@State private var tones: [String: Color] = [:]
 
@@ -45,10 +44,7 @@ struct DiscoverPage: View {
 	var body: some View {
 		let deal = store.deal
 		content(deal)
-			.containerBackground(for: .tabView) { backdrop(deal.current) }
-			.toolbar {
-				ToolbarItem(placement: .topBarLeading) { filterButton }
-			}
+			.background { backdrop(deal.current).ignoresSafeArea() }
 			.sheet(item: $detail) { suggestion in
 				SuggestionDetailView(suggestion: suggestion, reason: store.reason(for: suggestion),
 				                     tone: tone(for: suggestion)) { decision in
@@ -60,9 +56,7 @@ struct DiscoverPage: View {
 					}
 				}
 			}
-			.sheet(isPresented: $showingFilter) {
-				DiscoverFilterView()
-			}
+			.preference(key: PageSheetKey.self, value: detail != nil)
 			.task { await store.loader.loadGenres() }
 			.onChange(of: FillTrigger(seeds: deal.seedOrder, runningLow: deal.ready < DiscoverFeed.readyAhead,
 			                          fetched: store.loader.fetched.count, filter: store.filter), initial: true) {
@@ -71,23 +65,14 @@ struct DiscoverPage: View {
 			.onChange(of: deal.queue.prefix(3).map(\.posterURL)) { _, urls in
 				Artwork.prefetch(urls.map(Artwork.poster))
 			}
+			.onChange(of: deal.current.map(tone(for:)), initial: true) { _, current in backdropTone = current }
 	}
 
 	@ViewBuilder
 	private func content(_ deal: DiscoverDeal<DiscoverSeed>) -> some View {
 		if let current = deal.current {
-			VStack(spacing: 4) {
-				PosterCard(suggestion: current) { tones[current.id] = $0 }
-					.overlay { stamp }
-				Text(current.title)
-					.font(.system(size: 15, weight: .bold))
-					.foregroundStyle(.white)
-					.multilineTextAlignment(.center)
-					.lineLimit(2)
-					.minimumScaleFactor(0.8)
-					.fixedSize(horizontal: false, vertical: true)
-					.shadow(color: .black.opacity(0.25), radius: 4, y: 1)
-			}
+			PosterCard(suggestion: current) { tones[current.id] = $0 }
+				.overlay { stamp }
 				.contentShape(Rectangle())
 				.offset(drag)
 				.rotationEffect(.degrees(Double(drag.width) / 12), anchor: .bottom)
@@ -104,8 +89,9 @@ struct DiscoverPage: View {
 						Button(decision.label) { commit(decision, current) }
 					}
 				}
-				.padding(.horizontal, 6)
+				// All the height under the time, down to just off the bottom edge.
 				.padding(.bottom, 6)
+				.frame(maxWidth: .infinity, maxHeight: .infinity)
 				.ignoresSafeArea(edges: .bottom)
 		} else {
 			emptyMessage(deal)
@@ -122,16 +108,6 @@ struct DiscoverPage: View {
 		} else {
 			Color.black
 		}
-	}
-
-	private var filterButton: some View {
-		Button { showingFilter = true } label: {
-			Image(systemName: store.filter.isDefault ? "line.3.horizontal.decrease"
-			                                         : "line.3.horizontal.decrease.circle.fill")
-		}
-		// Plain glass rather than the red accent, which fights the poster's colour.
-		.tint(.white.opacity(0.35))
-		.accessibilityLabel(store.filter.isDefault ? "Filter" : "Filter, on")
 	}
 
 	// MARK: Swiping
@@ -164,7 +140,8 @@ struct DiscoverPage: View {
 	}
 
 	/// Right adds, left turns it down, up puts it off — where it was heading
-	/// counts, so a flick will do. Down goes back to Up Next.
+	/// counts, so a flick will do. Anything else, down included, springs back:
+	/// only the Crown changes page.
 	private func swipe(_ suggestion: Suggestion) -> some Gesture {
 		DragGesture(minimumDistance: 6)
 			.onChanged { value in
@@ -181,14 +158,6 @@ struct DiscoverPage: View {
 				                                        predictedEnd: value.predictedEndTranslation,
 				                                        threshold: Self.threshold) {
 					return commit(decision, suggestion)
-				}
-				let heading = value.predictedEndTranslation
-				if heading.height > Self.threshold, abs(heading.height) > abs(heading.width) {
-					withAnimation(.smooth) {
-						drag = .zero
-						page = .upNext
-					}
-					return
 				}
 				withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { drag = .zero }
 			}

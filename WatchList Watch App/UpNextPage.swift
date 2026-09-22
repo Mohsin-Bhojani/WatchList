@@ -15,6 +15,7 @@ import SwiftUI
 
 struct UpNextPage: View {
 	@Environment(WatchStore.self) private var store
+	@Environment(\.isPageInView) private var inView
 
 	/// The page in view, among HeroLoop's pages — copies at either end included.
 	@State private var page = 1
@@ -28,7 +29,7 @@ struct UpNextPage: View {
 		Group {
 			if items.isEmpty {
 				emptyMessage
-					.containerBackground(Color.black.gradient, for: .tabView)
+					.background(Color.black.gradient, ignoresSafeAreaEdges: .all)
 			} else {
 				pager(items)
 			}
@@ -41,6 +42,7 @@ struct UpNextPage: View {
 				}
 			}
 		}
+		.preference(key: PageSheetKey.self, value: rating != nil)
 		.onChange(of: items.map(\.show.artworkURL), initial: true) { _, urls in
 			// While the iPhone or Wi-Fi is about, so the art is there without them.
 			Artwork.prefetch(urls.map(Artwork.backdrop))
@@ -54,7 +56,7 @@ struct UpNextPage: View {
 		return TabView(selection: $page) {
 			ForEach(Array(pages.enumerated()), id: \.offset) { offset, index in
 				let item = items[index]
-				ShowPage(item: item, tone: tone(for: item), isCurrent: offset == page,
+				ShowPage(item: item, tone: tone(for: item), isCurrent: inView && offset == page,
 				         note: note?.showID == item.id ? note : nil,
 				         dots: count > 1 ? PageDots(count: count, current: index) : nil,
 				         onTone: { tones[item.id] = $0 },
@@ -64,8 +66,8 @@ struct UpNextPage: View {
 			}
 		}
 		.tabViewStyle(.page(indexDisplayMode: .never))
-		// Behind the time and the page indicator: the colour of the show in view.
-		.containerBackground(tone(for: items[min(current, count - 1)]), for: .tabView)
+		// Behind the time: the colour of the show in view.
+		.background(tone(for: items[min(current, count - 1)]), ignoresSafeAreaEdges: .all)
 		// A different set of shows starts again at the first.
 		.id(items.map(\.show.id))
 		.onChange(of: page) { _, landed in settle(landed, count: count) }

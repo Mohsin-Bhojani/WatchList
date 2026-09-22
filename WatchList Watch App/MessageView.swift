@@ -16,28 +16,36 @@ struct MessageView: View {
 	var action: () -> Void = {}
 
 	var body: some View {
-		ScrollView {
-			VStack(spacing: 6) {
-				Image(systemName: systemImage)
-					.font(.title2)
-					.foregroundStyle(.secondary)
-					.accessibilityHidden(true)
-				Text(title)
-					.font(.headline)
-					.multilineTextAlignment(.center)
-				if let detail {
-					Text(detail)
-						.font(.footnote)
-						.foregroundStyle(.secondary)
-						.multilineTextAlignment(.center)
-				}
-				if let actionTitle {
-					Button(actionTitle, action: action)
-						.padding(.top, 4)
-				}
-			}
-			.frame(maxWidth: .infinity)
-			.padding(.top, 12)
+		// Scrolling only when it has to: a scroll view on a page could take the
+		// Crown, which turns the pages.
+		ViewThatFits(in: .vertical) {
+			message
+			ScrollView { message }
 		}
+		.frame(maxHeight: .infinity, alignment: .top)
+	}
+
+	private var message: some View {
+		VStack(spacing: 6) {
+			Image(systemName: systemImage)
+				.font(.title2)
+				.foregroundStyle(.secondary)
+				.accessibilityHidden(true)
+			Text(title)
+				.font(.headline)
+				.multilineTextAlignment(.center)
+			if let detail {
+				Text(detail)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.center)
+			}
+			if let actionTitle {
+				Button(actionTitle, action: action)
+					.padding(.top, 4)
+			}
+		}
+		.frame(maxWidth: .infinity)
+		.padding(.top, 12)
 	}
 }
