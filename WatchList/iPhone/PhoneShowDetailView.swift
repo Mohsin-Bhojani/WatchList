@@ -62,11 +62,12 @@ struct PhoneShowDetailView: View {
 
 	var body: some View {
 		ScrollView {
-			VStack(spacing: 16) {
+			TitlePageColumns {
 				header
 				statusSwitch
 				if show.status == .watched { verdictSection }
 				if show.status == .watching { upNextSection }
+			} rest: {
 				seasonsSection
 				PageSection(title: "Trailer") { PageTrailerCard(backdropURL: show.backdropURL) }
 				if !show.overview.isEmpty { PageSynopsisCard(text: show.overview) }
@@ -74,9 +75,6 @@ struct PhoneShowDetailView: View {
 					CommunitySection(title: .show(tmdbID: tmdbID), scale: .verdict, yours: show.rating?.rawValue)
 				}
 			}
-			.padding(.horizontal, 18)
-			.padding(.bottom, 32)
-			.readableColumn()
 		}
 		.onScrollGeometryChange(for: Bool.self) { geometry in
 			geometry.contentOffset.y + geometry.contentInsets.top > 290

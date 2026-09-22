@@ -37,9 +37,50 @@ enum PageTheme {
 }
 
 enum TitlePageLayout {
-	/// The widest a title page's content runs: all of an iPhone, and a readable
-	/// column centred on an iPad.
+	/// The widest a title page's content runs in one column: all of an iPhone,
+	/// and a readable column centred on an iPad upright. Wider, TitlePageColumns
+	/// makes two.
 	static let maxColumnWidth: CGFloat = 720
+}
+
+/// A title page's content. One column on a phone, and centred in a readable
+/// width on an iPad upright; on an iPad wide enough — held sideways, say — two:
+/// the title's own part (the poster, status and your verdict) on the leading
+/// side and the rest beside it. `lead` then `rest` is the one column's order.
+struct TitlePageColumns<Lead: View, Rest: View>: View {
+	@ViewBuilder let lead: Lead
+	@ViewBuilder let rest: Rest
+
+	@State private var width: CGFloat = 0
+
+	/// Keyed on the device, like the app's shell.
+	private static var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
+	var body: some View {
+		Group {
+			if Self.isPad && width >= 960 {
+				HStack(alignment: .top, spacing: 28) {
+					VStack(spacing: 16) { lead }
+						.frame(width: min(width * 0.38, 420))
+					VStack(spacing: 16) { rest }
+						.frame(maxWidth: .infinity)
+				}
+				.padding(.horizontal, 28)
+				.padding(.bottom, 32)
+				.frame(maxWidth: 1240)
+				.frame(maxWidth: .infinity)
+			} else {
+				VStack(spacing: 16) {
+					lead
+					rest
+				}
+				.padding(.horizontal, 18)
+				.padding(.bottom, 32)
+				.readableColumn()
+			}
+		}
+		.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+	}
 }
 
 extension View {

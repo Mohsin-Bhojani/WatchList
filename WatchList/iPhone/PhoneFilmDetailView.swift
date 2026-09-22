@@ -56,7 +56,7 @@ struct PhoneFilmDetailView: View {
 
 	var body: some View {
 		ScrollView {
-			VStack(spacing: 16) {
+			TitlePageColumns {
 				header
 				statusSwitch
 				if film.status == .watched {
@@ -66,6 +66,7 @@ struct PhoneFilmDetailView: View {
 						withAnimation(Glass.smooth) { ratingPopup = .edit }
 					}
 				}
+			} rest: {
 				PageTrailerCard(backdropURL: film.backdropURL)
 				if !film.synopsis.isEmpty { PageSynopsisCard(text: film.synopsis) }
 				if let tmdbID = film.tmdbID {
@@ -74,9 +75,6 @@ struct PhoneFilmDetailView: View {
 				PageSection(title: "Details") { detailsCard }
 				if !cast.isEmpty { PageSection(title: "Cast") { PageCastRow(cast: cast) } }
 			}
-			.padding(.horizontal, 18)
-			.padding(.bottom, 32)
-			.readableColumn()
 		}
 		// The bar turns solid, with the poster and title, once the title is gone.
 		.onScrollGeometryChange(for: Bool.self) { geometry in

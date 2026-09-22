@@ -43,10 +43,11 @@ struct PhoneEpisodeView: View {
 
 	var body: some View {
 		ScrollView {
-			VStack(spacing: 16) {
+			TitlePageColumns {
 				header
 				statusSwitch
 				ratingSection
+			} rest: {
 				if !episode.synopsis.isEmpty { PageSynopsisCard(text: episode.synopsis) }
 				if let tmdbShowID {
 					CommunitySection(title: .episode(tmdbID: tmdbShowID, season: episode.seasonNumber,
@@ -58,9 +59,6 @@ struct PhoneEpisodeView: View {
 					PageSection(title: "In this episode") { PageCastRow(cast: Array(credits.people.prefix(15))) }
 				}
 			}
-			.padding(.horizontal, 18)
-			.padding(.bottom, 32)
-			.readableColumn()
 		}
 		.onScrollGeometryChange(for: Bool.self) { geometry in
 			geometry.contentOffset.y + geometry.contentInsets.top > 260

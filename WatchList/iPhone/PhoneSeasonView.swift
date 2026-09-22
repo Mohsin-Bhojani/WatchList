@@ -47,17 +47,15 @@ struct PhoneSeasonView: View {
 
 	var body: some View {
 		ScrollView {
-			VStack(spacing: 16) {
+			TitlePageColumns {
 				header
 				statusSwitch
 				if season.status == .watched || season.rating != nil { verdictCard }
+			} rest: {
 				episodesSection
 				if !season.overview.isEmpty { PageSynopsisCard(text: season.overview) }
 				if !cast.isEmpty { PageSection(title: "Cast this season") { PageCastRow(cast: cast) } }
 			}
-			.padding(.horizontal, 18)
-			.padding(.bottom, 32)
-			.readableColumn()
 		}
 		.onScrollGeometryChange(for: Bool.self) { geometry in
 			geometry.contentOffset.y + geometry.contentInsets.top > 290
