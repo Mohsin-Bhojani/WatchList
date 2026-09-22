@@ -11,10 +11,13 @@
 //      name and switch sit at the top of the page.
 //    - List: a fan of its first posters, then a row per title — its poster,
 //      kind line, stars and verdict — each opening the title's page; in your own
-//      collections a long press removes it
+//      collections a long press removes it. An iPad's wider page takes the rows
+//      two across
 //    - Carousel: a poster at a time, its neighbours peeking in, with "4 of 18",
 //      the title, its verdict and its synopsis under it; the page takes the
-//      poster's colour. Top 4 opens in it; the rest open as a list
+//      poster's colour. Top 4 opens in it; the rest open as a list. On an iPad
+//      held sideways the posters take the leading side and the words sit
+//      beside them
 //    - Share sends the collection as a plain list
 //  Reordering and sharing with friends aren't built, so those menu items are
 //  placeholders.
@@ -55,6 +58,16 @@ struct PhoneCollectionView: View {
 	/// Keyed on the device, like the app's shell: an iPad's bar has the floating
 	/// tab bar in the middle of it.
 	private let isPad = UIDevice.current.userInterfaceIdiom == .pad
+
+	/// An iPad's page runs wider than a title page's column: wide enough for
+	/// rows two across, and for the carousel's words beside its posters.
+	private var maxPageWidth: CGFloat { isPad ? 1100 : TitlePageLayout.maxColumnWidth }
+
+	/// Rows two across, once the page has room for two.
+	private var listColumns: Int { isPad && pageWidth >= 700 ? 2 : 1 }
+
+	/// The carousel's words beside the posters rather than under them.
+	private var sidewaysCarousel: Bool { isPad && pageWidth >= 900 }
 
 	init(source: CollectionSource) {
 		self.source = source
@@ -136,7 +149,7 @@ struct PhoneCollectionView: View {
 				}
 			}
 			.padding(.bottom, 32)
-			.frame(maxWidth: TitlePageLayout.maxColumnWidth)
+			.frame(maxWidth: maxPageWidth)
 			// The column's own width, which the carousel centres its posters in.
 			.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { pageWidth = $0 }
 			.frame(maxWidth: .infinity)
@@ -333,15 +346,21 @@ struct PhoneCollectionView: View {
 
 	// MARK: List
 
+	/// A row per title with a hairline between — two across on an iPad, the
+	/// hairlines running between each pair.
 	private func list(_ items: [WatchedTitle]) -> some View {
-		VStack(spacing: 0) {
+		let columns = listColumns
+		return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28, alignment: .top), count: columns),
+		                 spacing: 0) {
 			ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-				if index > 0 {
-					Rectangle()
-						.fill(.white.opacity(0.08))
-						.frame(height: 1)
-				}
 				removable(row(item), item)
+					.overlay(alignment: .top) {
+						if index >= columns {
+							Rectangle()
+								.fill(.white.opacity(0.08))
+								.frame(height: 1)
+						}
+					}
 			}
 		}
 		.padding(.horizontal, 18)
@@ -417,67 +436,103 @@ struct PhoneCollectionView: View {
 	private func carousel(_ items: [WatchedTitle]) -> some View {
 		let current = items.first { $0.id == carouselID } ?? items[0]
 		let index = items.firstIndex { $0.id == current.id } ?? 0
-		// Two-thirds of the width, capped so a wide screen doesn't push the
-		// title under it off the bottom.
-		let posterWidth = min(pageWidth * 0.66, 300)
-		return VStack(spacing: 16) {
-			ScrollView(.horizontal) {
-				LazyHStack(spacing: 14) {
-					ForEach(items) { item in
-						NavigationLink { item.destination } label: {
-							PosterImage(urlString: item.posterURL, systemPlaceholder: item.placeholder)
-								.frame(width: posterWidth, height: posterWidth * 1.5)
-								.clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-								.shadow(color: .black.opacity(0.45), radius: 20, y: 12)
+		return Group {
+			if sidewaysCarousel {
+				// The posters on the leading side, centred in their own share of
+				// the page, and the words beside them.
+				let stripWidth = pageWidth * 0.56
+				HStack(alignment: .center, spacing: 12) {
+					posterStrip(items, width: stripWidth, posterWidth: min(stripWidth * 0.6, 340))
+						.frame(width: stripWidth)
+						// The neighbours fade out at the strip's ends rather than
+						// stopping at a hard edge beside the words.
+						.mask {
+							LinearGradient(stops: [
+								.init(color: .clear, location: 0),
+								.init(color: .black, location: 0.12),
+								.init(color: .black, location: 0.88),
+								.init(color: .clear, location: 1),
+							], startPoint: .leading, endPoint: .trailing)
 						}
-						.buttonStyle(.plain)
-						.scrollTransition(axis: .horizontal) { content, phase in
-							content
-								.scaleEffect(phase.isIdentity ? 1 : 0.86)
-								.opacity(phase.isIdentity ? 1 : 0.5)
-						}
-						.id(item.id)
-					}
+					carouselDetails(current, index: index, count: items.count, alignment: .leading)
+						.frame(maxWidth: 420, alignment: .leading)
+						.padding(.trailing, 24)
+					Spacer(minLength: 0)
 				}
-				.scrollTargetLayout()
-			}
-			// Centres a poster, with its neighbours peeking in either side.
-			.contentMargins(.horizontal, (pageWidth - posterWidth) / 2, for: .scrollContent)
-			.scrollTargetBehavior(.viewAligned)
-			.scrollIndicators(.hidden)
-			.scrollPosition(id: $carouselID)
-			.frame(height: posterWidth * 1.5 + 30)
-
-			VStack(spacing: 6) {
-				Text("\(index + 1) of \(items.count)")
-					.font(.system(size: 13, weight: .semibold))
-					.foregroundStyle(.white.opacity(0.6))
-				Text(current.title)
-					.font(.system(size: 26, weight: .bold))
-					.foregroundStyle(.white)
-					.multilineTextAlignment(.center)
-					.lineLimit(2)
-				Text(CollectionsFeed.kindLine(current))
-					.font(.system(size: 14, weight: .medium))
-					.foregroundStyle(.white.opacity(0.7))
-				verdictLine(current)
-					.padding(.top, 4)
-				if !current.synopsis.isEmpty {
-					Text(current.synopsis)
-						.font(.system(size: 15))
-						.foregroundStyle(.white.opacity(0.8))
-						.multilineTextAlignment(.center)
-						.lineLimit(6)
-						.padding(.top, 10)
+			} else {
+				// Two-thirds of the width, capped so a wide screen doesn't push the
+				// title under it off the bottom.
+				VStack(spacing: 16) {
+					posterStrip(items, width: pageWidth, posterWidth: min(pageWidth * 0.66, isPad ? 360 : 300))
+					carouselDetails(current, index: index, count: items.count, alignment: .center)
+						.frame(maxWidth: .infinity)
+						.padding(.horizontal, 24)
 				}
 			}
-			.frame(maxWidth: .infinity)
-			.padding(.horizontal, 24)
 		}
 		.padding(.top, 8)
 		.task(id: current.posterURL) {
 			guard let sampled = await PageTheme.load(current.posterURL), !Task.isCancelled else { return }
 			withAnimation(.easeOut(duration: 0.4)) { carouselTone = sampled }
+		}
+	}
+
+	/// The posters, one at a time with the neighbours peeking in either side,
+	/// centred in `width`.
+	private func posterStrip(_ items: [WatchedTitle], width: CGFloat, posterWidth: CGFloat) -> some View {
+		ScrollView(.horizontal) {
+			LazyHStack(spacing: 14) {
+				ForEach(items) { item in
+					NavigationLink { item.destination } label: {
+						PosterImage(urlString: item.posterURL, systemPlaceholder: item.placeholder)
+							.frame(width: posterWidth, height: posterWidth * 1.5)
+							.clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+							.shadow(color: .black.opacity(0.45), radius: 20, y: 12)
+					}
+					.buttonStyle(.plain)
+					.scrollTransition(axis: .horizontal) { content, phase in
+						content
+							.scaleEffect(phase.isIdentity ? 1 : 0.86)
+							.opacity(phase.isIdentity ? 1 : 0.5)
+					}
+					.id(item.id)
+				}
+			}
+			.scrollTargetLayout()
+		}
+		.contentMargins(.horizontal, (width - posterWidth) / 2, for: .scrollContent)
+		.scrollTargetBehavior(.viewAligned)
+		.scrollIndicators(.hidden)
+		.scrollPosition(id: $carouselID)
+		.frame(height: posterWidth * 1.5 + 30)
+	}
+
+	/// "4 of 18", the title, its kind line and verdict, and its synopsis.
+	private func carouselDetails(_ item: WatchedTitle, index: Int, count: Int,
+	                             alignment: HorizontalAlignment) -> some View {
+		let textAlignment: TextAlignment = alignment == .leading ? .leading : .center
+		return VStack(alignment: alignment, spacing: 6) {
+			Text("\(index + 1) of \(count)")
+				.font(.system(size: 13, weight: .semibold))
+				.foregroundStyle(.white.opacity(0.6))
+			Text(item.title)
+				.font(.system(size: alignment == .leading ? 32 : 26, weight: .bold))
+				.foregroundStyle(.white)
+				.multilineTextAlignment(textAlignment)
+				.lineLimit(2)
+			Text(CollectionsFeed.kindLine(item))
+				.font(.system(size: 14, weight: .medium))
+				.foregroundStyle(.white.opacity(0.7))
+			verdictLine(item)
+				.padding(.top, 4)
+			if !item.synopsis.isEmpty {
+				Text(item.synopsis)
+					.font(.system(size: 15))
+					.foregroundStyle(.white.opacity(0.8))
+					.multilineTextAlignment(textAlignment)
+					.lineLimit(alignment == .leading ? 9 : 6)
+					.padding(.top, 10)
+			}
 		}
 	}
 
