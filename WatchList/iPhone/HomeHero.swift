@@ -18,6 +18,11 @@ import Observation
 /// samples that colour from its artwork (see `ArtworkBand`) and hands it up.
 /// The episode the show is up to, its title and Mark Watched sit on the lower
 /// fade; tapping anywhere else on the page opens the show.
+///
+/// On an iPad wider than it's tall, the page is laid out sideways instead: the
+/// artwork at its own shape on the trailing side, fading in from the band, and
+/// on the leading side the episode, its name and synopsis, how far through the
+/// show is, and Mark Watched.
 struct HomeHeroPage: View {
 	let show: Show
 	let width: CGFloat
@@ -29,6 +34,8 @@ struct HomeHeroPage: View {
 	/// The "Mark all episodes watched" setting, applied when Mark Watched
 	/// finishes the show.
 	let cascadeWatched: Bool
+	/// The iPad's sideways layout.
+	let wide: Bool
 	/// Receives the band colour once the artwork is in.
 	let onBand: (UIColor) -> Void
 	/// Mark Watched with an episode to go: the rating sheet takes it from here.
@@ -43,7 +50,7 @@ struct HomeHeroPage: View {
 	private static var loadedArt: [String: UIImage] = [:]
 
 	init(show: Show, width: CGFloat, height: CGFloat, topInset: CGFloat, textBottom: CGFloat,
-	     cascadeWatched: Bool, onBand: @escaping (UIColor) -> Void,
+	     cascadeWatched: Bool, wide: Bool = false, onBand: @escaping (UIColor) -> Void,
 	     onRateEpisode: @escaping (Episode) -> Void, onOpen: @escaping () -> Void) {
 		self.show = show
 		self.width = width
@@ -51,6 +58,7 @@ struct HomeHeroPage: View {
 		self.topInset = topInset
 		self.textBottom = textBottom
 		self.cascadeWatched = cascadeWatched
+		self.wide = wide
 		self.onBand = onBand
 		self.onRateEpisode = onRateEpisode
 		self.onOpen = onOpen
@@ -62,9 +70,15 @@ struct HomeHeroPage: View {
 	// bottom 40%.
 	private var artTop: CGFloat { max(topInset, 20) + 28 }
 	private var artHeight: CGFloat { max(height - artTop - 23, 200) }
+	/// Sideways, the art keeps a backdrop's 16:9 where the page is wide enough,
+	/// leaving the leading third or more to the words.
+	private var artWidth: CGFloat { wide ? min(width * 0.7, artHeight * 16 / 9) : width }
+
+	/// Leading margin of the sideways layout's words.
+	static let wideInset: CGFloat = 44
 
 	/// Re-runs the artwork load once the page knows its size.
-	private var loadKey: String { "\(show.id)-\(Int(width))-\(Int(artHeight))" }
+	private var loadKey: String { "\(show.id)-\(Int(artWidth))-\(Int(artHeight))" }
 
 	var body: some View {
 		let next = HomeFeed.nextEpisode(of: show)
@@ -73,9 +87,16 @@ struct HomeHeroPage: View {
 			artwork
 				.padding(.top, artTop)
 
-			details(progress: progress, next: next)
-				.padding(.bottom, textBottom)
-				.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+			if wide {
+				wideDetails(progress: progress, next: next)
+					.padding(.leading, Self.wideInset)
+					.padding(.bottom, textBottom + 6)
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+			} else {
+				details(progress: progress, next: next)
+					.padding(.bottom, textBottom)
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+			}
 		}
 		.frame(height: height)
 		.clipped()
@@ -87,8 +108,7 @@ struct HomeHeroPage: View {
 
 	private var artwork: some View {
 		Color.clear
-			.frame(height: artHeight)
-			.frame(maxWidth: .infinity)
+			.frame(width: artWidth, height: artHeight)
 			.overlay {
 				if let art {
 					Image(uiImage: art)
@@ -98,14 +118,23 @@ struct HomeHeroPage: View {
 				}
 			}
 			.clipped()
+			// Sideways, the words aren't on it, so it keeps more of its lower half.
 			.mask {
 				LinearGradient(stops: [
 					.init(color: .clear, location: 0),
-					.init(color: .black, location: 0.24),
-					.init(color: .black, location: 0.6),
+					.init(color: .black, location: wide ? 0.2 : 0.24),
+					.init(color: .black, location: wide ? 0.72 : 0.6),
 					.init(color: .clear, location: 1),
 				], startPoint: .top, endPoint: .bottom)
 			}
+			// And comes in out of the band on its leading edge.
+			.mask {
+				LinearGradient(stops: [
+					.init(color: wide ? .clear : .black, location: 0),
+					.init(color: .black, location: wide ? 0.42 : 0),
+				], startPoint: .leading, endPoint: .trailing)
+			}
+			.frame(maxWidth: .infinity, alignment: .trailing)
 			.allowsHitTesting(false)
 	}
 
@@ -136,6 +165,69 @@ struct HomeHeroPage: View {
 		.padding(.horizontal, 24)
 	}
 
+	/// The sideways layout's words, left-aligned: where the show is up to, its
+	/// name, the episode's name and synopsis, then Mark Watched beside how far
+	/// through the show is.
+	private func wideDetails(progress: String, next: Episode?) -> some View {
+		let watched = show.watchedEpisodeCount
+		let total = show.episodeCount
+		let synopsis = [next?.synopsis ?? "", show.overview].first { !$0.isEmpty }
+		return VStack(alignment: .leading, spacing: 4) {
+			Text(progress.uppercased())
+				.font(.system(size: 13, weight: .bold))
+				.kerning(1)
+				.foregroundStyle(.white.opacity(0.8))
+			Text(show.title)
+				.font(.system(size: 40, weight: .bold))
+				.foregroundStyle(.white)
+				.lineLimit(2)
+				.minimumScaleFactor(0.7)
+			if let next {
+				Text(next.displayTitle)
+					.font(.system(size: 18, weight: .semibold))
+					.foregroundStyle(.white.opacity(0.92))
+					.lineLimit(1)
+			}
+			if let synopsis {
+				Text(synopsis)
+					.font(.system(size: 15))
+					.foregroundStyle(.white.opacity(0.78))
+					.lineLimit(3)
+					.padding(.top, 6)
+			}
+			HStack(spacing: 18) {
+				Button(action: markWatched) {
+					Text("Mark Watched")
+						.font(.system(size: 16, weight: .medium))
+						.foregroundStyle(.white)
+						.padding(.horizontal, 6)
+				}
+				.buttonStyle(.glass)
+				.controlSize(.large)
+				.accessibilityLabel(next == nil ? "Mark \(show.title) watched" : "Mark \(progress) watched")
+				if total > 0 {
+					VStack(alignment: .leading, spacing: 6) {
+						Text(ShowFacts.progressLine(watched: watched, total: total))
+							.font(.system(size: 13, weight: .medium))
+							.foregroundStyle(.white.opacity(0.8))
+						Capsule()
+							.fill(.white.opacity(0.22))
+							.frame(width: 150, height: 4)
+							.overlay(alignment: .leading) {
+								Capsule()
+									.fill(.white)
+									.frame(width: 150 * ShowFacts.fraction(watched: watched, total: total))
+							}
+					}
+					.accessibilityElement(children: .combine)
+				}
+			}
+			.padding(.top, 16)
+		}
+		.shadow(color: .black.opacity(0.25), radius: 6, y: 1)
+		.frame(width: max(min(width * 0.42, 460), 300), alignment: .leading)
+	}
+
 	private func loadArt() async {
 		guard width > 0 else { return }
 		var gallery: ImageGallery?
@@ -148,7 +240,7 @@ struct HomeHeroPage: View {
 		guard !urlString.isEmpty, let url = URL(string: urlString),
 		      let image = await ImageCache.shared.image(for: url),
 		      !Task.isCancelled else { return }
-		let sampled = await ArtworkBand.sampledColor(for: image, in: CGSize(width: width, height: artHeight))
+		let sampled = await ArtworkBand.sampledColor(for: image, in: CGSize(width: artWidth, height: artHeight))
 		guard !Task.isCancelled else { return }
 		Self.loadedArt[loadKey] = image
 		withAnimation(.easeOut(duration: 0.35)) {

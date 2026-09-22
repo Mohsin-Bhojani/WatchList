@@ -4,9 +4,11 @@
 //
 //  The iPhone Home tab, after the "1a Home" design:
 //    - "Home" and a profile button across the top, over the hero — on an iPad,
-//      either side of the floating tab bar
+//      either side of the floating tab bar, in a bar that's see-through over
+//      the hero until the page scrolls
 //    - a full-bleed hero with one swipeable page per show you're Watching,
-//      showing the episode it's up to and Mark Watched
+//      showing the episode it's up to and Mark Watched — on an iPad held
+//      sideways, laid out sideways too (HomeHeroPage)
 //    - To Watch: shows and films still to watch, newest added first, leaving out
 //      any rated Skip
 //    - Recently watched: shows and films in the order they were marked Watched
@@ -35,6 +37,16 @@ struct PhoneHomeView: View {
 	@State private var openedShow: Show?
 	/// The episode Mark Watched is asking to rate.
 	@State private var ratingEpisode: Episode?
+	@State private var barScroll = BarScroll()
+
+	/// How far Home has scrolled, as far as an iPad's bar cares.
+	private struct BarScroll: Equatable {
+		/// Off the top: the bar's soft edge comes back, so nothing reads through
+		/// it as it goes under.
+		var moved = false
+		/// The hero gone up from under the bar, so its words turn to ink.
+		var pastHero = false
+	}
 
 	/// The whole screen, bars included — what the design's proportions are of.
 	/// Nonisolated because geometry is read off the main actor.
@@ -46,8 +58,19 @@ struct PhoneHomeView: View {
 	}
 
 	/// Two-thirds of the screen, as drawn — never so short that the title and
-	/// button crowd the artwork.
-	private var heroHeight: CGFloat { max(screen.height * 0.65, 420) }
+	/// button crowd the artwork. An iPad upright is taller than a backdrop needs
+	/// at its width, so there it stops at about the art's own shape.
+	private var heroHeight: CGFloat {
+		let tall = max(screen.height * 0.65, 420)
+		return isPad ? min(tall, max(screen.width * 0.72, 420)) : tall
+	}
+
+	/// Keyed on the device, like the app's shell.
+	private var isPad: Bool { ScreenHeader.isInBar }
+
+	/// An iPad held sideways — or any page wider than it's tall — gets the
+	/// hero's sideways layout.
+	private var wideHero: Bool { isPad && screen.width > screen.height }
 
 	var body: some View {
 		let watching = HomeFeed.watching(shows)
@@ -78,8 +101,18 @@ struct PhoneHomeView: View {
 				}
 			}
 			.ignoresSafeArea(edges: .top)
+			// On an iPad the bar is over the hero: see-through while the page is at
+			// its top, then the usual soft edge once anything scrolls under it.
+			.onScrollGeometryChange(for: BarScroll.self) { geometry in
+				let offset = geometry.contentOffset.y + geometry.contentInsets.top
+				return BarScroll(moved: offset > 12,
+				                 pastHero: offset > heroHeight - max(screen.topInset, 20) - 64)
+			} action: { _, scroll in
+				withAnimation(.easeInOut(duration: 0.2)) { barScroll = scroll }
+			}
+			.scrollEdgeEffectHidden(isPad && !watching.isEmpty && !barScroll.moved, for: .top)
 			.background(GlassBackground())
-			.screenBar("Home", onBand: !watching.isEmpty)
+			.screenBar("Home", onBand: !watching.isEmpty && !barScroll.pastHero)
 			.navigationDestination(item: $openedShow) { PhoneShowDetailView(show: $0) }
 		}
 		// Measured here, outside the scroll view that ignores the top safe area
@@ -109,6 +142,7 @@ struct PhoneHomeView: View {
 						             topInset: screen.topInset,
 						             textBottom: count > 1 ? 34 : 23,
 						             cascadeWatched: cascadeWatched,
+						             wide: wideHero,
 						             onBand: { heroScroll.bands[show.id] = $0 },
 						             onRateEpisode: { ratingEpisode = $0 }) {
 							openedShow = show
@@ -136,8 +170,12 @@ struct PhoneHomeView: View {
 			.onChange(of: count) { settleHero(count: count) }
 			.sheet(item: $ratingEpisode) { EpisodeRatingSheet(episode: $0) }
 			.frame(height: heroHeight)
-			.overlay(alignment: .bottom) {
-				if count > 1 { pageIndicator(count: count) }
+			// Sideways, under the words they page through.
+			.overlay(alignment: wideHero ? .bottomLeading : .bottom) {
+				if count > 1 {
+					pageIndicator(count: count)
+						.padding(.leading, wideHero ? HomeHeroPage.wideInset : 0)
+				}
 			}
 		}
 	}
@@ -271,8 +309,17 @@ struct PhoneHomeView: View {
 
 // MARK: - All
 
+/// The columns Home's "All" lists run in: one on a phone, as many as fit
+/// across an iPad.
+private func allListColumns(_ sizeClass: UserInterfaceSizeClass?) -> [GridItem] {
+	sizeClass == .regular
+		? [GridItem(.adaptive(minimum: 340), spacing: 12, alignment: .top)]
+		: [GridItem(.flexible())]
+}
+
 /// Home's "All": every Watched show and film, most recently marked first.
 struct RecentlyWatchedListView: View {
+	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
 	@Query(sort: \Film.dateAdded, order: .reverse) private var films: [Film]
 	var body: some View {
@@ -280,7 +327,7 @@ struct RecentlyWatchedListView: View {
 		ZStack {
 			GlassBackground()
 			ScrollView {
-				LazyVStack(spacing: 10) {
+				LazyVGrid(columns: allListColumns(horizontalSizeClass), spacing: 10) {
 					ForEach(recent) { item in
 						NavigationLink { item.destination } label: {
 							GlassRow(title: item.title, subtitle: subtitle(for: item),
@@ -309,6 +356,7 @@ struct RecentlyWatchedListView: View {
 /// Home's To Watch "All": every show and film still To Watch and not rated
 /// Skip, newest added first.
 struct ToWatchListView: View {
+	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
 	@Query(sort: \Film.dateAdded, order: .reverse) private var films: [Film]
 
@@ -316,7 +364,7 @@ struct ToWatchListView: View {
 		ZStack {
 			GlassBackground()
 			ScrollView {
-				LazyVStack(spacing: 10) {
+				LazyVGrid(columns: allListColumns(horizontalSizeClass), spacing: 10) {
 					ForEach(HomeFeed.toWatch(shows: shows, films: films)) { item in
 						NavigationLink { item.destination } label: {
 							GlassRow(title: item.title,
