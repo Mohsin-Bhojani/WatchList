@@ -3,8 +3,8 @@
 //  WatchList
 //
 //  The iPhone Collections tab, after the "Collections" design:
-//    - Pinned: All Time Best, the collection every library starts with, filled
-//      by hand and opening its page
+//    - Pinned: Top 4, the collection every library starts with, filled by hand
+//      with four titles at most and opening its page
 //    - By verdict: Perfection, Go For It, Timepass and Skip, each card counting
 //      its titles over a fan of their posters, and opening the collection
 //    - Your collections: the ones you make (TitleCollection), each opening its
@@ -118,8 +118,8 @@ struct PhoneCollectionsView: View {
 
 	// MARK: Pinned
 
-	/// All Time Best, above the verdicts. It's always there, so it has no
-	/// delete; its page takes titles in and out.
+	/// Top 4, above the verdicts. It's always there, so it has no delete; its
+	/// page takes titles in and out.
 	@ViewBuilder private var pinnedSection: some View {
 		if let pinned = CollectionsFeed.pinned(collections) {
 			let items = CollectionsFeed.items(in: pinned, shows: shows, films: films)
@@ -128,7 +128,7 @@ struct PhoneCollectionsView: View {
 				cardGrid {
 					NavigationLink { PhoneCollectionView(source: .mine(pinned.id)) } label: {
 						CollectionCard(title: pinned.name,
-						               subtitle: CollectionsFeed.countLabel(items.count) + " · private",
+						               subtitle: CollectionsFeed.countLabel(items.count, in: pinned) + " · private",
 						               locked: true,
 						               posterURLs: items.map(\.posterURL),
 						               tint: nil)

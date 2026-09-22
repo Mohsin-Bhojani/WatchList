@@ -5,7 +5,8 @@
 //  Add Titles, from one of your collections: the whole library A–Z — or just
 //  its shows or films — searchable, on the colour of the page it opens from.
 //  Each title is a glass row, lit and ticked once it's in; tapping one puts it
-//  in or takes it out there and then.
+//  in or takes it out there and then. Top 4 takes four: with four in, the
+//  rest wait until one comes out.
 //
 
 import SwiftUI
@@ -45,11 +46,23 @@ struct CollectionTitlePicker: View {
 		let included = Set(collection?.titleIDs ?? [])
 		let titles = titles
 		let name = collection.map { "Add to \($0.name)" } ?? "Add Titles"
+		let inCount = CollectionsFeed.items(in: collection, shows: shows, films: films).count
+		let full = collection?.hasRoom(holding: inCount) == false
 		NavigationStack {
 			ScrollView {
 				LazyVStack(spacing: 10) {
 					kindSwitch
 						.padding(.bottom, 6)
+					if let capacity = collection?.capacity {
+						Text(full ? "That's all \(capacity). Take one out to put another in."
+						          : "Pick up to \(capacity) — the titles you'd put above all the rest.")
+							.font(.system(size: 13, weight: .medium))
+							.foregroundStyle(.white.opacity(0.75))
+							.frame(maxWidth: .infinity, alignment: .leading)
+							.padding(.horizontal, 4)
+							.padding(.bottom, 4)
+							.contentTransition(.opacity)
+					}
 					if titles.isEmpty {
 						Text(search.isEmpty ? "Nothing in your library yet." : "No titles match \u{201C}\(search)\u{201D}.")
 							.font(.system(size: 14, weight: .medium))
@@ -59,7 +72,10 @@ struct CollectionTitlePicker: View {
 							.liquidCard(cornerRadius: 20)
 					}
 					ForEach(titles) { item in
-						row(item, included: included.contains(item.id))
+						let isIn = included.contains(item.id)
+						row(item, included: isIn)
+							.disabled(full && !isIn)
+							.opacity(full && !isIn ? 0.45 : 1)
 					}
 				}
 				.foregroundStyle(.white)
@@ -80,8 +96,7 @@ struct CollectionTitlePicker: View {
 					VStack(spacing: 1) {
 						Text(name)
 							.font(.system(size: 17, weight: .semibold))
-						Text(CollectionsFeed.countLabel(CollectionsFeed.items(in: collection, shows: shows,
-						                                                      films: films).count))
+						Text(CollectionsFeed.countLabel(inCount, in: collection))
 							.font(.system(size: 12, weight: .medium))
 							.foregroundStyle(.white.opacity(0.65))
 							.contentTransition(.numericText())

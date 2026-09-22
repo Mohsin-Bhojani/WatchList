@@ -97,7 +97,7 @@ enum CollectionsFeed {
 		return collection.titleIDs.compactMap { byID[$0] }
 	}
 
-	/// All Time Best, once the library has it.
+	/// Top 4, once the library has it.
 	static func pinned(_ collections: [TitleCollection]) -> TitleCollection? {
 		collections.first { $0.isPinned }
 	}
@@ -114,6 +114,13 @@ enum CollectionsFeed {
 		case 1:  return "1 title"
 		default: return "\(count) titles"
 		}
+	}
+
+	/// A collection's count: "3 of 4" in Top 4, which holds four, otherwise as
+	/// `countLabel`.
+	static func countLabel(_ count: Int, in collection: TitleCollection?) -> String {
+		guard count > 0, let capacity = collection?.capacity else { return countLabel(count) }
+		return "\(count) of \(capacity)"
 	}
 
 	/// A row's kind line: "TV Show · 64 episodes", "TV Show · 2 seasons" before

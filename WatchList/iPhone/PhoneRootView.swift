@@ -8,7 +8,7 @@
 //    - iPhone: the Liquid Glass tab bar along the bottom, Search in its own
 //      circle on the trailing edge
 //    - iPad: the same tabs in the floating tab bar at the top, which opens out
-//      into a sidebar; the sidebar also lists All Time Best, the by-verdict
+//      into a sidebar; the sidebar also lists Top 4, the by-verdict
 //      collections and your own, each opening straight onto its page
 //  Tapping the tab you're on goes back to its list and up to its top, as the
 //  system does; tapping Shows, Discover or Collections once it's there opens
@@ -108,7 +108,7 @@ struct PhoneRootView: View {
 		}
 		.modifier(DockStyle(isPad: isPad))
 		.task {
-			// Every library has All Time Best, pinned above the verdicts.
+			// Every library has Top 4, pinned above the verdicts.
 			ctx.ensurePinnedCollection()
 			// Downloaded artwork is kept to a size; anything dropped downloads again.
 			Task.detached(priority: .background) { ImageCache.trimDisk() }

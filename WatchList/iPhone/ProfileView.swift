@@ -5,8 +5,8 @@
 //  The profile sheet from the header's profile button, and what it opens:
 //    - ProfileView: on your accent's colour, the way a title page sits on a
 //      poster's — your avatar and nickname, with Edit and Settings either side
-//      of it; your verdicts added up, which open Stats; the pinned All Time Best
-//      collection's first posters; and this week's watching, the time each day
+//      of it; your verdicts added up, which open Stats; the pinned Top 4
+//      collection's posters; and this week's watching, the time each day
 //      as a bar and, below it, the titles behind the week or the day tapped
 //    - EditProfileView: Customise Your Profile — the avatar with a pencil to
 //      choose or remove a photo, and a nickname field
@@ -53,7 +53,7 @@ struct ProfileView: View {
 					}
 					.buttonStyle(.pressable)
 					.accessibilityHint("Opens your stats")
-					allTimeBest
+					topFour
 					ProfileWeekSection(films: films)
 				}
 				.foregroundStyle(.white)
@@ -77,7 +77,7 @@ struct ProfileView: View {
 			}
 		}
 		.sheet(isPresented: $addingTitles) {
-			CollectionTitlePicker(collectionID: TitleCollection.allTimeBestID)
+			CollectionTitlePicker(collectionID: TitleCollection.topFourID)
 		}
 	}
 
@@ -117,23 +117,25 @@ struct ProfileView: View {
 		.accessibilityLabel(title)
 	}
 
-	// MARK: All Time Best
+	// MARK: Top 4
 
-	/// The pinned collection's first four posters, with All opening the whole
-	/// collection; before anything's in, a way to fill it.
-	private var allTimeBest: some View {
+	/// The pinned collection's four posters, with a place to add one in each
+	/// spot still free, and "3 of 4" opening its page; before anything's in, a
+	/// way to fill it.
+	private var topFour: some View {
 		let pinned = CollectionsFeed.pinned(collections)
-		let items = CollectionsFeed.items(in: pinned, shows: shows, films: films)
+		let items = Array(CollectionsFeed.items(in: pinned, shows: shows, films: films)
+			.prefix(TitleCollection.topFourSize))
 		return VStack(alignment: .leading, spacing: 12) {
 			HStack(spacing: 6) {
-				Text(pinned?.name ?? TitleCollection.allTimeBestName)
+				Text(pinned?.name ?? TitleCollection.topFourName)
 					.font(.system(size: 20, weight: .bold))
 					.accessibilityAddTraits(.isHeader)
 				Spacer(minLength: 8)
 				if !items.isEmpty {
-					NavigationLink { PhoneCollectionView(source: .mine(TitleCollection.allTimeBestID)) } label: {
+					NavigationLink { PhoneCollectionView(source: .mine(TitleCollection.topFourID)) } label: {
 						HStack(spacing: 4) {
-							Text("All \(items.count)")
+							Text(CollectionsFeed.countLabel(items.count, in: pinned))
 							Image(systemName: "chevron.right")
 								.font(.system(size: 12, weight: .bold))
 						}
@@ -145,10 +147,15 @@ struct ProfileView: View {
 			if items.isEmpty {
 				emptyShelf
 			} else {
-				LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top), count: 4),
+				LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10, alignment: .top),
+				                         count: TitleCollection.topFourSize),
 				          alignment: .leading, spacing: 10) {
-					ForEach(Array(items.prefix(4))) { item in
+					ForEach(items) { item in
 						NavigationLink { item.destination } label: { ShelfPoster(item: item) }
+							.buttonStyle(.pressable)
+					}
+					ForEach(items.count..<TitleCollection.topFourSize, id: \.self) { _ in
+						Button { addingTitles = true } label: { ShelfAddSpot() }
 							.buttonStyle(.pressable)
 					}
 				}
@@ -158,7 +165,7 @@ struct ProfileView: View {
 
 	private var emptyShelf: some View {
 		VStack(alignment: .leading, spacing: 12) {
-			Text("Put the titles you love most here and they lead your profile.")
+			Text("Pick the four titles you love most and they lead your profile.")
 				.font(.system(size: 14, weight: .medium))
 				.foregroundStyle(.white.opacity(0.75))
 				.fixedSize(horizontal: false, vertical: true)
@@ -246,8 +253,8 @@ private struct VerdictSummaryCard: View {
 
 // MARK: - Shelf poster
 
-/// A poster on the profile's All Time Best shelf, four across: the art, the
-/// title and its stars.
+/// A poster on the profile's Top 4 shelf, four across: the art, the title and
+/// its stars.
 private struct ShelfPoster: View {
 	let item: WatchedTitle
 
@@ -278,6 +285,24 @@ private struct ShelfPoster: View {
 			}
 		}
 		.accessibilityElement(children: .combine)
+	}
+}
+
+/// A free spot on the Top 4 shelf: a dashed poster-sized outline with a plus,
+/// which opens Add Titles.
+private struct ShelfAddSpot: View {
+	var body: some View {
+		RoundedRectangle(cornerRadius: 10, style: .continuous)
+			.strokeBorder(.white.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+			.aspectRatio(2.0 / 3.0, contentMode: .fit)
+			.overlay {
+				Image(systemName: "plus")
+					.font(.system(size: 18, weight: .semibold))
+					.foregroundStyle(.white.opacity(0.7))
+			}
+			.contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+			.accessibilityElement(children: .ignore)
+			.accessibilityLabel("Add to Top 4")
 	}
 }
 

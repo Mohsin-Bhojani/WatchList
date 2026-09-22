@@ -2,7 +2,7 @@
 //  CollectionsFeedTests.swift
 //  WatchListTests
 //
-//  The Collections tab's by-verdict collections, the pinned All Time Best, and
+//  The Collections tab's by-verdict collections, the pinned Top 4, and
 //  the lines their cards use.
 //
 
@@ -77,9 +77,9 @@ struct CollectionsFeedTests {
 		#expect(standard.segmentTitle(for: .name) == "Z–A")
 	}
 
-	@Test func allTimeBestIsPinnedApartFromYourCollections() {
-		let pinned = TitleCollection(name: TitleCollection.allTimeBestName)
-		pinned.id = TitleCollection.allTimeBestID
+	@Test func topFourIsPinnedApartFromYourCollections() {
+		let pinned = TitleCollection(name: TitleCollection.topFourName)
+		pinned.id = TitleCollection.topFourID
 		let mine = TitleCollection(name: "Comfort")
 
 		#expect(pinned.isPinned)
@@ -89,7 +89,7 @@ struct CollectionsFeedTests {
 		#expect(CollectionsFeed.yours([mine, pinned]).map(\.name) == ["Comfort"])
 	}
 
-	@Test func aLibraryGetsAllTimeBestOnlyOnce() throws {
+	@Test func aLibraryGetsTopFourOnlyOnce() throws {
 		let container = try ModelContainer(for: TitleCollection.self,
 		                                   configurations: ModelConfiguration(isStoredInMemoryOnly: true))
 		let context = container.mainContext
@@ -99,7 +99,37 @@ struct CollectionsFeedTests {
 
 		let collections = try context.fetch(FetchDescriptor<TitleCollection>())
 		#expect(collections.count == 2)
-		#expect(collections.filter(\.isPinned).map(\.name) == ["All Time Best"])
+		#expect(collections.filter(\.isPinned).map(\.name) == ["Top 4"])
+	}
+
+	@Test func anOldAllTimeBestBecomesTopFourKeepingItsFirstFourStillInTheLibrary() throws {
+		let container = try ModelContainer(for: Show.self, Season.self, Episode.self, Film.self, TitleCollection.self,
+		                                   configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+		let context = container.mainContext
+		let titles = (1...6).map { Film(title: "Film \($0)") }
+		titles.forEach(context.insert)
+		let gone = UUID()
+		let old = TitleCollection(name: "All Time Best", titleIDs: [titles[0].id, gone] + titles[1...].map(\.id))
+		old.id = TitleCollection.topFourID
+		context.insert(old)
+
+		context.ensurePinnedCollection()
+
+		#expect(old.name == "Top 4")
+		#expect(old.titleIDs == titles.prefix(4).map(\.id))
+	}
+
+	@Test func topFourHoldsFourAndYourOwnAnyNumber() {
+		let pinned = TitleCollection(name: TitleCollection.topFourName)
+		pinned.id = TitleCollection.topFourID
+		let mine = TitleCollection(name: "Comfort")
+
+		#expect(pinned.hasRoom(holding: 3))
+		#expect(!pinned.hasRoom(holding: 4))
+		#expect(mine.hasRoom(holding: 400))
+		#expect(CollectionsFeed.countLabel(3, in: pinned) == "3 of 4")
+		#expect(CollectionsFeed.countLabel(0, in: pinned) == "Nothing yet")
+		#expect(CollectionsFeed.countLabel(3, in: mine) == "3 titles")
 	}
 
 	@Test func countsAndKindLinesRead() {

@@ -6,15 +6,15 @@
 //  "Collection opened" design:
 //    - the bar, in one row: back, the collection's name and count, a list /
 //      carousel switch, and the "…" menu — Share, and in your own collections
-//      Add Titles, Rename and Delete (All Time Best, which is always there, only
-//      Add Titles). An iPad shares its bar with the floating tab bar, so there
-//      the name and switch sit at the top of the page.
+//      Add Titles, Rename and Delete (Top 4, which is always there, only Add
+//      Titles). An iPad shares its bar with the floating tab bar, so there the
+//      name and switch sit at the top of the page.
 //    - List: a fan of its first posters, then a row per title — its poster,
 //      kind line, stars and verdict — each opening the title's page; in your own
 //      collections a long press removes it
 //    - Carousel: a poster at a time, its neighbours peeking in, with "4 of 18",
 //      the title, its verdict and its synopsis under it; the page takes the
-//      poster's colour
+//      poster's colour. Top 4 opens in it; the rest open as a list
 //    - Share sends the collection as a plain list
 //  Reordering and sharing with friends aren't built, so those menu items are
 //  placeholders.
@@ -38,7 +38,7 @@ struct PhoneCollectionView: View {
 	@Query(sort: \TitleCollection.created) private var collections: [TitleCollection]
 	@Environment(\.modelContext) private var ctx
 
-	@State private var mode: Mode = .list
+	@State private var mode: Mode
 	@State private var compactBar = false
 	@State private var carouselID: UUID?
 	@State private var carouselTone: UIColor?
@@ -55,6 +55,12 @@ struct PhoneCollectionView: View {
 	/// Keyed on the device, like the app's shell: an iPad's bar has the floating
 	/// tab bar in the middle of it.
 	private let isPad = UIDevice.current.userInterfaceIdiom == .pad
+
+	init(source: CollectionSource) {
+		self.source = source
+		// Four posters are made for going through one at a time.
+		_mode = State(initialValue: source == .mine(TitleCollection.topFourID) ? .carousel : .list)
+	}
 
 	private var mine: TitleCollection? {
 		if case .mine(let id) = source { return collections.first { $0.id == id } }
@@ -97,9 +103,9 @@ struct PhoneCollectionView: View {
 		mode == .carousel && !items.isEmpty ? (carouselTone ?? baseTone) : baseTone
 	}
 
-	/// "2 titles", with "· private" on your own collections.
+	/// "2 titles" — "2 of 4" in Top 4 — with "· private" on your own collections.
 	private func countLine(_ items: [WatchedTitle]) -> String {
-		CollectionsFeed.countLabel(items.count) + (isMine ? " · private" : "")
+		CollectionsFeed.countLabel(items.count, in: mine) + (isMine ? " · private" : "")
 	}
 
 	var body: some View {
@@ -270,7 +276,7 @@ struct PhoneCollectionView: View {
 				Button { addingTitles = true } label: {
 					Label("Add Titles", systemImage: "plus")
 				}
-				// All Time Best stays put: filled and emptied, never renamed or deleted.
+				// Top 4 stays put: filled and emptied, never renamed or deleted.
 				if mine?.isPinned != true {
 					Button {
 						draftName = name
