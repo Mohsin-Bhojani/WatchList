@@ -162,7 +162,7 @@ struct PhoneSeasonView: View {
 		withAnimation(Glass.smooth) {
 			season.status = .watched
 			if cascadeWatched {
-				for episode in season.episodes { episode.mark(.watched) }
+				for episode in season.episodes { episode.markWatched() }
 			}
 			ratingPopup = .justMarked
 		}
@@ -241,7 +241,7 @@ struct PhoneSeasonView: View {
 			VStack(alignment: .trailing, spacing: 6) {
 				Button {
 					Haptics.selection()
-					withAnimation(Glass.smooth) { episode.mark(watched ? .toWatch : .watched) }
+					withAnimation(Glass.smooth) { watched ? episode.mark(.toWatch) : episode.markWatched() }
 				} label: {
 					Image(systemName: watched ? "checkmark.circle.fill" : "circle")
 						.font(.system(size: 22, weight: .semibold))

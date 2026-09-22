@@ -105,12 +105,12 @@ struct NextEpisodeTests {
 		#expect(episode.episodeTier == .watch)
 	}
 
-	@Test func finishingWithTheSettingOffLeavesSeasonsAlone() {
+	@Test func finishingWithTheSettingOffLeavesSeasonsWatching() {
 		let s = show([(1, 1)])
 		HomeFeed.markNextWatched(in: s, cascade: false)
 		HomeFeed.markNextWatched(in: s, cascade: false)
 		#expect(s.status == .watched)
-		#expect(s.seasons.allSatisfy { $0.status == .toWatch })
+		#expect(s.seasons.allSatisfy { $0.status == .watching })
 	}
 }
 
@@ -189,6 +189,45 @@ struct WatchTrackingTests {
 		show.mark(.watching, at: now)
 		#expect(show.status == .watching)
 		#expect(show.watchedAt == nil)
+	}
+
+	/// An episode in its own season of a show, each with the status given.
+	private func episode(show: WatchStatus, season: WatchStatus) -> Episode {
+		let s = Show(title: "Show", status: show)
+		let season = Season(seasonNumber: 1, status: season)
+		season.show = s
+		s.seasons.append(season)
+		let episode = Episode(episodeNumber: 1, seasonNumber: 1, title: "E1")
+		episode.season = season
+		season.episodes.append(episode)
+		return episode
+	}
+
+	@Test func watchingAnEpisodeStartsItsSeasonAndShow() {
+		let episode = episode(show: .toWatch, season: .toWatch)
+		episode.markWatched(at: now)
+		#expect(episode.status == .watched)
+		#expect(episode.watchedAt == now)
+		#expect(episode.season?.status == .watching)
+		#expect(episode.season?.show?.status == .watching)
+		#expect(episode.season?.show?.watchedAt == nil)
+	}
+
+	@Test func watchingAnEpisodeLeavesAFinishedSeasonAndShowFinished() {
+		let episode = episode(show: .watched, season: .watched)
+		let show = episode.season!.show!
+		show.watchedAt = then
+		episode.markWatched(at: now)
+		#expect(episode.season?.status == .watched)
+		#expect(show.status == .watched)
+		#expect(show.watchedAt == then)
+	}
+
+	@Test func aSeasonAlreadyFinishedStillStartsTheShow() {
+		let episode = episode(show: .toWatch, season: .watched)
+		episode.markWatched(at: now)
+		#expect(episode.season?.status == .watched)
+		#expect(episode.season?.show?.status == .watching)
 	}
 
 	@Test func arrivingAlreadyWatchedIsDated() {

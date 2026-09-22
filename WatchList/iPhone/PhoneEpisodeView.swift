@@ -156,7 +156,7 @@ struct PhoneEpisodeView: View {
 
 	private func setStatus(_ status: WatchStatus) {
 		guard episode.status != status else { return }
-		withAnimation(Glass.smooth) { episode.mark(status) }
+		withAnimation(Glass.smooth) { status == .watched ? episode.markWatched() : episode.mark(status) }
 		if status == .watched { Haptics.success() }
 	}
 
@@ -173,7 +173,7 @@ struct PhoneEpisodeView: View {
 						Haptics.selection()
 						withAnimation(Glass.smooth) {
 							episode.episodeTier = current ? nil : tier
-							if !current { episode.mark(.watched) }
+							if !current { episode.markWatched() }
 						}
 					} label: {
 						VStack(spacing: 5) {

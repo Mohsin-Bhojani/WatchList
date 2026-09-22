@@ -130,6 +130,7 @@ struct WatchLinkTests {
 		#expect(episode.status == .watched)
 		#expect(episode.episodeTier == .rewatch)
 		#expect(episode.watchedAt != nil)
+		#expect(episode.season?.status == .watching)
 
 		// Marked without a rating, an earlier one stays.
 		let second = watching.sortedSeasons[0].sortedEpisodes[1]

@@ -197,10 +197,10 @@ enum HomeFeed {
 
 	/// What the rating sheet does with a pick: records the rating when one was
 	/// chosen — marking watched without one leaves an earlier rating alone —
-	/// and marks the episode Watched.
+	/// and marks the episode Watched, starting its season and show.
 	static func markWatched(_ episode: Episode, tier: EpisodeTier?) {
 		if let tier { episode.episodeTier = tier }
-		episode.mark(.watched)
+		episode.markWatched()
 	}
 
 	/// Home's Mark Watched. Marks the next episode when there is one. Once
@@ -210,7 +210,7 @@ enum HomeFeed {
 	@discardableResult
 	static func markNextWatched(in show: Show, cascade: Bool) -> Episode? {
 		if let episode = nextEpisode(of: show) {
-			episode.mark(.watched)
+			episode.markWatched()
 			return episode
 		}
 		show.mark(.watched)
