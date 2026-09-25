@@ -5,6 +5,7 @@
 //  The film page, after the "Film view" design, built from TitlePageKit:
 //    - the poster, title and a meta line: TMDb stars and votes, year, runtime
 //    - a To watch / Watched switch; marking Watched asks how it was
+//    - Play, when the film is on your Jellyfin server (PlayButton)
 //    - once watched, your rating: verdict, stars, date and private note
 //    - trailer, synopsis, Everyone on WatchList, Details — ending in Open in…
 //      (IMDb, TMDb, Letterboxd and more; TitleSites) and Share — and Cast
@@ -66,6 +67,7 @@ struct PhoneFilmDetailView: View {
 				TitlePageColumns {
 					header
 					statusSwitch
+					playButton
 					if film.status == .watched { verdictCard }
 				} rest: {
 					PageTrailerCard(source: film.tmdbID.map { .movie(movieID: $0) }, backdropURL: film.backdropURL)
@@ -149,7 +151,10 @@ struct PhoneFilmDetailView: View {
 			             title: film.title, voteAverage: average,
 			             votes: average > 0 ? FilmFacts.count(film.specs?.voteCount) : nil,
 			             synopsis: film.synopsis) {
-				statusSwitch
+				VStack(spacing: 10) {
+					statusSwitch
+					playButton
+				}
 			}
 			PadTitleBody {
 				if film.status == .watched {
@@ -208,6 +213,15 @@ struct PhoneFilmDetailView: View {
 			},
 		], selectedText: pageDeep)
 		.padding(.top, 2)
+	}
+
+	/// Play from your Jellyfin server, when it has the film; watching it
+	/// through marks it Watched and asks how it was.
+	private var playButton: some View {
+		PagePlayButton(title: .film(tmdbID: film.tmdbID, imdbID: film.imdbID), name: film.title,
+		               subtitle: film.year.isEmpty ? nil : film.year) {
+			if film.status != .watched { markWatched() }
+		}
 	}
 
 	private func setStatus(_ status: WatchStatus) {

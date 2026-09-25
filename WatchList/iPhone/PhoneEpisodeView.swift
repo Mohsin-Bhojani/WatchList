@@ -5,6 +5,7 @@
 //  The iPhone episode page, in the "Show view" design's language:
 //    - the still, where it sits in the show, the title and a meta line
 //    - a To watch / Watched switch
+//    - Play, when the episode is on your Jellyfin server (PlayButton)
 //    - your rating: Skip, Watch or Rewatch
 //    - synopsis, Everyone on WatchList, details — ending in Open in… (IMDb,
 //      TMDb, Trakt) and Share — and who's in it
@@ -180,6 +181,7 @@ private struct EpisodePage: View {
 					header
 					statusSwitch
 						.frame(maxWidth: .infinity)
+					playButton
 					ratingSection
 				} rest: {
 					if !episode.synopsis.isEmpty { PageSynopsisCard(text: episode.synopsis) }
@@ -225,7 +227,10 @@ private struct EpisodePage: View {
 			             title: episode.displayTitle, voteAverage: average,
 			             votes: average > 0 ? FilmFacts.count(episode.specs?.voteCount) : nil,
 			             synopsis: episode.synopsis) {
-				statusSwitch
+				VStack(spacing: 10) {
+					statusSwitch
+					playButton
+				}
 			}
 			PadTitleBody {
 				ratingSection
@@ -297,6 +302,18 @@ private struct EpisodePage: View {
 				episode.setStatus(.watched)
 			},
 		], selectedText: pageDeep)
+	}
+
+	/// Play from your Jellyfin server, when it has the episode; watching it
+	/// through marks it Watched, starting its season and show.
+	private var playButton: some View {
+		PagePlayButton(title: .episode(showTMDbID: episode.showTMDbID, showIMDbID: show?.imdbID,
+		                               season: episode.seasonNumber, episode: episode.episodeNumber),
+		               name: episode.displayTitle,
+		               subtitle: [show?.title ?? "", ShowFacts.code(episode)].filter { !$0.isEmpty }
+		               	.joined(separator: " · ")) {
+			episode.setStatus(.watched)
+		}
 	}
 
 	/// The three episode ratings; tapping the chosen one again clears it.

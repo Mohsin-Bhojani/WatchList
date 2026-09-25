@@ -65,5 +65,19 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<false/>
 
+	<!-- Your Jellyfin server (Jellyfin.swift): at home it's usually plain http
+	     on the local network, which App Transport Security otherwise refuses.
+	     The local-network prompt's wording is the
+	     INFOPLIST_KEY_NSLocalNetworkUsageDescription build setting. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!-- The player keeps playing in Picture in Picture and with the screen locked. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>
