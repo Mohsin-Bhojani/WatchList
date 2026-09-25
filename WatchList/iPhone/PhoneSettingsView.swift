@@ -4,8 +4,10 @@
 //
 //  Settings on iPhone, in the app's paper theme — following light and dark and
 //  your accent colour, like the tabs: accent colour, the watched cascade,
-//  new-episode checks, exporting your library as JSON, and About. The same settings, under the same keys, as the
-//  shared SettingsView, so either screen shows a change made on the other.
+//  new-episode checks, the Where to watch country, exporting your library as
+//  JSON, and About. The same settings, under the same keys, as the shared
+//  SettingsView, so either screen shows a change made on the other — except
+//  the Where to watch country, which only the iPhone pages use.
 //
 
 import SwiftUI
@@ -16,6 +18,9 @@ struct PhoneSettingsView: View {
 	@ObservedObject private var theme = AppTheme.shared
 	@AppStorage("autoMarkEpisodesWatched") private var autoMarkEpisodes = true
 	@AppStorage("autoCheckNewEpisodes") private var autoCheckEpisodes = true
+	@AppStorage(WatchRegion.key) private var watchRegion = ""
+	/// TMDb's countries with watch data, by name; empty until loaded.
+	@State private var watchRegions: [(code: String, name: String)] = []
 
 	@Environment(\.modelContext) private var ctx
 	@Query private var shows: [Show]
@@ -41,6 +46,7 @@ struct PhoneSettingsView: View {
 					accentSection
 					episodesSection
 					newEpisodesSection
+					whereToWatchSection
 					dataSection
 					aboutSection
 				}
@@ -185,6 +191,42 @@ struct PhoneSettingsView: View {
 			checking = false
 			checkResult = report.summary
 			report.foundSomething ? Haptics.success() : Haptics.tap()
+		}
+	}
+
+	// MARK: Where to watch
+
+	private var whereToWatchSection: some View {
+		VStack(alignment: .leading, spacing: 12) {
+			SectionLabel(text: "Where to Watch", systemImage: "tv")
+			VStack(alignment: .leading, spacing: 8) {
+				HStack {
+					Text("Country")
+						.font(.system(size: 16, weight: .semibold))
+						.foregroundStyle(Glass.ink)
+					Spacer()
+					Picker("Country", selection: $watchRegion) {
+						Text("This iPhone's region (\(WatchRegion.name(WatchRegion.phone)))").tag("")
+						// The chosen country, even before TMDb's list arrives.
+						if !watchRegion.isEmpty, !watchRegions.contains(where: { $0.code == watchRegion }) {
+							Text(WatchRegion.name(watchRegion)).tag(watchRegion)
+						}
+						ForEach(watchRegions, id: \.code) { Text($0.name).tag($0.code) }
+					}
+					.pickerStyle(.menu)
+					.tint(Glass.accent)
+				}
+				Text("Show and film pages list the services that stream, rent or sell a title in this country.")
+					.font(.system(size: 13, weight: .medium))
+					.foregroundStyle(.secondary)
+			}
+			.padding(16)
+			.glass(cornerRadius: 22)
+		}
+		.task {
+			guard watchRegions.isEmpty, let regions = try? await TMDbService.shared.watchRegions() else { return }
+			watchRegions = regions.map { ($0.iso_3166_1, WatchRegion.name($0.iso_3166_1)) }
+				.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 		}
 	}
 

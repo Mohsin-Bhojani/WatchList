@@ -6,14 +6,14 @@
 //    - the poster, title and a meta line: TMDb stars and votes, year, runtime
 //    - a To watch / Watched switch; marking Watched asks how it was
 //    - once watched, your rating: verdict, stars, date and private note
-//    - trailer, synopsis, Everyone on WatchList, Details and Cast
+//    - trailer, synopsis, Everyone on WatchList, Details — ending in Open in…
+//      (IMDb, TMDb, Letterboxd and more; TitleSites) and Share — and Cast
 //    - a status menu in the bar: status, rating, share, artwork, collections,
-//      remove
+//      refresh, remove
 //    - a compact bar with the poster and title once the title scrolls away
 //  A rating is a verdict, half-star stars or both, each setting the other
-//  (StarRating). Community ratings, the trailer, where to watch, sharing with
-//  friends and refreshing metadata aren't built yet; each keeps its place with
-//  a placeholder.
+//  (StarRating). Refresh metadata takes TMDb's latest (FilmRefresh); Share
+//  with friends sends it as a WatchList link (FriendShare).
 //
 //  The page takes its colour from the film's own poster (PageTheme), so no two
 //  films look the same.
@@ -27,6 +27,7 @@ struct PhoneFilmDetailView: View {
 
 	@Environment(\.modelContext) private var ctx
 	@Environment(\.dismiss) private var dismiss
+	@Environment(\.horizontalSizeClass) private var sizeClass
 	@Query(sort: \TitleCollection.created) private var collections: [TitleCollection]
 
 	@State private var compactBar = false
@@ -36,6 +37,8 @@ struct PhoneFilmDetailView: View {
 	@State private var namingCollection = false
 	@State private var cast: [CastEntry] = []
 	@State private var theme: UIColor?
+	@State private var refreshing = false
+	@State private var refreshNote: String?
 
 	/// The design's teal, for Watched and Save rating.
 	static let teal = Color(.pageWatched)
@@ -55,30 +58,27 @@ struct PhoneFilmDetailView: View {
 	private var shownStars: Double? { film.shownStars }
 
 	var body: some View {
+		let pad = PadTitleLayout.applies(sizeClass)
 		ScrollView {
-			TitlePageColumns {
-				header
-				statusSwitch
-				if film.status == .watched {
-					PageVerdictCard(rating: film.rating, stars: shownStars,
-					                dateLine: film.watchedAt.map { "Watched \(FilmFacts.shortDate($0))" },
-					                note: film.notes) {
-						withAnimation(Glass.smooth) { ratingPopup = .edit }
-					}
+			if pad {
+				padPage
+			} else {
+				TitlePageColumns {
+					header
+					statusSwitch
+					if film.status == .watched { verdictCard }
+				} rest: {
+					PageTrailerCard(source: film.tmdbID.map { .movie(movieID: $0) }, backdropURL: film.backdropURL)
+					if !film.synopsis.isEmpty { PageSynopsisCard(text: film.synopsis) }
+					community
+					PageSection(title: "Details") { detailsCard }
+					if !cast.isEmpty { PageSection(title: "Cast") { PageCastRow(cast: cast) } }
 				}
-			} rest: {
-				PageTrailerCard(backdropURL: film.backdropURL)
-				if !film.synopsis.isEmpty { PageSynopsisCard(text: film.synopsis) }
-				if let tmdbID = film.tmdbID {
-					CommunitySection(title: .film(tmdbID: tmdbID), scale: .verdict, yours: film.rating?.rawValue)
-				}
-				PageSection(title: "Details") { detailsCard }
-				if !cast.isEmpty { PageSection(title: "Cast") { PageCastRow(cast: cast) } }
 			}
 		}
 		// The bar turns solid, with the poster and title, once the title is gone.
 		.onScrollGeometryChange(for: Bool.self) { geometry in
-			geometry.contentOffset.y + geometry.contentInsets.top > 290
+			geometry.contentOffset.y + geometry.contentInsets.top > (pad ? PadTitleLayout.compactBarOffset : 290)
 		} action: { _, pastTitle in
 			withAnimation(.easeInOut(duration: 0.2)) { compactBar = pastTitle }
 		}
@@ -113,6 +113,12 @@ struct PhoneFilmDetailView: View {
 			}
 		}
 		.newCollectionAlert(isPresented: $namingCollection, adding: film.id)
+		.alert("Refresh metadata", isPresented: Binding(get: { refreshNote != nil },
+		                                                 set: { if !$0 { refreshNote = nil } })) {
+			Button("OK", role: .cancel) {}
+		} message: {
+			Text(refreshNote ?? "")
+		}
 		.confirmationDialog("Remove \u{201C}\(film.title)\u{201D}?", isPresented: $confirmingRemove,
 		                    titleVisibility: .visible) {
 			Button("Remove from Library", role: .destructive) {
@@ -126,6 +132,53 @@ struct PhoneFilmDetailView: View {
 			guard let sampled = await PageTheme.load(Self.artURL(of: film)), !Task.isCancelled,
 			      sampled != theme else { return }
 			withAnimation(.easeOut(duration: 0.4)) { theme = sampled }
+		}
+	}
+
+	// MARK: iPad
+
+	/// The iPad's page (PadTitlePage): once watched, your verdict and
+	/// Everyone on WatchList come first; before then, Everyone on WatchList
+	/// waits at the end.
+	private var padPage: some View {
+		let average = film.specs?.voteAverage ?? 0
+		return VStack(spacing: 0) {
+			PadTitleHero(backdropURL: film.backdropURL, posterURL: film.posterURL, placeholder: "film",
+			             kindLine: PadTitleLayout.kindLine(["Film", film.year,
+			                                                FilmFacts.runtime(film.specs?.runtimeMinutes)]),
+			             title: film.title, voteAverage: average,
+			             votes: average > 0 ? FilmFacts.count(film.specs?.voteCount) : nil,
+			             synopsis: film.synopsis) {
+				statusSwitch
+			}
+			PadTitleBody {
+				if film.status == .watched {
+					PageSection(title: "Your verdict") { verdictCard }
+					community
+				}
+			} main: {
+				PageTrailerCard(source: film.tmdbID.map { .movie(movieID: $0) }, backdropURL: film.backdropURL,
+				                title: "Trailer")
+			} side: {
+				PageSection(title: "Details") { detailsCard }
+			} rest: {
+				if !cast.isEmpty { PageSection(title: "Cast") { PageCastRow(cast: cast) } }
+				if film.status != .watched { community }
+			}
+		}
+	}
+
+	private var verdictCard: some View {
+		PageVerdictCard(rating: film.rating, stars: shownStars,
+		                dateLine: film.watchedAt.map { "Watched \(FilmFacts.shortDate($0))" },
+		                note: film.notes, share: SharedTitle(film: film)) {
+			withAnimation(Glass.smooth) { ratingPopup = .edit }
+		}
+	}
+
+	@ViewBuilder private var community: some View {
+		if let tmdbID = film.tmdbID {
+			CommunitySection(title: .film(tmdbID: tmdbID), scale: .verdict, yours: film.rating?.rawValue)
 		}
 	}
 
@@ -192,22 +245,21 @@ struct PhoneFilmDetailView: View {
 				PageDetailRow("Release date", icon: "calendar", text: released)
 				PageRowDivider()
 			}
-			PageDetailRow(label: "Where to watch", icon: "tv") { PlaceholderTag() }
-			PageRowDivider()
+			if let tmdbID = film.tmdbID {
+				PageDetailRow(label: "Where to watch", icon: "tv") {
+					WhereToWatchList(source: .movie(movieID: tmdbID), title: film.title)
+				}
+				PageRowDivider()
+			}
 			PageDetailRow("Your rating", icon: "star", text: yourRatingSummary)
 			PageRowDivider()
 			PageDetailRow("Collections", icon: "rectangle.stack", text: collectionNames)
 
 			HStack(spacing: 10) {
-				if let id = film.imdbID, let url = IMDb.titleURL(id) {
-					Link(destination: url) {
-						HStack(spacing: 5) {
-							Text("View on IMDb")
-							Image(systemName: "arrow.up.right")
-						}
-						.titlePageCapsule()
-					}
+				let openIn = OpenInMenu(sites: TitleSites.film(imdbID: film.imdbID, tmdbID: film.tmdbID, title: film.title)) {
+					OpenInLabel()
 				}
+				if openIn.hasLinks { openIn }
 				shareLink { Label("Share", systemImage: "square.and.arrow.up").titlePageCapsule() }
 			}
 			.padding(.top, 12)
@@ -237,10 +289,19 @@ struct PhoneFilmDetailView: View {
 		cast = Array(await CreditsLoader.movieCast(movieID: tmdbID).people.prefix(15))
 	}
 
+	// MARK: Refresh
+
+	private func refresh() async {
+		refreshing = true
+		let outcome = await FilmRefresh.refresh(film)
+		refreshing = false
+		refreshNote = outcome.message
+		if case .updated = outcome { Haptics.success() }
+	}
+
 	// MARK: Menu
 
-	/// The design's status menu. Refresh metadata isn't built, so it's shown but
-	/// can't be chosen.
+	/// The design's status menu.
 	private var statusMenu: some View {
 		Menu {
 			StatusMenuSection(current: film.status, statuses: [.toWatch, .watched]) { status in
@@ -254,11 +315,10 @@ struct PhoneFilmDetailView: View {
 				}
 				.disabled(film.tmdbID == nil)
 				AddToCollectionMenu(titleID: film.id) { namingCollection = true }
-				Button {} label: {
-					Label("Refresh metadata", systemImage: "arrow.clockwise")
-					Text("Placeholder")
+				Button { Task { await refresh() } } label: {
+					Label(refreshing ? "Refreshing…" : "Refresh metadata", systemImage: "arrow.clockwise")
 				}
-				.disabled(true)
+				.disabled(film.tmdbID == nil || refreshing)
 				Button(role: .destructive) { confirmingRemove = true } label: {
 					Label("Remove from library", systemImage: "trash")
 				}

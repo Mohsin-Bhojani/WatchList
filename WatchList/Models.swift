@@ -287,7 +287,7 @@ final class Film {
 final class TitleCollection {
 	var id: UUID
 	var name: String
-	/// Show and film ids, in the order they were added.
+	/// Show and film ids: in the order they were added, until you reorder them.
 	var titleIDs: [UUID]
 	var created: Date
 

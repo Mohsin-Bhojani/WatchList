@@ -56,6 +56,42 @@ struct ShowFactsTests {
 		#expect(ShowFacts.nextAfterLastWatched([]) == nil)
 	}
 
+	/// A show with the seasons given, numbered, each with that many episodes.
+	private func show(_ seasons: [(number: Int, episodes: Int)]) -> Show {
+		let show = Show(title: "Show")
+		for (number, count) in seasons {
+			let season = Season(seasonNumber: number)
+			season.show = show
+			show.seasons.append(season)
+			for episodeNumber in 1...count {
+				let episode = Episode(episodeNumber: episodeNumber, seasonNumber: number, title: "E\(episodeNumber)")
+				episode.season = season
+				season.episodes.append(episode)
+			}
+		}
+		return show
+	}
+
+	@Test func aSwipeRunsThroughTheShowSeasonBySeason() {
+		// Added out of order, as TMDb's seasons can arrive.
+		let s = show([(2, 2), (0, 2), (1, 3)])
+		let opened = s.sortedSeasons[2].sortedEpisodes[0]
+		let run = ShowFacts.swipeRun(around: opened)
+		#expect(run.map(ShowFacts.code) == ["S1 E1", "S1 E2", "S1 E3", "S2 E1", "S2 E2"])
+		#expect(run.contains { $0.id == opened.id })
+	}
+
+	@Test func aSpecialSwipesAmongTheSpecials() {
+		let s = show([(0, 2), (1, 3)])
+		let special = s.sortedSeasons[0].sortedEpisodes[1]
+		#expect(ShowFacts.swipeRun(around: special).map(ShowFacts.code) == ["Special 1", "Special 2"])
+	}
+
+	@Test func anEpisodeOutsideAShowSwipesNowhere() {
+		let loose = Episode(episodeNumber: 4, seasonNumber: 1, title: "E4")
+		#expect(ShowFacts.swipeRun(around: loose).map(\.id) == [loose.id])
+	}
+
 	@Test func theListLineFollowsTheStatus() {
 		#expect(ShowFacts.listLine(status: .toWatch, watched: 0, total: 13, nextCode: "S1 E1")
 			== "In your list · not started")

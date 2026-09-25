@@ -153,12 +153,22 @@ enum CreditsLoader {
 	private static var seasonCastIDCache: [SeasonKey: [Int]] = [:]
 	private static var episodeCache: [EpisodeKey: TitleCredits] = [:]
 	private static var movieCastCache: [Int: TitleCredits] = [:]
+	private static var seriesCastCache: [Int: [CastEntry]] = [:]
 	private static var seriesImageCache: [Int: ImageGallery] = [:]
 	private static var seasonImageCache: [SeasonKey: ImageGallery] = [:]
 	private static var episodeImageCache: [EpisodeKey: ImageGallery] = [:]
 	private static var movieImageCache: [Int: ImageGallery] = [:]
 
 	// MARK: Cast
+
+	/// A series' cast across every season, most episodes first.
+	static func seriesCast(tvID: Int) async -> [CastEntry] {
+		if let cached = seriesCastCache[tvID] { return cached }
+		guard let credits = try? await TMDbService.shared.aggregateCredits(tvID: tvID) else { return [] }
+		let entries = castEntries(from: credits)
+		seriesCastCache[tvID] = entries
+		return entries
+	}
 
 	/// One season's cast, with anyone who didn't appear in an earlier season
 	/// flagged. Season 1 flags nobody — everybody is new, so the flag would be

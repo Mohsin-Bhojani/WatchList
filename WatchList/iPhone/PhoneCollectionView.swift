@@ -6,21 +6,20 @@
 //  "Collection opened" design:
 //    - the bar, in one row: back, the collection's name and count, a list /
 //      carousel switch, and the "…" menu — Share, and in your own collections
-//      Add Titles, Rename and Delete (Top 4, which is always there, only Add
-//      Titles). An iPad shares its bar with the floating tab bar, so there the
-//      name and switch sit at the top of the page.
+//      Add Titles, Rename, Reorder and Delete (Top 4, which is always there,
+//      only Add Titles and Reorder). An iPad shares its bar with the floating
+//      tab bar, so there the name and switch sit at the top of the page.
 //    - List: a fan of its first posters, then a row per title — its poster,
 //      kind line, stars and verdict — each opening the title's page; in your own
 //      collections a long press removes it. An iPad's wider page takes the rows
-//      two across
+//      two across, with bigger posters
 //    - Carousel: a poster at a time, its neighbours peeking in, with "4 of 18",
 //      the title, its verdict and its synopsis under it; the page takes the
 //      poster's colour. Top 4 opens in it; the rest open as a list. On an iPad
-//      held sideways the posters take the leading side and the words sit
-//      beside them
-//    - Share sends the collection as a plain list
-//  Reordering and sharing with friends aren't built, so those menu items are
-//  placeholders.
+//      the poster is as big as the screen's height allows, and held sideways
+//      the posters take the leading side and the words sit beside them
+//    - Share sends the collection as a plain list; Share with friends as a
+//      .watchlist file another WatchList opens (FriendShare)
 //
 
 import SwiftUI
@@ -47,7 +46,11 @@ struct PhoneCollectionView: View {
 	@State private var carouselTone: UIColor?
 	@State private var firstPosterTone: UIColor?
 	@State private var pageWidth: CGFloat = 402
+	/// The height the page has on screen, which an iPad's carousel sizes its
+	/// posters to.
+	@State private var pageHeight: CGFloat = 800
 	@State private var addingTitles = false
+	@State private var reordering = false
 	@State private var renaming = false
 	@State private var draftName = ""
 	@State private var confirmingDelete = false
@@ -68,6 +71,17 @@ struct PhoneCollectionView: View {
 
 	/// The carousel's words beside the posters rather than under them.
 	private var sidewaysCarousel: Bool { isPad && pageWidth >= 900 }
+
+	/// The carousel's poster width. A phone's is two-thirds of the width; an
+	/// iPad's is as big as the height allows with the words still in view —
+	/// under it, upright, or beside it, sideways.
+	private var carouselPosterWidth: CGFloat {
+		guard isPad else { return min(pageWidth * 0.66, 300) }
+		if sidewaysCarousel {
+			return min(pageWidth * 0.56 * 0.7, max((pageHeight - 130) / 1.5, 300), 460)
+		}
+		return min(pageWidth * 0.66, max((pageHeight - 420) / 1.5, 300), 560)
+	}
 
 	init(source: CollectionSource) {
 		self.source = source
@@ -135,7 +149,7 @@ struct PhoneCollectionView: View {
 					.padding(.top, 6)
 				}
 				if mode == .list || items.isEmpty {
-					FannedPosters(urls: items.prefix(4).map(\.posterURL), posterWidth: 76)
+					FannedPosters(urls: items.prefix(4).map(\.posterURL), posterWidth: isPad ? 108 : 76)
 						.frame(maxWidth: .infinity)
 						.padding(.top, 8)
 						.transition(.opacity)
@@ -154,6 +168,7 @@ struct PhoneCollectionView: View {
 			.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { pageWidth = $0 }
 			.frame(maxWidth: .infinity)
 		}
+		.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
 		// The bar turns solid once anything has scrolled up under it.
 		.onScrollGeometryChange(for: Bool.self) { geometry in
 			geometry.contentOffset.y + geometry.contentInsets.top > 8
@@ -180,6 +195,9 @@ struct PhoneCollectionView: View {
 		}
 		.sheet(isPresented: $addingTitles) {
 			if case .mine(let id) = source { CollectionTitlePicker(collectionID: id, tone: pageTone(items)) }
+		}
+		.sheet(isPresented: $reordering) {
+			if case .mine(let id) = source { CollectionReorderSheet(collectionID: id, tone: pageTone(items)) }
 		}
 		.alert("Rename Collection", isPresented: $renaming) {
 			TextField("Name", text: $draftName)
@@ -298,12 +316,13 @@ struct PhoneCollectionView: View {
 						Label("Rename", systemImage: "pencil")
 					}
 				}
-				Section("Placeholder") {
-					Button {} label: { Label("Reorder", systemImage: "arrow.up.arrow.down") }
-						.disabled(true)
-					Button {} label: { Label("Share with friends", systemImage: "person.2") }
-						.disabled(true)
+				// Nothing to put in order until there are two.
+				if items.count > 1 {
+					Button { reordering = true } label: {
+						Label("Reorder", systemImage: "arrow.up.arrow.down")
+					}
 				}
+				shareWithFriends(items)
 				if mine?.isPinned != true {
 					Button(role: .destructive) { confirmingDelete = true } label: {
 						Label("Delete Collection", systemImage: "trash")
@@ -311,8 +330,7 @@ struct PhoneCollectionView: View {
 				}
 			} else {
 				Section("Made from your verdicts") {
-					Button {} label: { Label("Share with friends", systemImage: "person.2") }
-						.disabled(true)
+					shareWithFriends(items)
 				}
 			}
 		} label: {
@@ -320,6 +338,18 @@ struct PhoneCollectionView: View {
 		}
 		.tint(.white)
 		.accessibilityLabel("More")
+	}
+
+	/// The collection as a .watchlist file another WatchList can open: every
+	/// title with your verdict, stars and note.
+	@ViewBuilder private func shareWithFriends(_ items: [WatchedTitle]) -> some View {
+		if !items.isEmpty {
+			ShareLink(item: SharedCollectionFile(collection: SharedCollection(name: name, from: FriendShare.senderName,
+			                                                                  titles: items.map(SharedTitle.init))),
+			          preview: SharePreview("\(name) on WatchList")) {
+				Label("Share with friends", systemImage: "person.2")
+			}
+		}
 	}
 
 	// MARK: Empty
@@ -366,19 +396,21 @@ struct PhoneCollectionView: View {
 		.padding(.horizontal, 18)
 	}
 
+	/// Its poster, title, kind line and verdict — the poster a good deal
+	/// bigger on an iPad.
 	private func row(_ item: WatchedTitle) -> some View {
 		NavigationLink { item.destination } label: {
-			HStack(spacing: 12) {
+			HStack(spacing: isPad ? 16 : 12) {
 				PosterImage(urlString: item.posterURL, systemPlaceholder: item.placeholder)
-					.frame(width: 48, height: 72)
-					.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-				VStack(alignment: .leading, spacing: 4) {
+					.frame(width: isPad ? 80 : 48, height: isPad ? 120 : 72)
+					.clipShape(RoundedRectangle(cornerRadius: isPad ? 11 : 8, style: .continuous))
+				VStack(alignment: .leading, spacing: isPad ? 6 : 4) {
 					Text(item.title)
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(size: isPad ? 18 : 15, weight: .semibold))
 						.foregroundStyle(.white)
 						.lineLimit(2)
 					Text(CollectionsFeed.kindLine(item))
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(size: isPad ? 14 : 12, weight: .medium))
 						.foregroundStyle(.white.opacity(0.6))
 						.lineLimit(1)
 					verdictLine(item)
@@ -442,7 +474,7 @@ struct PhoneCollectionView: View {
 				// the page, and the words beside them.
 				let stripWidth = pageWidth * 0.56
 				HStack(alignment: .center, spacing: 12) {
-					posterStrip(items, width: stripWidth, posterWidth: min(stripWidth * 0.6, 340))
+					posterStrip(items, width: stripWidth, posterWidth: carouselPosterWidth)
 						.frame(width: stripWidth)
 						// The neighbours fade out at the strip's ends rather than
 						// stopping at a hard edge beside the words.
@@ -460,10 +492,8 @@ struct PhoneCollectionView: View {
 					Spacer(minLength: 0)
 				}
 			} else {
-				// Two-thirds of the width, capped so a wide screen doesn't push the
-				// title under it off the bottom.
 				VStack(spacing: 16) {
-					posterStrip(items, width: pageWidth, posterWidth: min(pageWidth * 0.66, isPad ? 360 : 300))
+					posterStrip(items, width: pageWidth, posterWidth: carouselPosterWidth)
 					carouselDetails(current, index: index, count: items.count, alignment: .center)
 						.frame(maxWidth: .infinity)
 						.padding(.horizontal, 24)

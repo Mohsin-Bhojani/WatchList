@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The iPhone app's own partial Info.plist: Info.plist's keys, plus what
+	     Share with friends needs, which the watch app shouldn't claim. Xcode
+	     still generates the standard keys (see the INFOPLIST_KEY_* build
+	     settings) and merges them in at build time. -->
+	<key>TMDBAPIKey</key>
+	<string>$(TMDB_API_KEY)</string>
+	<key>TraktClientID</key>
+	<string>$(TRAKT_CLIENT_ID)</string>
+
+	<!-- watchlist:// links: a title a friend shared (FriendShare). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.mohsin.WatchList.share</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>watchlist</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- .watchlist files: a collection a friend shared. -->
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.mohsin.watchlist.collection</string>
+			<key>UTTypeDescription</key>
+			<string>WatchList Collection</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>watchlist</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>WatchList Collection</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.mohsin.watchlist.collection</string>
+			</array>
+		</dict>
+	</array>
+	<!-- A file that arrives is copied in and read once, not edited where it lies. -->
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
+
+</dict>
+</plist>

@@ -2,8 +2,8 @@
 //  CommunityTests.swift
 //  WatchListTests
 //
-//  Everyone on WatchList: the rating that leads, the spread under it, and how
-//  your own rating is counted in.
+//  Everyone on WatchList: the rating that leads, the spread under it, how
+//  your own rating is counted in, and how the gauge is sliced.
 //
 
 import Foundation
@@ -70,5 +70,24 @@ struct CommunityTests {
 		let unrated = await Community.opinion(for: .show(tmdbID: 2), scale: .verdict, yours: nil)
 		#expect(unrated.total == 0)
 		#expect(unrated.leading == nil)
+	}
+
+	// MARK: Gauge
+
+	@Test func theGaugeSplitsInScaleOrderAndFillsEndToEnd() {
+		let segments = CommunityGauge.segments(opinion(["Skip": 1, "Perfection": 2, "Go For It": 1]))
+		#expect(segments.map(\.option) == ["Perfection", "Go For It", "Skip"])
+		#expect(segments.first?.from == 0)
+		#expect(segments.last?.to == 1)
+		// Half to Perfection, with a hairline before the next slice.
+		#expect(abs((segments.first?.to ?? 0) - 0.496) < 0.0001)
+		#expect(abs(segments[1].from - 0.504) < 0.0001)
+	}
+
+	@Test func aSingleRatingFillsTheWholeGauge() {
+		let segments = CommunityGauge.segments(opinion(["Timepass": 1]))
+		#expect(segments.count == 1)
+		#expect(segments.first?.from == 0 && segments.first?.to == 1)
+		#expect(CommunityGauge.segments(opinion([:])).isEmpty)
 	}
 }

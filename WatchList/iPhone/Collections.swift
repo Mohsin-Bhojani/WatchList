@@ -56,6 +56,14 @@ extension TitleCollection {
 		}
 	}
 
+	/// Puts the titles you can see in a new order. Ids of titles no longer in
+	/// the library aren't shown, so they keep their place at the end rather
+	/// than being dropped here; ids that aren't in the collection are ignored.
+	func reorder(_ shown: [UUID]) {
+		let kept = shown.filter(titleIDs.contains)
+		titleIDs = kept + titleIDs.filter { !kept.contains($0) }
+	}
+
 	/// A blank name leaves the old one.
 	func rename(to raw: String) {
 		let cleaned = Self.cleaned(raw)

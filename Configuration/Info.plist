@@ -7,5 +7,7 @@
 	     holds only what the generator has no setting for. -->
 	<key>TMDBAPIKey</key>
 	<string>$(TMDB_API_KEY)</string>
+	<key>TraktClientID</key>
+	<string>$(TRAKT_CLIENT_ID)</string>
 </dict>
 </plist>

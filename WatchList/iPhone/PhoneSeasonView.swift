@@ -8,7 +8,9 @@
 //    - your verdict, once watched or rated
 //    - the episodes, each opening its page, with a watched tick and its rating
 //    - the season's synopsis and cast
-//    - a status menu in the bar: status, rating, share, artwork, remove
+//    - a status menu in the bar: status, rating, share, open in…, artwork, remove
+//  On an iPad, the page is laid out like the show's (PadTitlePage), with a
+//  Details card of its own.
 //
 //  Everything it changes is a field Season and Episode already have.
 //
@@ -21,6 +23,7 @@ struct PhoneSeasonView: View {
 
 	@Environment(\.modelContext) private var ctx
 	@Environment(\.dismiss) private var dismiss
+	@Environment(\.horizontalSizeClass) private var sizeClass
 	@AppStorage("autoMarkEpisodesWatched") private var cascadeWatched = true
 
 	@State private var compactBar = false
@@ -42,23 +45,30 @@ struct PhoneSeasonView: View {
 	private var show: Show? { season.show }
 	private var pageColor: Color { Color(uiColor: theme ?? PageTheme.fallback) }
 	private var pageDeep: Color { Color(uiColor: ArtworkBand.deeper(theme ?? PageTheme.fallback)) }
+	/// An iPad's full width, where the episode rows go a size up.
+	private var large: Bool { sizeClass == .regular }
 	private var nextEpisode: Episode? { season.sortedEpisodes.first { $0.status != .watched } }
 	private var shownStars: Double? { season.shownStars }
 
 	var body: some View {
+		let pad = PadTitleLayout.applies(sizeClass)
 		ScrollView {
-			TitlePageColumns {
-				header
-				statusSwitch
-				if season.status == .watched || season.rating != nil { verdictCard }
-			} rest: {
-				episodesSection
-				if !season.overview.isEmpty { PageSynopsisCard(text: season.overview) }
-				if !cast.isEmpty { PageSection(title: "Cast this season") { PageCastRow(cast: cast) } }
+			if pad {
+				padPage
+			} else {
+				TitlePageColumns {
+					header
+					statusSwitch
+					if season.status == .watched || season.rating != nil { verdictCard }
+				} rest: {
+					episodesSection
+					if !season.overview.isEmpty { PageSynopsisCard(text: season.overview) }
+					castSection
+				}
 			}
 		}
 		.onScrollGeometryChange(for: Bool.self) { geometry in
-			geometry.contentOffset.y + geometry.contentInsets.top > 290
+			geometry.contentOffset.y + geometry.contentInsets.top > (pad ? PadTitleLayout.compactBarOffset : 290)
 		} action: { _, pastTitle in
 			withAnimation(.easeInOut(duration: 0.2)) { compactBar = pastTitle }
 		}
@@ -110,6 +120,67 @@ struct PhoneSeasonView: View {
 			guard let tmdbID = show?.tmdbID else { return }
 			cast = Array(await CreditsLoader.seasonCast(tvID: tmdbID, season: season.seasonNumber).prefix(15))
 		}
+	}
+
+	// MARK: iPad
+
+	/// The iPad's page (PadTitlePage): the show's landscape artwork behind the
+	/// season's poster; your verdict first once there is one; the episodes
+	/// beside Details; then the cast.
+	private var padPage: some View {
+		VStack(spacing: 0) {
+			PadTitleHero(backdropURL: show?.backdropURL ?? "", posterURL: Self.posterURL(of: season),
+			             placeholder: "tv",
+			             kindLine: PadTitleLayout.kindLine([show?.title, season.airYear,
+			                                                ShowFacts.episodes(season.episodes.count)]),
+			             title: season.displayName, voteAverage: nil, votes: nil, synopsis: season.overview) {
+				statusSwitch
+			}
+			PadTitleBody {
+				if season.status == .watched || season.rating != nil {
+					PageSection(title: "Your verdict") { verdictCard }
+				}
+			} main: {
+				episodesSection
+			} side: {
+				PageSection(title: "Details") { detailsCard }
+			} rest: {
+				castSection
+			}
+		}
+	}
+
+	@ViewBuilder private var castSection: some View {
+		if !cast.isEmpty { PageSection(title: "Cast this season") { PageCastRow(cast: cast) } }
+	}
+
+	/// First aired, episodes and how many you've watched, then Open in… and Share.
+	private var detailsCard: some View {
+		VStack(spacing: 0) {
+			if !season.airYear.isEmpty {
+				PageDetailRow("First aired", icon: "calendar", text: season.airYear)
+				PageRowDivider()
+			}
+			PageDetailRow("Episodes", icon: "list.number", text: ShowFacts.episodes(season.episodes.count))
+			PageRowDivider()
+			PageDetailRow("Watched", icon: "checkmark.circle",
+			              text: ShowFacts.progressLine(watched: season.watchedCount, total: season.episodes.count))
+			if let show {
+				PageRowDivider()
+				PageDetailRow("Show", icon: "tv", text: show.title)
+			}
+			HStack(spacing: 10) {
+				let openIn = OpenInMenu(sites: TitleSites.season(showIMDbID: show?.imdbID, showTMDbID: show?.tmdbID,
+				                                                 season: season.seasonNumber)) {
+					OpenInLabel()
+				}
+				if openIn.hasLinks { openIn }
+				shareLink { Label("Share", systemImage: "square.and.arrow.up").titlePageCapsule() }
+			}
+			.padding(.top, 12)
+		}
+		.padding(14)
+		.liquidCard(cornerRadius: 20)
 	}
 
 	// MARK: Header
@@ -196,7 +267,7 @@ struct PhoneSeasonView: View {
 			} else {
 				VStack(spacing: 0) {
 					ForEach(Array(season.sortedEpisodes.enumerated()), id: \.element.id) { index, episode in
-						if index > 0 { PageRowDivider(inset: 112) }
+						if index > 0 { PageRowDivider(inset: large ? 152 : 112) }
 						episodeRow(episode)
 					}
 				}
@@ -213,19 +284,19 @@ struct PhoneSeasonView: View {
 			NavigationLink { PhoneEpisodeView(episode: episode) } label: {
 				HStack(spacing: 10) {
 					PosterImage(urlString: episode.stillURL, systemPlaceholder: "film")
-						.frame(width: 92, height: 52)
-						.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+						.frame(width: large ? 132 : 92, height: large ? 74 : 52)
+						.clipShape(RoundedRectangle(cornerRadius: large ? 10 : 8, style: .continuous))
 						.opacity(watched ? 0.6 : 1)
 					VStack(alignment: .leading, spacing: 3) {
 						Text("E\(episode.episodeNumber) · \(episode.displayTitle)")
-							.font(.system(size: 13, weight: .bold))
+							.font(.system(size: large ? 16 : 13, weight: .bold))
 							.foregroundStyle(.white)
 							.lineLimit(2)
 						let meta = [FilmFacts.releaseDate(episode.airDate), FilmFacts.runtime(episode.runtimeMinutes)]
 							.compactMap { $0 }
 						if !meta.isEmpty {
 							Text(meta.joined(separator: " · "))
-								.font(.system(size: 11, weight: .medium))
+								.font(.system(size: large ? 13 : 11, weight: .medium))
 								.foregroundStyle(.white.opacity(0.6))
 								.lineLimit(1)
 						}
@@ -278,6 +349,10 @@ struct PhoneSeasonView: View {
 			VerdictMenuSection(item: season)
 			Section("Other") {
 				shareLink { Label("Share", systemImage: "square.and.arrow.up") }
+				OpenInMenu(sites: TitleSites.season(showIMDbID: show?.imdbID, showTMDbID: show?.tmdbID,
+				                                   season: season.seasonNumber)) {
+					Label("Open in…", systemImage: "arrow.up.right.square")
+				}
 				Button { showingArtwork = true } label: {
 					Label("Artwork", systemImage: "photo.on.rectangle")
 				}

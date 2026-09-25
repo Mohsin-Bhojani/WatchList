@@ -5,7 +5,8 @@
 //  Base configuration for both app targets, the iPhone app and the watch app:
 //  each reads the TMDb key from its own bundle.
 //
-//  Secrets.xcconfig holds the TMDb API key and is deliberately untracked. Copy
+//  Secrets.xcconfig holds the TMDb API key (and an optional Trakt client id) and
+//  is deliberately untracked. Copy
 //  Secrets.example.xcconfig next to this file, rename it Secrets.xcconfig and
 //  paste your own key in — see README.md.
 //
@@ -15,7 +16,11 @@
 
 #include? "Secrets.xcconfig"
 
-// Configuration/Info.plist holds only TMDBAPIKey, whose value is this setting
-// substituted at build time; Xcode merges its generated keys into that file.
-// TMDbConfig.apiKey reads it back out of the bundle at runtime.
+// Configuration/Info.plist holds only TMDBAPIKey and TraktClientID, whose
+// values are the TMDB_API_KEY and TRAKT_CLIENT_ID settings substituted at build
+// time; Xcode merges its generated keys into that file. TMDbConfig.apiKey and
+// Trakt.clientID read them back out of the bundle at runtime. That's the watch
+// app's: the iPhone app's target sets Configuration/iPhone-Info.plist instead,
+// the same keys plus the watchlist:// scheme and .watchlist file type that
+// Share with friends needs.
 INFOPLIST_FILE = Configuration/Info.plist

@@ -56,6 +56,18 @@ enum ShowFacts {
 		return last + 1 < ordered.count ? ordered[last + 1] : nil
 	}
 
+	/// The episodes a swipe on an episode's page goes through: the show's, in
+	/// running order across its seasons, leaving out the specials — or, from a
+	/// special, the specials. Just the one when it isn't in a show.
+	static func swipeRun(around episode: Episode) -> [Episode] {
+		guard let show = episode.season?.show else { return [episode] }
+		let special = episode.season?.seasonNumber == 0
+		let run = show.sortedSeasons
+			.filter { ($0.seasonNumber == 0) == special }
+			.flatMap(\.sortedEpisodes)
+		return run.contains { $0.id == episode.id } ? run : [episode]
+	}
+
 	/// The line under the title in the compact bar: where the show stands.
 	static func listLine(status: WatchStatus, watched: Int, total: Int, nextCode: String?) -> String {
 		switch status {

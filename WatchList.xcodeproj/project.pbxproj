@@ -458,6 +458,7 @@
 				DEVELOPMENT_TEAM = WQXS3525ZF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Configuration/iPhone-Info.plist";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "WatchList asks the helper on your Mac for suggestions based on your ratings, such as films similar to the ones you rated Perfection.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -493,6 +494,7 @@
 				DEVELOPMENT_TEAM = WQXS3525ZF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Configuration/iPhone-Info.plist";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "WatchList asks the helper on your Mac for suggestions based on your ratings, such as films similar to the ones you rated Perfection.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

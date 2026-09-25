@@ -82,6 +82,16 @@ it back at runtime — the key is not in any tracked source file.
 Without the file the project still compiles; the app simply reports that no key
 is configured wherever it would have fetched something.
 
+Optionally, add a Trakt client id on the next line, for **Open in… Trakt**.
+Create a free API app at <https://trakt.tv/oauth/applications/new> (any name,
+redirect URI `urn:ietf:wg:oauth:2.0:oob`) and paste its Client ID:
+
+```
+TRAKT_CLIENT_ID = your_client_id_here
+```
+
+Without it, Trakt is simply left out of the menu.
+
 ### 3. Build and run
 
 ```bash

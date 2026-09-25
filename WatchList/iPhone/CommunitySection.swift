@@ -2,9 +2,10 @@
 //  CommunitySection.swift
 //  WatchList
 //
-//  The Everyone on WatchList card on the show, episode and film pages: the
-//  rating most people gave as the headline — the design's "62% Go for it" —
-//  the spread of every rating under it, and where yours sits. Until there's a
+//  The Everyone on WatchList card on the show, episode and film pages: a
+//  half-circle gauge split by how many gave each rating, with the rating most
+//  people gave in its middle — the design's "62% Go for it" — and a key of
+//  every rating beside it (under it, where the card is narrow), marking yours. Until there's a
 //  server behind Community.source, the only rating it has is your own, and it
 //  says so.
 //
@@ -23,8 +24,17 @@ struct CommunitySection: View {
 		PageSection(title: "Everyone on WatchList") {
 			VStack(alignment: .leading, spacing: 12) {
 				if let opinion, opinion.total > 0 {
-					headline(opinion)
-					spread(opinion)
+					// The key beside the gauge where there's room, under it where there isn't.
+					ViewThatFits(in: .horizontal) {
+						HStack(alignment: .center, spacing: 22) {
+							gauge(opinion)
+							key(opinion)
+						}
+						VStack(spacing: 14) {
+							gauge(opinion)
+							key(opinion)
+						}
+					}
 					footnote(opinion)
 				} else {
 					waiting
@@ -39,64 +49,71 @@ struct CommunitySection: View {
 		}
 	}
 
-	/// "62% Go For It", as the design has it.
-	private func headline(_ opinion: CommunityOpinion) -> some View {
-		Group {
+	/// A half circle split into each rating's share, best rating on the left,
+	/// with the leading rating's share and name in the middle.
+	private func gauge(_ opinion: CommunityOpinion) -> some View {
+		let width: CGFloat = 190
+		let line: CGFloat = 18
+		let segments = CommunityGauge.segments(opinion)
+		return ZStack(alignment: .bottom) {
+			ZStack {
+				GaugeArc(from: 0, to: 1)
+					.stroke(.white.opacity(0.12), style: StrokeStyle(lineWidth: line, lineCap: .butt))
+				ForEach(segments, id: \.option) { segment in
+					GaugeArc(from: segment.from, to: segment.to)
+						.stroke(scale.tint(segment.option), style: StrokeStyle(lineWidth: line, lineCap: .butt))
+				}
+			}
+			.padding(line / 2)
+			.frame(width: width, height: width / 2 + line / 2)
 			if let leading = opinion.leading {
-				HStack(spacing: 8) {
-					Circle()
-						.fill(scale.tint(leading.option))
-						.frame(width: 10, height: 10)
-					Text("\(Int((leading.share * 100).rounded()))% \(leading.option)")
-						.font(.system(size: 22, weight: .bold))
+				VStack(spacing: 0) {
+					Text("\(Int((leading.share * 100).rounded()))%")
+						.font(.system(size: 30, weight: .bold, design: .rounded))
 						.foregroundStyle(.white)
+					Text(leading.option)
+						.font(.system(size: 13, weight: .semibold))
+						.foregroundStyle(scale.tint(leading.option))
 						.lineLimit(1)
 						.minimumScaleFactor(0.7)
 				}
-				.accessibilityElement(children: .combine)
-				.accessibilityLabel("\(Int((leading.share * 100).rounded())) per cent said \(leading.option)")
+				.frame(width: width - line * 2 - 16)
 			}
 		}
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel(opinion.leading.map {
+			"\(Int(($0.share * 100).rounded())) per cent said \($0.option)"
+		} ?? "No ratings")
 	}
 
-	/// A bar for each rating, longest first in the scale's own order.
-	private func spread(_ opinion: CommunityOpinion) -> some View {
-		VStack(spacing: 6) {
+	/// Every rating in the scale's order: its colour, name, how many, and yours marked.
+	private func key(_ opinion: CommunityOpinion) -> some View {
+		VStack(alignment: .leading, spacing: 7) {
 			ForEach(opinion.spread, id: \.option) { entry in
 				HStack(spacing: 8) {
+					Circle()
+						.fill(scale.tint(entry.option).opacity(entry.count > 0 ? 1 : 0.35))
+						.frame(width: 9, height: 9)
 					Text(entry.option)
 						.font(.system(size: 13, weight: .medium))
 						.foregroundStyle(.white.opacity(entry.count > 0 ? 0.9 : 0.5))
-						.frame(width: 84, alignment: .leading)
 						.lineLimit(1)
-						.minimumScaleFactor(0.8)
-					GeometryReader { proxy in
-						let share = opinion.share(of: entry.option)
-						Capsule()
-							.fill(.white.opacity(0.12))
-							.overlay(alignment: .leading) {
-								Capsule()
-									.fill(scale.tint(entry.option))
-									.frame(width: max(proxy.size.width * share, share > 0 ? 6 : 0))
-							}
-							.clipShape(Capsule())
+					Spacer(minLength: 8)
+					if entry.option == opinion.yours {
+						Image(systemName: "person.fill")
+							.font(.system(size: 10, weight: .bold))
+							.foregroundStyle(.white)
 					}
-					.frame(height: 8)
-					Text("\(entry.count)")
+					Text("\(Int((opinion.share(of: entry.option) * 100).rounded()))%")
 						.font(.system(size: 12, weight: .semibold, design: .rounded))
 						.foregroundStyle(.white.opacity(entry.count > 0 ? 0.8 : 0.4))
-						.frame(width: 22, alignment: .trailing)
-					// Yours, marked where it sits.
-					Image(systemName: "person.fill")
-						.font(.system(size: 10, weight: .bold))
-						.foregroundStyle(entry.option == opinion.yours ? .white : .clear)
-						.accessibilityHidden(entry.option != opinion.yours)
-						.accessibilityLabel("Your rating")
+						.frame(width: 38, alignment: .trailing)
 				}
 				.accessibilityElement(children: .combine)
 				.accessibilityLabel("\(entry.option), \(entry.count)\(entry.option == opinion.yours ? ", yours" : "")")
 			}
 		}
+		.frame(minWidth: 170, maxWidth: 280)
 	}
 
 	/// How many have rated it, and that they're all you for now.
@@ -120,5 +137,37 @@ struct CommunitySection: View {
 				.fixedSize(horizontal: false, vertical: true)
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
+	}
+}
+
+enum CommunityGauge {
+	/// Each rating given, as where its slice starts and ends along the arc, 0
+	/// to 1, in the scale's order — with a hairline gap between neighbours but
+	/// none at the gauge's two ends.
+	static func segments(_ opinion: CommunityOpinion) -> [(option: String, from: Double, to: Double)] {
+		let given = opinion.spread.filter { $0.count > 0 }
+		let gap = given.count > 1 ? 0.008 : 0
+		var start = 0.0
+		return given.enumerated().map { index, entry in
+			let end = index == given.count - 1 ? 1 : start + opinion.share(of: entry.option)
+			defer { start = end }
+			return (entry.option, start + (index > 0 ? gap / 2 : 0), end - (index < given.count - 1 ? gap / 2 : 0))
+		}
+	}
+}
+
+/// A stretch of the gauge's half circle, which runs from the left end (0)
+/// over the top to the right end (1).
+private struct GaugeArc: Shape {
+	let from: Double
+	let to: Double
+
+	func path(in rect: CGRect) -> Path {
+		let radius = min(rect.width / 2, rect.height)
+		let centre = CGPoint(x: rect.midX, y: rect.maxY)
+		var path = Path()
+		path.addArc(center: centre, radius: radius,
+		            startAngle: .degrees(180 + 180 * from), endAngle: .degrees(180 + 180 * to), clockwise: false)
+		return path
 	}
 }

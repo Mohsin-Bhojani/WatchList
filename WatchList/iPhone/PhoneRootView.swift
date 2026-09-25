@@ -36,6 +36,8 @@ struct PhoneRootView: View {
 	@State private var collectionsFilters = false
 	@State private var discoverAtTop = false
 	@State private var discoverFilters = false
+	/// A friend's link or collection file the app was opened with.
+	@State private var incoming: IncomingShare?
 
 	/// Keyed on the device rather than the size class, so an iPad in Split View
 	/// or Slide Over keeps its sidebar.
@@ -107,6 +109,8 @@ struct PhoneRootView: View {
 			}
 		}
 		.modifier(DockStyle(isPad: isPad))
+		.onOpenURL { url in incoming = FriendShare.incoming(from: url) }
+		.sheet(item: $incoming) { IncomingShareSheet(share: $0) }
 		.task {
 			// Every library has Top 4, pinned above the verdicts.
 			ctx.ensurePinnedCollection()

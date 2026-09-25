@@ -2,7 +2,8 @@
 //  CollectionTests.swift
 //  WatchListTests
 //
-//  Your own collections: naming them, and putting titles in and taking them out.
+//  Your own collections: naming them, putting titles in and taking them out,
+//  and putting them in order.
 //
 
 import Foundation
@@ -35,5 +36,19 @@ struct CollectionTests {
 
 		collection.set(first, included: false)
 		#expect(collection.titleIDs == [second])
+	}
+
+	@Test func reorderingKeepsHiddenTitlesAtTheEndAndIgnoresStrangers() {
+		let a = UUID(), b = UUID(), c = UUID(), gone = UUID(), stranger = UUID()
+		let collection = TitleCollection(name: "Weekend", titleIDs: [a, gone, b, c])
+
+		// `gone` left the library, so the sheet never showed it.
+		collection.reorder([c, a, stranger, b])
+		#expect(collection.titleIDs == [c, a, b, gone])
+
+		// Moving one back again, and adding later, still goes on the end.
+		collection.reorder([a, b, c])
+		collection.set(stranger, included: true)
+		#expect(collection.titleIDs == [a, b, c, gone, stranger])
 	}
 }

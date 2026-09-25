@@ -9,12 +9,13 @@
 //    - Watching: Up next — the episode you're on, how far through, Mark watched
 //    - Watched: your verdict — verdict, stars, when you finished, private note
 //    - Seasons, each opening its page and rated from its chip
-//    - trailer, synopsis and Everyone on WatchList
-//    - a status menu in the bar: status, rating, share, artwork, refresh, remove
+//    - trailer, synopsis, where to watch and Everyone on WatchList
+//    - a status menu in the bar: status, rating, share, open in…, artwork,
+//      refresh, remove
 //    - a compact bar with the poster, title and where you are, once scrolled
 //  Add to collection uses your own collections (TitleCollection). The community
-//  verdict, the trailer and sharing with friends aren't built yet; each keeps
-//  its place with a placeholder.
+//  verdict isn't built; Share with friends sends it as a WatchList link
+//  (FriendShare).
 //
 //  Everything it changes is a field Show, Season and Episode already have, so
 //  the library store is untouched.
@@ -28,7 +29,9 @@ struct PhoneShowDetailView: View {
 
 	@Environment(\.modelContext) private var ctx
 	@Environment(\.dismiss) private var dismiss
+	@Environment(\.horizontalSizeClass) private var sizeClass
 	@AppStorage("autoMarkEpisodesWatched") private var cascadeWatched = true
+	@Query(sort: \TitleCollection.created) private var collections: [TitleCollection]
 
 	@State private var compactBar = false
 	@State private var ratingPopup: RatingPopup.Mode?
@@ -40,6 +43,8 @@ struct PhoneShowDetailView: View {
 	@State private var namingCollection = false
 	@State private var theme: UIColor?
 	@State private var votes: Votes?
+	/// The series' cast, which only the iPad's page shows.
+	@State private var cast: [CastEntry] = []
 
 	private struct Votes { let average: Double; let count: Int }
 	/// TMDb's figures by show, fetched once a session: Show doesn't keep them.
@@ -58,26 +63,40 @@ struct PhoneShowDetailView: View {
 	private var pageColor: Color { Color(uiColor: theme ?? PageTheme.fallback) }
 	private var pageDeep: Color { Color(uiColor: ArtworkBand.deeper(theme ?? PageTheme.fallback)) }
 	private var next: Episode? { HomeFeed.nextEpisode(of: show) }
+	/// An iPad's full width, where the page's pieces go a size up.
+	private var large: Bool { sizeClass == .regular }
 	private var shownStars: Double? { show.shownStars }
 
 	var body: some View {
+		let pad = PadTitleLayout.applies(sizeClass)
 		ScrollView {
-			TitlePageColumns {
-				header
-				statusSwitch
-				if show.status == .watched { verdictSection }
-				if show.status == .watching { upNextSection }
-			} rest: {
-				seasonsSection
-				PageSection(title: "Trailer") { PageTrailerCard(backdropURL: show.backdropURL) }
-				if !show.overview.isEmpty { PageSynopsisCard(text: show.overview) }
-				if let tmdbID = show.tmdbID {
-					CommunitySection(title: .show(tmdbID: tmdbID), scale: .verdict, yours: show.rating?.rawValue)
+			if pad {
+				padPage
+			} else {
+				TitlePageColumns {
+					header
+					statusSwitch
+					if show.status == .watched { verdictSection }
+					if show.status == .watching { upNextSection }
+				} rest: {
+					seasonsSection
+					PageTrailerCard(source: show.tmdbID.map { .series(tvID: $0) }, backdropURL: show.backdropURL,
+					                title: "Trailer")
+					if !show.overview.isEmpty { PageSynopsisCard(text: show.overview) }
+					if let tmdbID = show.tmdbID {
+						PageSection(title: "Where to watch") {
+							WhereToWatchList(source: .series(tvID: tmdbID), title: show.title)
+								.frame(maxWidth: .infinity, alignment: .leading)
+								.padding(14)
+								.liquidCard(cornerRadius: 20)
+						}
+					}
+					community
 				}
 			}
 		}
 		.onScrollGeometryChange(for: Bool.self) { geometry in
-			geometry.contentOffset.y + geometry.contentInsets.top > 290
+			geometry.contentOffset.y + geometry.contentInsets.top > (pad ? PadTitleLayout.compactBarOffset : 290)
 		} action: { _, pastTitle in
 			withAnimation(.easeInOut(duration: 0.2)) { compactBar = pastTitle }
 		}
@@ -129,6 +148,101 @@ struct PhoneShowDetailView: View {
 		}
 		.task(id: artURL) { await loadTheme() }
 		.task(id: show.tmdbID) { await loadVotes() }
+		.task(id: pad ? show.tmdbID : nil) {
+			guard pad, let tmdbID = show.tmdbID else { return }
+			cast = Array(await CreditsLoader.seriesCast(tvID: tmdbID).prefix(15))
+		}
+	}
+
+	// MARK: iPad
+
+	/// The iPad's page (PadTitlePage): while watching, Up next comes first;
+	/// once watched, your verdict and Everyone on WatchList do. Details, which
+	/// the phone's page doesn't have, gathers where to watch, your rating,
+	/// collections, Open in… and Share.
+	private var padPage: some View {
+		VStack(spacing: 0) {
+			PadTitleHero(backdropURL: show.backdropURL, posterURL: show.posterURL, placeholder: "tv",
+			             kindLine: PadTitleLayout.kindLine(["Show", show.firstAirYear,
+			                                                show.seasons.isEmpty ? nil
+			                                                    : ShowFacts.seasons(show.seasons.count)]),
+			             title: show.title, voteAverage: votes?.average,
+			             votes: votes.flatMap { $0.average > 0 ? FilmFacts.count($0.count) : nil },
+			             synopsis: show.overview) {
+				statusSwitch
+			}
+			PadTitleBody {
+				if show.status == .watching { upNextSection }
+				if show.status == .watched {
+					verdictSection
+					community
+				}
+			} main: {
+				PageTrailerCard(source: show.tmdbID.map { .series(tvID: $0) }, backdropURL: show.backdropURL,
+				                title: "Trailer")
+			} side: {
+				PageSection(title: "Details") { detailsCard }
+			} rest: {
+				seasonsSection
+				if !cast.isEmpty { PageSection(title: "Cast") { PageCastRow(cast: cast) } }
+				if show.status != .watched { community }
+			}
+		}
+	}
+
+	@ViewBuilder private var community: some View {
+		if let tmdbID = show.tmdbID {
+			CommunitySection(title: .show(tmdbID: tmdbID), scale: .verdict, yours: show.rating?.rawValue)
+		}
+	}
+
+	private var detailsCard: some View {
+		VStack(spacing: 0) {
+			if !show.genre.isEmpty {
+				PageDetailRow("Genre", icon: "theatermasks", text: FilmFacts.genres(show.genre))
+				PageRowDivider()
+			}
+			if !show.firstAirYear.isEmpty {
+				PageDetailRow("First aired", icon: "calendar", text: show.firstAirYear)
+				PageRowDivider()
+			}
+			if let tmdbID = show.tmdbID {
+				PageDetailRow(label: "Where to watch", icon: "tv") {
+					WhereToWatchList(source: .series(tvID: tmdbID), title: show.title)
+				}
+				PageRowDivider()
+			}
+			PageDetailRow("Your rating", icon: "star", text: yourRatingSummary)
+			PageRowDivider()
+			PageDetailRow("Collections", icon: "rectangle.stack", text: collectionNames)
+
+			HStack(spacing: 10) {
+				let openIn = OpenInMenu(sites: TitleSites.show(imdbID: show.imdbID, tmdbID: show.tmdbID,
+				                                               title: show.title)) {
+					OpenInLabel()
+				}
+				if openIn.hasLinks { openIn }
+				shareLink { Label("Share", systemImage: "square.and.arrow.up").titlePageCapsule() }
+			}
+			.padding(.top, 12)
+		}
+		.padding(14)
+		.liquidCard(cornerRadius: 20)
+	}
+
+	private var collectionNames: String {
+		let names = collections.filter { $0.contains(show.id) }.map(\.name)
+		return names.isEmpty ? "None yet" : names.joined(separator: ", ")
+	}
+
+	private var yourRatingSummary: String {
+		guard let rating = show.rating else { return "Not rated yet" }
+		var parts = [rating.rawValue]
+		if let stars = shownStars {
+			parts.append("\(StarRating.label(stars)) \(stars == 1 ? "star" : "stars")")
+		}
+		if let date = show.watchedAt { parts.append(FilmFacts.shortDate(date)) }
+		return parts.joined(separator: " · ")
 	}
 
 	// MARK: Header
@@ -208,7 +322,7 @@ struct PhoneShowDetailView: View {
 		PageSection(title: "Your verdict") {
 			PageVerdictCard(rating: show.rating, stars: shownStars,
 			                dateLine: show.watchedAt.map { "Finished \(FilmFacts.shortDate($0))" },
-			                note: show.notes, noteLabel: "Private note · show") {
+			                note: show.notes, noteLabel: "Private note · show", share: SharedTitle(show: show)) {
 				withAnimation(Glass.smooth) { ratingPopup = .edit }
 			}
 		}
@@ -225,22 +339,25 @@ struct PhoneShowDetailView: View {
 							HStack(spacing: 12) {
 								PosterImage(urlString: next.stillURL.isEmpty ? show.backdropURL : next.stillURL,
 								            systemPlaceholder: "film")
-									.frame(width: 88, height: 50)
-									.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+									.frame(width: large ? 112 : 88, height: large ? 63 : 50)
+									.clipShape(RoundedRectangle(cornerRadius: large ? 10 : 8, style: .continuous))
 									.overlay {
 										Image(systemName: "play.fill")
-											.font(.system(size: 12, weight: .bold))
+											.font(.system(size: large ? 15 : 12, weight: .bold))
 											.foregroundStyle(.white.opacity(0.85))
 									}
 								VStack(alignment: .leading, spacing: 3) {
 									Text("\(ShowFacts.code(next)) · \(next.displayTitle)")
-										.font(.system(size: 13, weight: .bold))
+										.font(.system(size: large ? 16 : 13, weight: .bold))
 										.foregroundStyle(.white)
 										.lineLimit(2)
 									Text(ShowFacts.progressLine(watched: show.watchedEpisodeCount,
 									                            total: show.episodeCount))
-										.font(.system(size: 11, weight: .medium))
+										.font(.system(size: large ? 13 : 11, weight: .medium))
 										.foregroundStyle(.white.opacity(0.6))
+										// Onto a second line rather than cut short, beside the bigger
+										// still in a sideways iPad's narrower column.
+										.fixedSize(horizontal: false, vertical: true)
 								}
 								Spacer(minLength: 0)
 							}
@@ -248,7 +365,7 @@ struct PhoneShowDetailView: View {
 						}
 						.buttonStyle(.plain)
 						Button("Mark watched") { ratingEpisode = next }
-							.font(.system(size: 12, weight: .semibold))
+							.font(.system(size: large ? 14 : 12, weight: .semibold))
 							.foregroundStyle(.white)
 							.padding(.horizontal, 14)
 							.frame(height: GlassControl.height)
@@ -322,17 +439,17 @@ struct PhoneShowDetailView: View {
 		VStack(alignment: .leading, spacing: 8) {
 			NavigationLink { PhoneSeasonView(season: season) } label: {
 				PosterImage(urlString: seasonArt(season), systemPlaceholder: "tv")
-					.frame(width: 132, height: 76)
+					.frame(width: large ? 184 : 132, height: large ? 104 : 76)
 					.overlay {
 						LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
 					}
 					.overlay(alignment: .bottomLeading) {
 						VStack(alignment: .leading, spacing: 0) {
 							Text(season.displayName)
-								.font(.system(size: 12, weight: .bold))
+								.font(.system(size: large ? 15 : 12, weight: .bold))
 								.lineLimit(1)
 							Text(ShowFacts.episodes(season.episodes.count))
-								.font(.system(size: 10, weight: .medium))
+								.font(.system(size: large ? 12 : 10, weight: .medium))
 								.foregroundStyle(.white.opacity(0.75))
 						}
 						.foregroundStyle(.white)
@@ -369,6 +486,9 @@ struct PhoneShowDetailView: View {
 			VerdictMenuSection(item: show)
 			Section("Other") {
 				shareLink { Label("Share", systemImage: "square.and.arrow.up") }
+				OpenInMenu(sites: TitleSites.show(imdbID: show.imdbID, tmdbID: show.tmdbID, title: show.title)) {
+					Label("Open in…", systemImage: "arrow.up.right.square")
+				}
 				Button { showingArtwork = true } label: {
 					Label("Artwork", systemImage: "photo.on.rectangle")
 				}

@@ -4,8 +4,8 @@
 //
 //  The pieces the iPhone show, season and episode pages share, after the
 //  "Show view" design: a colour taken from the artwork, the page's gradient and
-//  bar, the status switch, verdict chips, section headings, the trailer and
-//  synopsis cards, the cast row and the compact bar's title — and the actions
+//  bar, the status switch, verdict chips, section headings, the synopsis card
+//  (the trailer card is TrailerCard.swift), the cast row and the compact bar's title — and the actions
 //  their menus share: the status and rating sections, sharing, the artwork
 //  sheet, details rows and removing a record.
 //
@@ -25,6 +25,13 @@ enum PageTheme {
 	private static var sampled: [String: UIColor] = [:]
 
 	static func cached(_ url: String) -> UIColor? { sampled[url] }
+
+	/// A title page's ground: its colour running down to a deeper shade.
+	static func backdrop(_ color: UIColor?) -> LinearGradient {
+		let base = color ?? fallback
+		return LinearGradient(colors: [Color(uiColor: base), Color(uiColor: ArtworkBand.deeper(base))],
+		                      startPoint: .top, endPoint: .bottom)
+	}
 
 	static func load(_ url: String) async -> UIColor? {
 		if let hit = sampled[url] { return hit }
@@ -94,9 +101,7 @@ extension View {
 	/// dark scheme, and a bar that turns solid once the title scrolls away.
 	func titlePage(color: UIColor?, compactBar: Bool) -> some View {
 		let base = color ?? PageTheme.fallback
-		return background(LinearGradient(colors: [Color(uiColor: base), Color(uiColor: ArtworkBand.deeper(base))],
-		                                 startPoint: .top, endPoint: .bottom)
-				.ignoresSafeArea())
+		return background(PageTheme.backdrop(base).ignoresSafeArea())
 			.environment(\.colorScheme, .dark)
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbarColorScheme(.dark, for: .navigationBar)
@@ -104,7 +109,7 @@ extension View {
 			.toolbarBackgroundVisibility(compactBar ? .visible : .hidden, for: .navigationBar)
 	}
 
-	/// The page's glass capsule buttons: View on IMDb, Share.
+	/// The page's glass capsule buttons: Open in…, Share.
 	func titlePageCapsule() -> some View {
 		font(.system(size: 13, weight: .semibold))
 			.foregroundStyle(.white)
@@ -132,7 +137,11 @@ struct PageSwitch: View {
 	/// The chosen side's text: the page's deep shade.
 	let selectedText: Color
 
+	@Environment(\.horizontalSizeClass) private var sizeClass
+
 	var body: some View {
+		// A size up on an iPad, beside the bigger poster above it.
+		let large = sizeClass == .regular
 		HStack(spacing: 4) {
 			ForEach(options) { option in
 				Button {
@@ -142,16 +151,16 @@ struct PageSwitch: View {
 					HStack(spacing: 5) {
 						if let systemImage = option.systemImage {
 							Image(systemName: systemImage)
-								.font(.system(size: 11, weight: .bold))
+								.font(.system(size: large ? 13 : 11, weight: .bold))
 						}
 						Text(option.title)
-							.font(.system(size: 14, weight: .semibold))
+							.font(.system(size: large ? 16 : 14, weight: .semibold))
 							.lineLimit(1)
 					}
 					.foregroundStyle(option.selected ? selectedText : .white.opacity(0.75))
-					.padding(.horizontal, 16)
+					.padding(.horizontal, large ? 20 : 16)
 					// Inside the switch's 4pt rim, so the whole switch is a glass control's height.
-					.frame(height: GlassControl.height - 8)
+					.frame(height: GlassControl.height - (large ? 0 : 8))
 					.background {
 						if option.selected { Capsule().fill(option.fill) }
 					}
@@ -269,8 +278,11 @@ struct PageMetaLine: View {
 	let voteAverage: Double?
 	let parts: [String]
 
+	@Environment(\.horizontalSizeClass) private var sizeClass
+
 	var body: some View {
 		let average = voteAverage ?? 0
+		let large = sizeClass == .regular
 		HStack(spacing: 6) {
 			if average > 0 {
 				HStack(spacing: 1) {
@@ -278,7 +290,7 @@ struct PageMetaLine: View {
 						Image(systemName: StarRatingPicker.symbol(star))
 					}
 				}
-				.font(.system(size: 10))
+				.font(.system(size: large ? 12 : 10))
 				.accessibilityElement(children: .ignore)
 				.accessibilityLabel(String(format: "TMDb rating %.1f out of 10", average))
 			}
@@ -286,7 +298,7 @@ struct PageMetaLine: View {
 				Text(parts.joined(separator: " · "))
 			}
 		}
-		.font(.system(size: 13, weight: .medium))
+		.font(.system(size: large ? 15 : 13, weight: .medium))
 		.foregroundStyle(.white.opacity(0.75))
 		.multilineTextAlignment(.center)
 	}
@@ -298,10 +310,12 @@ struct PageSection<Content: View>: View {
 	let title: String
 	@ViewBuilder let content: Content
 
+	@Environment(\.horizontalSizeClass) private var sizeClass
+
 	var body: some View {
 		VStack(alignment: .leading, spacing: 10) {
 			Text(title)
-				.font(.system(size: 20, weight: .bold))
+				.font(.system(size: sizeClass == .regular ? 22 : 20, weight: .bold))
 				.foregroundStyle(.white)
 				.accessibilityAddTraits(.isHeader)
 			content
@@ -319,38 +333,6 @@ struct PageSmallCaps: View {
 			.font(.system(size: 10, weight: .semibold, design: .monospaced))
 			.kerning(1.2)
 			.foregroundStyle(.white.opacity(0.55))
-	}
-}
-
-/// TMDb has trailers, but the app doesn't fetch them yet: the backdrop holds
-/// the design's frame, marked as a placeholder.
-struct PageTrailerCard: View {
-	let backdropURL: String
-
-	var body: some View {
-		if backdropURL.isEmpty {
-			PlaceholderSlot(height: 190, label: "Trailer · Placeholder")
-		} else {
-			PosterImage(urlString: backdropURL, systemPlaceholder: "film")
-				.aspectRatio(16 / 9, contentMode: .fit)
-				.frame(maxWidth: .infinity)
-				.overlay { Color.black.opacity(0.25) }
-				.overlay {
-					Image(systemName: "play.fill")
-						.font(.system(size: 18, weight: .bold))
-						.foregroundStyle(.white.opacity(0.6))
-						.frame(width: 48, height: 48)
-						.glassEffect(.regular, in: Circle())
-				}
-				.overlay(alignment: .bottomLeading) {
-					PlaceholderTag(label: "Trailer · Placeholder")
-						.background(.black.opacity(0.45), in: Capsule())
-						.padding(10)
-				}
-				.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-				.accessibilityElement(children: .ignore)
-				.accessibilityLabel("Trailer, not available yet")
-		}
 	}
 }
 
@@ -428,23 +410,27 @@ struct PagePosterHeader: View {
 	let voteAverage: Double?
 	let metaParts: [String]
 
+	@Environment(\.horizontalSizeClass) private var sizeClass
+
 	var body: some View {
+		// An iPad's page has the room for a poster you can see.
+		let large = sizeClass == .regular
 		VStack(spacing: 10) {
 			PosterImage(urlString: posterURL, systemPlaceholder: placeholder)
-				.frame(width: 132, height: 198)
-				.clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+				.frame(width: large ? 208 : 132, height: large ? 312 : 198)
+				.clipShape(RoundedRectangle(cornerRadius: large ? 18 : 14, style: .continuous))
 				.shadow(color: .black.opacity(0.45), radius: 22, y: 12)
 				.padding(.top, 6)
 				.accessibilityHidden(true)
 			VStack(spacing: 2) {
 				Text(title)
-					.font(.system(size: 30, weight: .bold))
+					.font(.system(size: large ? 40 : 30, weight: .bold))
 					.foregroundStyle(.white)
 					.multilineTextAlignment(.center)
 					.accessibilityAddTraits(.isHeader)
 				if let subtitle {
 					Text(subtitle)
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(size: large ? 18 : 15, weight: .semibold))
 						.foregroundStyle(.white.opacity(0.8))
 				}
 			}
@@ -455,14 +441,16 @@ struct PagePosterHeader: View {
 	}
 }
 
-/// Your rating: the verdict, its stars and when, Edit, the private note, and a
-/// placeholder for sharing it with friends.
+/// Your rating: the verdict, its stars and when, Edit, the private note, and
+/// Share with friends — the title and your take as a WatchList link.
 struct PageVerdictCard: View {
 	let rating: Rating?
 	let stars: Double?
 	let dateLine: String?
 	let note: String
 	var noteLabel = "Private note"
+	/// What Share with friends sends; nil leaves it out.
+	var share: SharedTitle?
 	let onEdit: () -> Void
 
 	var body: some View {
@@ -493,11 +481,32 @@ struct PageVerdictCard: View {
 					.font(.system(size: 11, weight: .medium))
 					.foregroundStyle(.white.opacity(0.55))
 				Spacer()
-				PlaceholderTag(label: "Share with friends")
+				if let share { ShareWithFriendsLink(title: share) }
 			}
 		}
 		.padding(14)
 		.liquidCard(cornerRadius: 20)
+	}
+}
+
+/// Sends a title and your take on it as a watchlist:// link, with a line of
+/// words for anyone reading it without the app.
+struct ShareWithFriendsLink: View {
+	let title: SharedTitle
+
+	var body: some View {
+		if let link = FriendShare.link(for: title, from: FriendShare.senderName) {
+			ShareLink(item: FriendShare.message(for: title, link: link),
+			          preview: SharePreview("\(title.title) on WatchList")) {
+				Label("Share with friends", systemImage: "person.2")
+					.font(.system(size: 12, weight: .semibold))
+					.foregroundStyle(.white)
+					.padding(.horizontal, 10)
+					.frame(height: 28)
+					.glassEffect(.regular, in: Capsule())
+			}
+			.accessibilityHint("Your verdict, stars and note go with it")
+		}
 	}
 }
 
@@ -603,6 +612,75 @@ enum TitleLinks {
 		if let season { path += "/season/\(season)" }
 		if let season, let episode, season >= 0 { path += "/episode/\(episode)" }
 		return URL(string: path)
+	}
+}
+
+/// "Open in…": the title on every site there's a link for (TitleSites) —
+/// IMDb and TMDb first, the rest under them.
+struct OpenInMenu<Content: View>: View {
+	let sites: [TitleSite]
+	@ViewBuilder let label: () -> Content
+
+	/// Whether there's anywhere to open it.
+	var hasLinks: Bool { !sites.isEmpty }
+
+	private static var databases: Set<String> { ["IMDb", "TMDb"] }
+
+	var body: some View {
+		Menu {
+			Section {
+				ForEach(sites.filter { Self.databases.contains($0.name) }) { link($0) }
+			}
+			Section {
+				ForEach(sites.filter { !Self.databases.contains($0.name) }) { link($0) }
+			}
+		} label: {
+			label()
+		}
+	}
+
+	@ViewBuilder private func link(_ site: TitleSite) -> some View {
+		switch site.destination {
+		case .url(let url):
+			Link(destination: url) { Label(site.name, systemImage: "arrow.up.right") }
+		case .trakt(let lookup):
+			TraktLink(lookup: lookup, name: site.name)
+		}
+	}
+}
+
+/// Trakt, looked up when tapped. A title Trakt doesn't have, or no
+/// connection, leaves the page where it is with a warning buzz.
+private struct TraktLink: View {
+	let lookup: TraktLookup
+	let name: String
+
+	@Environment(\.openURL) private var openURL
+
+	var body: some View {
+		Button {
+			Task {
+				if let url = await Trakt.pageURL(lookup) {
+					openURL(url)
+				} else {
+					Haptics.warning()
+				}
+			}
+		} label: {
+			Label(name, systemImage: "arrow.up.right")
+		}
+	}
+}
+
+/// The details card's "Open in…" capsule.
+struct OpenInLabel: View {
+	var body: some View {
+		HStack(spacing: 5) {
+			Text("Open in…")
+			Image(systemName: "chevron.up.chevron.down")
+				.font(.system(size: 10, weight: .bold))
+		}
+		.titlePageCapsule()
 	}
 }
 

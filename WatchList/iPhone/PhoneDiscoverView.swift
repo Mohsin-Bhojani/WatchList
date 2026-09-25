@@ -8,7 +8,7 @@
 //    - the suggestion's big poster over the poster's own colour, and under it
 //      its name, TMDb's average as stars with the verdict that comes to,
 //      whether it's a TV show or a film, and its synopsis
-//    - decided by swiping the card:
+//    - decided by swiping the card — on an iPad's trackpad, with two fingers:
 //        right: add it to the library as To Watch
 //        left:  not interested, never offered again
 //        up:    later, to the back of the queue until the fresh ones run out
@@ -506,6 +506,7 @@ private struct DiscoverCard: View {
 		.offset(offset)
 		.rotationEffect(.degrees(Double(offset.width) / 20), anchor: .bottom)
 		.gesture(swipe)
+		.gesture(TrackpadSwipe(onChanged: follow, onEnded: release))
 		.accessibilityElement(children: .contain)
 		.accessibilityActions {
 			Button(CardDecision.add.label) { commit(.add) }
@@ -548,23 +549,29 @@ private struct DiscoverCard: View {
 
 	private var swipe: some Gesture {
 		DragGesture(minimumDistance: 12)
-			.onChanged { value in
-				guard !decided else { return }
-				let wasPast = CardDecision.forSwipe(translation: offset, predictedEnd: offset) != nil
-				offset = value.translation
-				let isPast = CardDecision.forSwipe(translation: offset, predictedEnd: offset) != nil
-				// A tick as it crosses the threshold, either way.
-				if isPast != wasPast { Haptics.selection() }
-			}
+			.onChanged { follow($0.translation) }
 			.onEnded { value in
-				guard !decided else { return }
-				if let decision = CardDecision.forSwipe(translation: value.translation,
-				                                        predictedEnd: value.predictedEndTranslation) {
-					commit(decision)
-				} else {
-					withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { offset = .zero }
-				}
+				release(translation: value.translation, predictedEnd: value.predictedEndTranslation)
 			}
+	}
+
+	/// The card under the finger, or under two fingers on a trackpad.
+	private func follow(_ translation: CGSize) {
+		guard !decided else { return }
+		let wasPast = CardDecision.forSwipe(translation: offset, predictedEnd: offset) != nil
+		offset = translation
+		let isPast = CardDecision.forSwipe(translation: offset, predictedEnd: offset) != nil
+		// A tick as it crosses the threshold, either way.
+		if isPast != wasPast { Haptics.selection() }
+	}
+
+	private func release(translation: CGSize, predictedEnd: CGSize) {
+		guard !decided else { return }
+		if let decision = CardDecision.forSwipe(translation: translation, predictedEnd: predictedEnd) {
+			commit(decision)
+		} else {
+			withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) { offset = .zero }
+		}
 	}
 
 	/// Flies off the way the decision goes, from wherever it's been dragged, then
@@ -590,6 +597,42 @@ private extension CardDecision {
 		case .add:           return Glass.ratingPerfection
 		case .notInterested: return Glass.ratingSkip
 		case .later:         return nil
+		}
+	}
+}
+
+// MARK: - Trackpad
+
+/// A two-finger swipe on an iPad's trackpad, which a DragGesture never sees:
+/// the trackpad sends it as a scroll, not a touch. This takes only those
+/// scrolls — touches, and the pointer's click-and-drag, stay with the
+/// DragGesture — and reports them as a drag would, so the card follows two
+/// fingers as it does one.
+private struct TrackpadSwipe: UIGestureRecognizerRepresentable {
+	let onChanged: (CGSize) -> Void
+	let onEnded: (_ translation: CGSize, _ predictedEnd: CGSize) -> Void
+
+	func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+		let pan = UIPanGestureRecognizer()
+		pan.allowedScrollTypesMask = .continuous
+		pan.allowedTouchTypes = []
+		return pan
+	}
+
+	func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context: Context) {
+		let moved = pan.translation(in: pan.view)
+		let translation = CGSize(width: moved.x, height: moved.y)
+		switch pan.state {
+		case .began, .changed:
+			onChanged(translation)
+		case .ended:
+			// Where it was heading, as a drag's predicted end has it.
+			let velocity = pan.velocity(in: pan.view)
+			onEnded(translation, CGSize(width: moved.x + velocity.x * 0.25, height: moved.y + velocity.y * 0.25))
+		case .cancelled, .failed:
+			onEnded(translation, translation)
+		default:
+			break
 		}
 	}
 }

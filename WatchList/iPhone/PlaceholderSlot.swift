@@ -8,8 +8,7 @@
 
 import SwiftUI
 
-/// A dashed box keeping a section's place — Home's reserved slot, the film
-/// page's community ratings and trailer.
+/// A dashed box keeping a section's place, such as Home's reserved slot.
 struct PlaceholderSlot: View {
 	var height: CGFloat = 90
 	var label = "Placeholder"
