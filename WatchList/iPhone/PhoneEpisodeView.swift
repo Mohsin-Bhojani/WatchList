@@ -5,7 +5,8 @@
 //  The iPhone episode page, in the "Show view" design's language:
 //    - the still, where it sits in the show, the title and a meta line
 //    - a To watch / Watched switch
-//    - Play, when the episode is on your Jellyfin server (PlayButton)
+//    - Play, when the episode is on your Jellyfin server or in its show's
+//      linked put.io folder (PlayButton)
 //    - your rating: Skip, Watch or Rewatch
 //    - synopsis, Everyone on WatchList, details — ending in Open in… (IMDb,
 //      TMDb, Trakt) and Share — and who's in it
@@ -307,7 +308,7 @@ private struct EpisodePage: View {
 	/// Play from your Jellyfin server, when it has the episode; watching it
 	/// through marks it Watched, starting its season and show.
 	private var playButton: some View {
-		PagePlayButton(title: .episode(showTMDbID: episode.showTMDbID, showIMDbID: show?.imdbID,
+		PagePlayButton(title: .episode(showID: show?.id, showTMDbID: episode.showTMDbID, showIMDbID: show?.imdbID,
 		                               season: episode.seasonNumber, episode: episode.episodeNumber),
 		               name: episode.displayTitle,
 		               subtitle: [show?.title ?? "", ShowFacts.code(episode)].filter { !$0.isEmpty }

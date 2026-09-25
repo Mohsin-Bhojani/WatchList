@@ -4,11 +4,12 @@
 //
 //  Settings on iPhone, in the app's paper theme — following light and dark and
 //  your accent colour, like the tabs: accent colour, the watched cascade,
-//  new-episode checks, the Where to watch country, your Jellyfin server
-//  (JellyfinSettings), exporting your library as JSON, and About. The same
-//  settings, under the same keys, as the shared SettingsView, so either screen
-//  shows a change made on the other — except the Where to watch country and
-//  Jellyfin, which only the iPhone pages use.
+//  new-episode checks, the Where to watch country, your Jellyfin server and
+//  put.io (JellyfinSettings, PutioSettings), exporting your library as JSON,
+//  and About. The same settings, under the same keys, as the shared
+//  SettingsView, so either screen shows a change made on the other — except
+//  the Where to watch country, Jellyfin and put.io, which only the iPhone
+//  pages use.
 //
 
 import SwiftUI
@@ -49,6 +50,7 @@ struct PhoneSettingsView: View {
 					newEpisodesSection
 					whereToWatchSection
 					JellyfinSettingsSection()
+					PutioSettingsSection()
 					dataSection
 					aboutSection
 				}

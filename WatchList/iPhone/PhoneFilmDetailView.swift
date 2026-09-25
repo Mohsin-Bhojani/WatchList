@@ -5,12 +5,13 @@
 //  The film page, after the "Film view" design, built from TitlePageKit:
 //    - the poster, title and a meta line: TMDb stars and votes, year, runtime
 //    - a To watch / Watched switch; marking Watched asks how it was
-//    - Play, when the film is on your Jellyfin server (PlayButton)
+//    - Play, when the film is on your Jellyfin server or linked to a put.io
+//      video (PlayButton)
 //    - once watched, your rating: verdict, stars, date and private note
 //    - trailer, synopsis, Everyone on WatchList, Details — ending in Open in…
 //      (IMDb, TMDb, Letterboxd and more; TitleSites) and Share — and Cast
 //    - a status menu in the bar: status, rating, share, artwork, collections,
-//      refresh, remove
+//      put.io link, refresh, remove
 //    - a compact bar with the poster and title once the title scrolls away
 //  A rating is a verdict, half-star stars or both, each setting the other
 //  (StarRating). Refresh metadata takes TMDb's latest (FilmRefresh); Share
@@ -40,6 +41,7 @@ struct PhoneFilmDetailView: View {
 	@State private var theme: UIColor?
 	@State private var refreshing = false
 	@State private var refreshNote: String?
+	@State private var linkingPutio = false
 
 	/// The design's teal, for Watched and Save rating.
 	static let teal = Color(.pageWatched)
@@ -115,6 +117,7 @@ struct PhoneFilmDetailView: View {
 			}
 		}
 		.newCollectionAlert(isPresented: $namingCollection, adding: film.id)
+		.sheet(isPresented: $linkingPutio) { PutioLinkSheet(kind: .film, titleID: film.id) }
 		.alert("Refresh metadata", isPresented: Binding(get: { refreshNote != nil },
 		                                                 set: { if !$0 { refreshNote = nil } })) {
 			Button("OK", role: .cancel) {}
@@ -218,7 +221,7 @@ struct PhoneFilmDetailView: View {
 	/// Play from your Jellyfin server, when it has the film; watching it
 	/// through marks it Watched and asks how it was.
 	private var playButton: some View {
-		PagePlayButton(title: .film(tmdbID: film.tmdbID, imdbID: film.imdbID), name: film.title,
+		PagePlayButton(title: .film(id: film.id, tmdbID: film.tmdbID, imdbID: film.imdbID), name: film.title,
 		               subtitle: film.year.isEmpty ? nil : film.year) {
 			if film.status != .watched { markWatched() }
 		}
@@ -329,6 +332,7 @@ struct PhoneFilmDetailView: View {
 				}
 				.disabled(film.tmdbID == nil)
 				AddToCollectionMenu(titleID: film.id) { namingCollection = true }
+				PutioLinkMenuItems(titleID: film.id, kind: .film) { linkingPutio = true }
 				Button { Task { await refresh() } } label: {
 					Label(refreshing ? "Refreshing…" : "Refresh metadata", systemImage: "arrow.clockwise")
 				}

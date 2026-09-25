@@ -4,9 +4,9 @@
 //
 //  The app's video player: the system's own (AVPlayerViewController), full
 //  screen, with its scrubber, subtitles and audio tracks, AirPlay and Picture
-//  in Picture. It plays a PlayableStream from wherever one comes from — today
-//  your Jellyfin server (Jellyfin.swift) — picking up where you left off, and
-//  tells the source where playback is as it goes.
+//  in Picture. It plays a PlayableStream from wherever one comes from — your
+//  Jellyfin server (Jellyfin.swift) or put.io (Putio.swift) — picking up where
+//  you left off, and tells the source where playback is as it goes.
 //
 //  Closing it after watching most of the title counts as having watched it:
 //  the page that opened it marks the film or episode Watched.
@@ -29,7 +29,8 @@ struct PlayableStream {
 protocol PlaybackReporter: AnyObject {
 	func started(at seconds: TimeInterval) async
 	func progress(at seconds: TimeInterval, paused: Bool) async
-	func stopped(at seconds: TimeInterval) async
+	/// `watched`: played through, by MediaPlayback.countsAsWatched.
+	func stopped(at seconds: TimeInterval, watched: Bool) async
 }
 
 enum MediaPlayback {
@@ -164,7 +165,7 @@ final class MediaPlayer: NSObject, AVPlayerViewControllerDelegate {
 		player.pause()
 		if let timeObserver { player.removeTimeObserver(timeObserver) }
 		if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
-		if let reporter = stream.reporter { Task { await reporter.stopped(at: position) } }
+		if let reporter = stream.reporter { Task { await reporter.stopped(at: position, watched: watched) } }
 		if controller.presentingViewController != nil { controller.dismiss(animated: true) }
 		try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
 		if Self.current === self { Self.current = nil }

@@ -41,6 +41,7 @@ struct PhoneShowDetailView: View {
 	@State private var refreshing = false
 	@State private var refreshNote: String?
 	@State private var namingCollection = false
+	@State private var linkingPutio = false
 	@State private var theme: UIColor?
 	@State private var votes: Votes?
 	/// The series' cast, which only the iPad's page shows.
@@ -124,6 +125,7 @@ struct PhoneShowDetailView: View {
 			ToolbarItem(placement: .topBarTrailing) { statusMenu }
 		}
 		.sheet(item: $ratingEpisode) { EpisodeRatingSheet(episode: $0) }
+		.sheet(isPresented: $linkingPutio) { PutioLinkSheet(kind: .show, titleID: show.id) }
 		.sheet(isPresented: $showingArtwork) {
 			if let tmdbID = show.tmdbID {
 				ArtworkSheet(source: .series(tvID: tmdbID),
@@ -494,6 +496,7 @@ struct PhoneShowDetailView: View {
 				}
 				.disabled(show.tmdbID == nil)
 				AddToCollectionMenu(titleID: show.id) { namingCollection = true }
+				PutioLinkMenuItems(titleID: show.id, kind: .show) { linkingPutio = true }
 				Button { Task { await refresh() } } label: {
 					Label(refreshing ? "Refreshing…" : "Refresh metadata", systemImage: "arrow.clockwise")
 				}

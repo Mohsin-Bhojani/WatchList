@@ -10,7 +10,8 @@
 //    - Your collections: the ones you make (TitleCollection), each opening its
 //      page; New collection names one and opens it to fill
 //    - On your server: once you're signed in to Jellyfin, everything on it
-//      (JellyfinLibrary), in or out of your library
+//      (JellyfinLibrary), in or out of your library; and your put.io files,
+//      once it's connected (PutioLibrary)
 //  Tapping Collections again once the page is at its top opens Filter & Sort:
 //  which sections show, and the order of your own, either way round.
 //
@@ -228,18 +229,27 @@ struct PhoneCollectionsView: View {
 
 	@ViewBuilder private var serverSection: some View {
 		let session = JellyfinSession.shared
-		if session.isSignedIn, let account = session.account {
+		let putio = PutioSession.shared
+		if session.isSignedIn || putio.isConnected {
 			VStack(alignment: .leading, spacing: 10) {
 				sectionTitle("On your server")
 				cardGrid {
-					NavigationLink { JellyfinServerView() } label: {
-						CollectionCard(title: account.serverName,
-						               subtitle: server.map { ServerLabels.counts(films: $0.films, shows: $0.shows) }
-						               	?? "Jellyfin",
-						               posterURLs: server?.posters ?? [],
-						               tint: nil)
+					if session.isSignedIn, let account = session.account {
+						NavigationLink { JellyfinServerView() } label: {
+							CollectionCard(title: account.serverName,
+							               subtitle: server.map { ServerLabels.counts(films: $0.films, shows: $0.shows) }
+							               	?? "Jellyfin",
+							               posterURLs: server?.posters ?? [],
+							               tint: nil)
+						}
+						.buttonStyle(.pressable)
 					}
-					.buttonStyle(.pressable)
+					if putio.isConnected, let userName = putio.userName {
+						NavigationLink { PutioFolderView(folder: nil, mode: .browse) } label: {
+							CollectionCard(title: "put.io", subtitle: userName, posterURLs: [], tint: nil)
+						}
+						.buttonStyle(.pressable)
+					}
 				}
 			}
 			.padding(.horizontal, 20)

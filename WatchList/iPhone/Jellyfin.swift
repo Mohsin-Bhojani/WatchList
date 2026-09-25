@@ -68,31 +68,40 @@ enum JellyfinServer {
 /// The Jellyfin access token, in the Keychain rather than UserDefaults.
 enum JellyfinKeychain {
 	private static let service = "com.mohsin.WatchList.jellyfin"
-	private static let account = "token"
 
 	static var token: String? {
-		get {
-			let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-			                            kSecAttrService as String: service,
-			                            kSecAttrAccount as String: account,
-			                            kSecReturnData as String: true,
-			                            kSecMatchLimit as String: kSecMatchLimitOne]
-			var result: AnyObject?
-			guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-			      let data = result as? Data else { return nil }
-			return String(data: data, encoding: .utf8)
-		}
-		set {
-			let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-			                            kSecAttrService as String: service,
-			                            kSecAttrAccount as String: account]
-			SecItemDelete(query as CFDictionary)
-			guard let newValue, let data = newValue.data(using: .utf8) else { return }
-			var add = query
-			add[kSecValueData as String] = data
-			add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-			SecItemAdd(add as CFDictionary, nil)
-		}
+		get { KeychainItem.read(service: service) }
+		set { KeychainItem.write(newValue, service: service) }
+	}
+}
+
+/// One secret in the Keychain, by service: a source's sign-in token.
+enum KeychainItem {
+	private static let account = "token"
+
+	static func read(service: String) -> String? {
+		let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+		                            kSecAttrService as String: service,
+		                            kSecAttrAccount as String: account,
+		                            kSecReturnData as String: true,
+		                            kSecMatchLimit as String: kSecMatchLimitOne]
+		var result: AnyObject?
+		guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+		      let data = result as? Data else { return nil }
+		return String(data: data, encoding: .utf8)
+	}
+
+	/// Replaces it; nil removes it.
+	static func write(_ value: String?, service: String) {
+		let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+		                            kSecAttrService as String: service,
+		                            kSecAttrAccount as String: account]
+		SecItemDelete(query as CFDictionary)
+		guard let value, let data = value.data(using: .utf8) else { return }
+		var add = query
+		add[kSecValueData as String] = data
+		add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+		SecItemAdd(add as CFDictionary, nil)
 	}
 }
 
@@ -532,5 +541,8 @@ private final class JellyfinReporter: PlaybackReporter {
 	func progress(at seconds: TimeInterval, paused: Bool) async {
 		await session.report("Sessions/Playing/Progress", body(seconds, paused: paused))
 	}
-	func stopped(at seconds: TimeInterval) async { await session.report("Sessions/Playing/Stopped", body(seconds)) }
+	/// Jellyfin marks it watched itself, by the same 90%.
+	func stopped(at seconds: TimeInterval, watched: Bool) async {
+		await session.report("Sessions/Playing/Stopped", body(seconds))
+	}
 }
