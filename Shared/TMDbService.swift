@@ -40,6 +40,8 @@ enum TMDbConfig {
 	static func still(_ path: String?) -> String { image(path, size: "w300") }
 	/// Cast headshot (2:3). Small, because it's drawn as a 44pt circle.
 	static func profile(_ path: String?) -> String { image(path, size: "w185") }
+	/// A streaming service's square logo.
+	static func logo(_ path: String?) -> String { image(path, size: "w92") }
 
 	/// A tile in the Images tab. Deliberately small — a popular show has a few
 	/// hundred of these and they are drawn barely 100pt wide.
@@ -283,6 +285,52 @@ struct TMDbImageSet: Decodable {
 	let stills: [TMDbImage]?
 }
 
+// MARK: - Video DTOs
+
+/// One video TMDb links to — almost always a YouTube upload, `key` being its id.
+struct TMDbVideo: Decodable {
+	let key: String?
+	let name: String?
+	let site: String?
+	let type: String?
+	let official: Bool?
+	let published_at: String?
+	let iso_639_1: String?
+}
+
+struct TMDbVideoList: Decodable { let results: [TMDbVideo] }
+
+// MARK: - Watch provider DTOs
+
+/// A service offering a title. TMDb's data comes from JustWatch.
+struct TMDbProvider: Decodable {
+	let provider_id: Int?
+	let provider_name: String?
+	let logo_path: String?
+	let display_priority: Int?
+}
+
+/// One country's offers. `link` is TMDb's watch page for the title there.
+struct TMDbProviderRegion: Decodable {
+	let link: String?
+	let flatrate: [TMDbProvider]?
+	let free: [TMDbProvider]?
+	let ads: [TMDbProvider]?
+	let rent: [TMDbProvider]?
+	let buy: [TMDbProvider]?
+}
+
+/// Every country's offers, keyed by ISO 3166-1 code.
+struct TMDbProviderResponse: Decodable { let results: [String: TMDbProviderRegion] }
+
+/// A country TMDb has watch data for.
+struct TMDbRegion: Decodable {
+	let iso_3166_1: String
+	let english_name: String?
+}
+
+struct TMDbRegionList: Decodable { let results: [TMDbRegion] }
+
 // MARK: - Service
 
 struct TMDbService {
@@ -387,6 +435,46 @@ struct TMDbService {
 	/// Every poster, backdrop and logo TMDb holds for a film.
 	func movieImages(movieID: Int) async throws -> TMDbImageSet {
 		try await get("/movie/\(movieID)/images", localized: false)
+	}
+
+	// MARK: Videos
+	//
+	// English, plus uploads with no language set. TMDb returns only English
+	// videos unless asked, and a film's page can list forty of them, so there's
+	// no call to widen it to every dub and subtitle.
+
+	/// A series' trailers, teasers, clips and featurettes.
+	func videos(tvID: Int) async throws -> [TMDbVideo] {
+		let list: TMDbVideoList = try await get("/tv/\(tvID)/videos", query: Self.videoLanguages)
+		return list.results
+	}
+
+	/// A film's trailers, teasers, clips and featurettes.
+	func videos(movieID: Int) async throws -> [TMDbVideo] {
+		let list: TMDbVideoList = try await get("/movie/\(movieID)/videos", query: Self.videoLanguages)
+		return list.results
+	}
+
+	private static let videoLanguages = ["include_video_language": "en,null"]
+
+	// MARK: Where to watch
+
+	/// Where a series streams, rents and sells, in every country at once.
+	func watchProviders(tvID: Int) async throws -> [String: TMDbProviderRegion] {
+		let response: TMDbProviderResponse = try await get("/tv/\(tvID)/watch/providers")
+		return response.results
+	}
+
+	/// Where a film streams, rents and sells, in every country at once.
+	func watchProviders(movieID: Int) async throws -> [String: TMDbProviderRegion] {
+		let response: TMDbProviderResponse = try await get("/movie/\(movieID)/watch/providers")
+		return response.results
+	}
+
+	/// The countries TMDb has watch data for.
+	func watchRegions() async throws -> [TMDbRegion] {
+		let list: TMDbRegionList = try await get("/watch/providers/regions")
+		return list.results
 	}
 
 	// MARK: Networking
