@@ -9,6 +9,8 @@
 //      its titles over a fan of their posters, and opening the collection
 //    - Your collections: the ones you make (TitleCollection), each opening its
 //      page; New collection names one and opens it to fill
+//    - On your server: once you're signed in to Jellyfin, everything on it
+//      (JellyfinLibrary), in or out of your library
 //  Tapping Collections again once the page is at its top opens Filter & Sort:
 //  which sections show, and the order of your own, either way round.
 //
@@ -33,6 +35,8 @@ struct PhoneCollectionsView: View {
 	/// A collection just made, opened so it can be filled.
 	@State private var opened: UUID?
 	@State private var deleting: TitleCollection?
+	/// The Jellyfin server's films and shows, for its card; nil until loaded.
+	@State private var server: (films: Int, shows: Int, posters: [String])?
 
 	/// Which sections the page shows.
 	private enum Showing: CaseIterable, Identifiable {
@@ -82,6 +86,7 @@ struct PhoneCollectionsView: View {
 						if showing.shows(.pinned) { pinnedSection }
 						if showing.shows(.verdicts) { verdictSection }
 						if showing.shows(.yours) { yoursSection }
+						if showing == .all { serverSection }
 					}
 					.padding(.bottom, 24)
 				}
@@ -102,6 +107,7 @@ struct PhoneCollectionsView: View {
 				Text("Only the collection goes. Its titles stay in your library.")
 			}
 			.sheet(isPresented: $showingFilters) { filterSheet }
+			.task(id: JellyfinSession.shared.account) { await loadServer() }
 		}
 	}
 
@@ -216,6 +222,40 @@ struct PhoneCollectionsView: View {
 			.buttonStyle(.pressable)
 		}
 		.padding(.horizontal, 20)
+	}
+
+	// MARK: On your server
+
+	@ViewBuilder private var serverSection: some View {
+		let session = JellyfinSession.shared
+		if session.isSignedIn, let account = session.account {
+			VStack(alignment: .leading, spacing: 10) {
+				sectionTitle("On your server")
+				cardGrid {
+					NavigationLink { JellyfinServerView() } label: {
+						CollectionCard(title: account.serverName,
+						               subtitle: server.map { ServerLabels.counts(films: $0.films, shows: $0.shows) }
+						               	?? "Jellyfin",
+						               posterURLs: server?.posters ?? [],
+						               tint: nil)
+					}
+					.buttonStyle(.pressable)
+				}
+			}
+			.padding(.horizontal, 20)
+		}
+	}
+
+	/// The card's counts, and the posters of its first few titles by name.
+	private func loadServer() async {
+		let session = JellyfinSession.shared
+		guard session.isSignedIn else {
+			server = nil
+			return
+		}
+		guard let items = try? await session.items(ofType: "Movie,Series") else { return }
+		let films = items.filter { $0.type == "Movie" }.count
+		server = (films, items.count - films, items.prefix(4).map { session.imageURL($0, height: 300) })
 	}
 
 	/// One card a row on a phone; two or more across an iPad.

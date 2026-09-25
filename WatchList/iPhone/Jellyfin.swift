@@ -110,6 +110,8 @@ struct JellyfinItem: Decodable, Equatable, Identifiable {
 	/// An episode's season number.
 	var parentIndexNumber: Int?
 	var runTimeTicks: Int64?
+	var productionYear: Int?
+	var overview: String?
 	var userData: UserData?
 
 	struct UserData: Decodable, Equatable {
@@ -126,6 +128,7 @@ struct JellyfinItem: Decodable, Equatable, Identifiable {
 		case id = "Id", name = "Name", type = "Type", providerIDs = "ProviderIds"
 		case indexNumber = "IndexNumber", indexNumberEnd = "IndexNumberEnd"
 		case parentIndexNumber = "ParentIndexNumber", runTimeTicks = "RunTimeTicks", userData = "UserData"
+		case productionYear = "ProductionYear", overview = "Overview"
 	}
 
 	/// A provider's id ("Tmdb", "Imdb"), whatever case the server wrote it in.
@@ -358,6 +361,38 @@ final class JellyfinSession {
 		          query: ["userId": account.userID, "season": String(season), "fields": "ProviderIds"])
 		else { return nil }
 		return JellyfinEpisodes.match(list.items, season: season, episode: episode)
+	}
+
+	/// Everything of a kind on the server — "Movie" or "Series" — by name, with
+	/// what you've watched of it, for the On your server list.
+	func items(ofType type: String) async throws -> [JellyfinItem] {
+		guard let account, let token else { throw JellyfinError.http(401) }
+		let list: JellyfinItemList = try await request(
+			server: account.server, token: token, "Items",
+			query: ["userId": account.userID, "recursive": "true", "includeItemTypes": type,
+			        "fields": "ProviderIds,Overview", "sortBy": "SortName", "sortOrder": "Ascending",
+			        "enableImages": "false"])
+		return list.items
+	}
+
+	/// A show's episodes, every season, in order.
+	func episodes(ofSeries seriesID: String) async throws -> [JellyfinItem] {
+		guard let account, let token else { throw JellyfinError.http(401) }
+		let list: JellyfinItemList = try await request(
+			server: account.server, token: token, "Shows/\(seriesID)/Episodes",
+			query: ["userId": account.userID, "fields": "ProviderIds,Overview"])
+		return list.items
+	}
+
+	/// An item's artwork — a poster, or an episode's still. Jellyfin serves
+	/// images without the token.
+	func imageURL(_ item: JellyfinItem, height: Int = 450) -> String {
+		guard let account else { return "" }
+		var components = URLComponents(url: account.server.appending(path: "Items/\(item.id)/Images/Primary"),
+		                               resolvingAgainstBaseURL: false)
+		components?.queryItems = [URLQueryItem(name: "fillHeight", value: String(height)),
+		                          URLQueryItem(name: "quality", value: "90")]
+		return components?.url?.absoluteString ?? ""
 	}
 
 	/// Settings' "Refresh" — the next lookup fetches the index again.

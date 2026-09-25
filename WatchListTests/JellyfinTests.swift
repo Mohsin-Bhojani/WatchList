@@ -133,6 +133,46 @@ struct JellyfinTests {
 		#expect(started.resumeSeconds == 1450)
 	}
 
+	// MARK: On your server
+
+	@Test func aServerFilmFindsItsLibraryCopyByTMDbThenIMDb() {
+		let inception = Film(title: "Inception", imdbID: "tt1375666", tmdbID: 27205)
+		let sicario = Film(title: "Sicario", imdbID: "tt3397884")
+		let films = [inception, sicario]
+		#expect(ServerMatch.film(in: films, item: item("a", "Movie", tmdb: "27205")) === inception)
+		#expect(ServerMatch.film(in: films, item: item("b", "Movie", tmdb: "1", imdb: "TT3397884")) === sicario)
+		#expect(ServerMatch.film(in: films, item: item("c", "Movie")) == nil)
+	}
+
+	@Test func aServerEpisodeFindsItsLibraryCopyInItsShow() {
+		let show = Show(title: "Severance", tmdbID: 95396)
+		let season = Season(seasonNumber: 1)
+		season.show = show
+		show.seasons.append(season)
+		for number in 1...4 {
+			let episode = Episode(episodeNumber: number, seasonNumber: 1, title: "E\(number)")
+			episode.season = season
+			season.episodes.append(episode)
+		}
+		let series = item("s", "Series", tmdb: "95396")
+		#expect(ServerMatch.episode(in: [show], series: series,
+		                            item: item("e", "Episode", season: 1, number: 3))?.episodeNumber == 3)
+		#expect(ServerMatch.episode(in: [show], series: series,
+		                            item: item("e", "Episode", season: 2, number: 1)) == nil)
+		#expect(ServerMatch.episode(in: [show], series: item("x", "Series", tmdb: "1"),
+		                            item: item("e", "Episode", season: 1, number: 1)) == nil)
+	}
+
+	@Test func serverLabels() {
+		#expect(ServerLabels.code(item("e", "Episode", season: 1, number: 3)) == "S01E03")
+		#expect(ServerLabels.code(item("e", "Episode", season: 2, number: 3, end: 4)) == "S02E03–E04")
+		#expect(ServerLabels.counts(films: 1, shows: 2) == "1 film · 2 shows")
+		let halfway = JellyfinItem(id: "x", runTimeTicks: JellyfinTicks.ticks(2000),
+		                           userData: .init(playbackPositionTicks: JellyfinTicks.ticks(1000)))
+		#expect(ServerLabels.progress(halfway) == 0.5)
+		#expect(ServerLabels.progress(JellyfinItem(id: "y", runTimeTicks: 100)) == nil)
+	}
+
 	@Test func resumeClock() {
 		#expect(MediaPlayback.clock(750) == "12:30")
 		#expect(MediaPlayback.clock(3852) == "1:04:12")
