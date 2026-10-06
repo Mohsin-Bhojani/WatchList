@@ -123,8 +123,13 @@ struct DiscoverDeal<Seed: SuggestionSeed> {
 
 	/// `allSeeds` in seed order; `excluded` the titles in the library, turned down
 	/// or on their way in; `putOff` when each title put off for later was.
+	/// `score`, when given, rates a suggestion 0 to 100 by the viewer's taste, and
+	/// each seed's suggestions are dealt best-rated first rather than in TMDb's
+	/// order. The rotation between titles is the same either way.
 	init(seeds allSeeds: [Seed], filter: DiscoverFilter, rotation: DiscoverRotation,
-	     similar: [UUID: [Suggestion]], fetched: Set<UUID>, excluded: Set<String>, putOff: [String: Date]) {
+	     similar tmdbSimilar: [UUID: [Suggestion]], fetched: Set<UUID>, excluded: Set<String>, putOff: [String: Date],
+	     score: ((Suggestion) -> Int)? = nil) {
+		let similar = score.map { DiscoverFeed.ranked(tmdbSimilar, by: $0) } ?? tmdbSimilar
 		seeds = allSeeds.filter { filter.kind.includes($0.kind) }
 		// More like narrows Discover to the one title's suggestions.
 		picked = seeds.first { $0.id == filter.seed }
@@ -165,6 +170,17 @@ enum DiscoverFeed {
 	/// How many cards to have ready to deal — enough to reach past the title in
 	/// use, so the next one's suggestions are in before Discover moves on.
 	static let readyAhead = 8
+
+	/// Each seed's suggestions best-scored first, TMDb's order breaking ties.
+	static func ranked(_ similar: [UUID: [Suggestion]], by score: (Suggestion) -> Int) -> [UUID: [Suggestion]] {
+		similar.mapValues { suggestions in
+			let scored = suggestions.enumerated().map { (index: $0.offset, suggestion: $0.element, score: score($0.element)) }
+			let ordered = scored.sorted { lhs, rhs in
+				lhs.score != rhs.score ? lhs.score > rhs.score : lhs.index < rhs.index
+			}
+			return ordered.map(\.suggestion)
+		}
+	}
 
 	/// The suggestions in the order they're offered: each seed's similar titles
 	/// in `seedOrder`, TMDb's order within a seed, each title once with every
