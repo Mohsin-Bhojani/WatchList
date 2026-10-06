@@ -81,9 +81,11 @@ struct PhoneDiscoverView: View {
 	var body: some View {
 		let library = shows.map(WatchedTitle.show) + films.map(WatchedTitle.film)
 		// The card up, and what's ready behind it — worked out as the watch does.
+		// What the library says about taste: each title's suggestions come best fit first.
+		let taste = TasteProfile(library)
 		let deal = DiscoverDeal(seeds: DiscoverFeed.seeds(shows: shows, films: films), filter: filter,
 		                        rotation: rotation, similar: loader.similar, fetched: loader.fetched,
-		                        excluded: excludedIDs(library), putOff: putOffDates())
+		                        excluded: excludedIDs(library), putOff: putOffDates(), score: taste.score)
 		// A description sets the cards aside for its own matches.
 		let describing = !filter.describe.isEmpty
 		let describedQueue = describing ? describe.results.filter { !deal.skipped.contains($0.id) } : []

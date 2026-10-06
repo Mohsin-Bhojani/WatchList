@@ -51,6 +51,26 @@ struct DiscoverDealTests {
 		#expect(filmsLikeShow.current?.id == fromFilm.id)
 	}
 
+	@Test func tasteDealsEachTitlesBestFitFirstWithoutChangingTheRotation() {
+		let first = Seed(), second = Seed()
+		let horror = suggestion(.show, 10, genres: ["Horror"]), plain = suggestion(.show, 11, genres: ["Western"])
+		let romance = suggestion(.show, 12, genres: ["Romance"]), other = suggestion(.show, 20, genres: ["Western"])
+		let similar = [first.id: [horror, plain, romance], second.id: [other]]
+		func deal(score: ((Suggestion) -> Int)?) -> DiscoverDeal<Seed> {
+			DiscoverDeal(seeds: [first, second], filter: DiscoverFilter(), rotation: DiscoverRotation(),
+			             similar: similar, fetched: [first.id, second.id], excluded: [], putOff: [:], score: score)
+		}
+		let taste: (Suggestion) -> Int = { $0.genres == ["Romance"] ? 90 : $0.genres == ["Horror"] ? 10 : 50 }
+
+		#expect(deal(score: nil).queue.map(\.id) == [horror.id, plain.id, romance.id, other.id])
+		let ranked = deal(score: taste)
+		// The first title still comes first; only its own suggestions are reordered.
+		#expect(ranked.queue.map(\.id) == [romance.id, plain.id, horror.id, other.id])
+		#expect(ranked.current?.id == romance.id)
+		#expect(ranked.seedOrder == [first.id, second.id])
+		#expect(ranked.ready == deal(score: nil).ready)
+	}
+
 	@Test func movingOnWaitsForTheNextTitlesSuggestions() {
 		let first = Seed(), next = Seed()
 		let leftOver = suggestion(.show, 10), fromNext = suggestion(.show, 20)
