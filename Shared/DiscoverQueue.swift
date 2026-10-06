@@ -221,8 +221,12 @@ struct DiscoverFilter: Equatable {
 	var genres: Set<String> = []
 	/// The library title suggestions come from; nil for every title in turn.
 	var seed: UUID?
+	/// What the viewer described — "something romantic with a happy ending" —
+	/// once they've asked for it; empty otherwise. The iPhone looks it up
+	/// itself; the watch leaves it alone.
+	var describe = ""
 
-	var isDefault: Bool { kind == .all && genres.isEmpty && seed == nil }
+	var isDefault: Bool { kind == .all && genres.isEmpty && seed == nil && describe.isEmpty }
 
 	/// The line under Discover's header while anything's narrowed: the title
 	/// suggestions come from, the type, then the genres — "Severance · Drama,
@@ -231,6 +235,7 @@ struct DiscoverFilter: Equatable {
 		var parts: [String] = []
 		if let seedTitle { parts.append(seedTitle) }
 		if kind != .all { parts.append(kind.title) }
+		if !describe.isEmpty { parts.append("\u{201C}\(describe)\u{201D}") }
 		switch genres.count {
 		case 0:    break
 		case 1, 2: parts.append(genres.sorted().joined(separator: ", "))

@@ -259,6 +259,11 @@ struct TMDbGenre: Decodable {
 
 struct TMDbGenreList: Decodable { let genres: [TMDbGenre] }
 
+struct TMDbKeywordSearch: Decodable {
+	struct Keyword: Decodable { let id: Int; let name: String }
+	let results: [Keyword]
+}
+
 // MARK: - Image DTOs
 
 /// One artwork file. `iso_639_1` is the language of any text burnt into it —
@@ -361,6 +366,29 @@ struct TMDbService {
 	func movieGenres() async throws -> [TMDbGenre] {
 		let list: TMDbGenreList = try await get("/genre/movie/list")
 		return list.genres
+	}
+
+	// MARK: Discover
+
+	/// Titles matching what someone described: every genre in `genreIDs`, none of
+	/// `withoutGenreIDs`, and any of `keywordIDs` when there are some. Popular
+	/// first, with enough votes to mean something.
+	func discover(_ kind: MediaKind, genreIDs: [Int], withoutGenreIDs: [Int], keywordIDs: [Int],
+	              page: Int = 1) async throws -> [TMDbSuggestedTitle] {
+		var query = ["sort_by": "popularity.desc", "vote_count.gte": "300", "vote_average.gte": "6.3",
+		             "include_adult": "false", "page": String(page)]
+		if !genreIDs.isEmpty { query["with_genres"] = genreIDs.map(String.init).joined(separator: ",") }
+		if !withoutGenreIDs.isEmpty { query["without_genres"] = withoutGenreIDs.map(String.init).joined(separator: ",") }
+		if !keywordIDs.isEmpty { query["with_keywords"] = keywordIDs.map(String.init).joined(separator: "|") }
+		let response: TMDbSuggestedPage = try await get(kind == .show ? "/discover/tv" : "/discover/movie", query: query)
+		return response.results
+	}
+
+	/// TMDb's id for a keyword such as "happy ending", or nil when it has none.
+	func keywordID(for name: String) async throws -> Int? {
+		let response: TMDbKeywordSearch = try await get("/search/keyword", query: ["query": name])
+		return response.results.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.id
+			?? response.results.first?.id
 	}
 
 	// MARK: Images
