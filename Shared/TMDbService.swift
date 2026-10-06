@@ -259,6 +259,14 @@ struct TMDbGenre: Decodable {
 
 struct TMDbGenreList: Decodable { let genres: [TMDbGenre] }
 
+/// A title's keywords: films send them under `keywords`, shows under `results`.
+struct TMDbTitleKeywords: Decodable {
+	let keywords: [TMDbKeywordSearch.Keyword]?
+	let results: [TMDbKeywordSearch.Keyword]?
+
+	var all: [TMDbKeywordSearch.Keyword] { keywords ?? results ?? [] }
+}
+
 struct TMDbKeywordSearch: Decodable {
 	struct Keyword: Decodable { let id: Int; let name: String }
 	let results: [Keyword]
@@ -382,6 +390,12 @@ struct TMDbService {
 		if !keywordIDs.isEmpty { query["with_keywords"] = keywordIDs.map(String.init).joined(separator: "|") }
 		let response: TMDbSuggestedPage = try await get(kind == .show ? "/discover/tv" : "/discover/movie", query: query)
 		return response.results
+	}
+
+	/// The keywords TMDb files a show or film under, such as "heist" or "london".
+	func keywords(_ kind: MediaKind, id: Int) async throws -> [TMDbKeywordSearch.Keyword] {
+		let response: TMDbTitleKeywords = try await get((kind == .show ? "/tv/" : "/movie/") + "\(id)/keywords")
+		return response.all
 	}
 
 	/// TMDb's id for a keyword such as "happy ending", or nil when it has none.

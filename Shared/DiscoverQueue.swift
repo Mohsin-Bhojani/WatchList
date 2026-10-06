@@ -536,7 +536,7 @@ final class DiscoverLoader {
 /// TMDb's suggestions for a show or film. TMDbService keeps its request helper
 /// private, and its similar-title types leave the synopsis out, so the requests
 /// are built here the same way.
-private enum TMDbSuggestions {
+enum TMDbSuggestions {
 	/// Its recommendations, or its similar titles when it has none.
 	static func titles(_ kind: MediaKind, _ id: Int) async throws -> [TMDbSuggestedTitle] {
 		let base = kind == .show ? "/tv/\(id)" : "/movie/\(id)"
