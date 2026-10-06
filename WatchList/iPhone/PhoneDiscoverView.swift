@@ -104,8 +104,8 @@ struct PhoneDiscoverView: View {
 				if let addError { errorBanner(addError) }
 				if let current {
 					DiscoverCard(suggestion: current,
-					             reason: describing ? describe.query.map { "Matches \($0.summary)" }
-					                                : DiscoverFeed.reason(for: current, in: library),
+					             reason: describing ? describedReason(for: current)
+					                       : DiscoverFeed.reason(for: current, in: library),
 					             // The height left over sets its size on a phone; on an
 					             // iPad this keeps it from filling the whole width.
 					             posterMaxWidth: width > 0 ? width * 0.7 : 250,
@@ -423,6 +423,13 @@ struct PhoneDiscoverView: View {
 			}
 		}
 		.padding(.top, 36)
+	}
+
+	/// "Matches Romance · happy ending", and how the title's ending reads when it's been judged.
+	private func describedReason(for suggestion: Suggestion) -> String? {
+		guard let query = describe.query else { return nil }
+		return ["Matches \(query.summary)", describe.endingNote(for: suggestion)]
+			.compactMap { $0 }.joined(separator: " \u{00B7} ")
 	}
 
 	/// While a description is being looked up, or when nothing fits it.
