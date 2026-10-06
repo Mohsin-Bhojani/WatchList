@@ -32,17 +32,24 @@ struct DescribedQuery: Equatable {
 	/// Nil for either.
 	var kind: MediaKind?
 	var ending: EndingFeel?
+	/// Films or shows the sentence says it wants something like — as typed, then
+	/// as TMDb names them once they've been found.
+	var references: [String] = []
 
-	/// "Romance · happy ending · not Horror", for under the card and the filter.
+	/// "Romance · happy ending · not Horror · like The Gentlemen", for under the
+	/// card and the filter.
 	var summary: String {
 		var parts = genres
 		if let ending { parts.append("\(ending.rawValue) ending") }
 		parts += avoidGenres.map { "not \($0)" }
+		parts += references.map { "like \($0)" }
 		if parts.isEmpty { parts = keywords }
-		return parts.joined(separator: " · ")
+		return parts.joined(separator: " \u{00B7} ")
 	}
 
-	var isEmpty: Bool { genres.isEmpty && avoidGenres.isEmpty && keywords.isEmpty && ending == nil }
+	var isEmpty: Bool {
+		genres.isEmpty && avoidGenres.isEmpty && keywords.isEmpty && ending == nil && references.isEmpty
+	}
 }
 
 // MARK: - Reading the sentence
@@ -71,6 +78,8 @@ enum DescribeInterpreter {
 		var avoidGenres: [String]
 		@Guide(description: "Up to three short keywords that describe the mood or theme, such as 'feel-good' or 'time travel'.")
 		var keywords: [String]
+		@Guide(description: "Titles of films or shows the person says they want something like, copied as they wrote them. Empty if they name none.")
+		var similarTo: [String]
 		@Guide(description: "Either 'film', 'show' or 'either'.")
 		var kind: String
 		@Guide(description: "How the person wants it to end: 'happy', 'bittersweet', 'sad' or 'open', only if they talk about the ending or how it should make them feel. Otherwise 'any'.")
@@ -88,7 +97,7 @@ enum DescribeInterpreter {
 			""")
 		let reading = try await session.respond(to: text, generating: Reading.self).content
 		return WordListInterpreter.sanitized(genres: reading.genres, avoid: reading.avoidGenres,
-		                                     keywords: reading.keywords, kind: reading.kind,
+		                                     keywords: reading.keywords, similarTo: reading.similarTo, kind: reading.kind,
 		                                     ending: reading.ending, genreNames: genreNames, text: text)
 	}
 }
@@ -162,6 +171,7 @@ enum WordListInterpreter {
 			query.kind = .show
 		}
 		if query.ending == .happy { query.keywords = ["happy ending"] }
+		query.references = TitleReference.extract(from: text)
 		return query
 	}
 
@@ -175,8 +185,8 @@ enum WordListInterpreter {
 	/// and genres to avoid only if it says "not" or "no" somewhere. Genre names
 	/// come only from TMDb's list, and the same genre under TV's name and film's
 	/// (Action, Action & Adventure) counts once.
-	static func sanitized(genres: [String], avoid: [String], keywords: [String], kind: String,
-	                      ending: String, genreNames: [String], text: String) -> DescribedQuery {
+	static func sanitized(genres: [String], avoid: [String], keywords: [String], similarTo: [String] = [],
+	                      kind: String, ending: String, genreNames: [String], text: String) -> DescribedQuery {
 		let lowered = text.lowercased().replacingOccurrences(of: "\u{2019}", with: "'")
 		let words = Set(lowered.split { !$0.isLetter && $0 != "-" && $0 != "'" }.map(String.init))
 		let mentionsEnding = endingCues.contains { $0.contains(" ") ? lowered.contains($0) : words.contains($0) }
@@ -205,9 +215,119 @@ enum WordListInterpreter {
 		case "show": query.kind = .show
 		default:     query.kind = nil
 		}
+		// A title the model names counts only if the sentence does.
+		let sentence = TitleReference.normalized(text)
+		query.references = Array(similarTo.filter {
+			let name = TitleReference.normalized($0)
+			return !name.isEmpty && sentence.contains(name)
+		}.prefix(2))
 		if mentionsEnding { query.ending = EndingFeel(rawValue: ending.lowercased()) }
 		if query.ending == .happy, !query.keywords.contains("happy ending") { query.keywords.append("happy ending") }
 		return query
+	}
+}
+
+// MARK: - Titles named in a sentence
+
+/// "Something like The Gentlemen": finding the film or show a sentence points at.
+enum TitleReference {
+	/// Phrases that introduce a title, longest first.
+	private static let cues = ["reminds me of", "in the style of", "similar to", "such as", "like"]
+	/// Where a title ends: punctuation, or one of these words.
+	private static let enders = [" but ", " with ", " that ", " where ", " which ", " so ", " because ", " except "]
+	/// What follows "like" when it isn't a title — "like a cozy night", "like me".
+	private static let notTitles: Set<String> = ["a", "an", "some", "something", "anything", "my", "me", "that", "this",
+	                                             "it", "how", "when", "being", "to", "you", "i", "we", "what"]
+
+	/// The titles a sentence says it wants something like, as typed: whatever
+	/// follows "like", "similar to" and the like, up to the end of the phrase.
+	/// These are only candidates; TMDb decides whether each is a real title.
+	static func extract(from text: String) -> [String] {
+		let sentence = text.replacingOccurrences(of: "\u{2019}", with: "'")
+		var found: [String] = []
+		for cue in cues {
+			var searchRange = sentence.startIndex..<sentence.endIndex
+			while let hit = sentence.range(of: cue, options: .caseInsensitive, range: searchRange) {
+				searchRange = hit.upperBound..<sentence.endIndex
+				// A whole word: "likeable" and "dislike" aren't cues.
+				let before = hit.lowerBound > sentence.startIndex ? sentence[sentence.index(before: hit.lowerBound)] : " "
+				let after = hit.upperBound < sentence.endIndex ? sentence[hit.upperBound] : " "
+				guard !before.isLetter, !after.isLetter else { continue }
+				if let title = title(after: String(sentence[hit.upperBound...])), !found.contains(title) {
+					found.append(title)
+				}
+			}
+		}
+		return Array(found.prefix(2))
+	}
+
+	private static func title(after rest: String) -> String? {
+		var phrase = " " + rest.trimmingCharacters(in: .whitespaces) + " "
+		// "like in The Gentlemen", "like the show Succession" keep what's after.
+		if phrase.lowercased().hasPrefix(" in ") { phrase = String(phrase.dropFirst(3)) }
+		var end = phrase.endIndex
+		for stop in enders {
+			if let hit = phrase.range(of: stop, options: .caseInsensitive), hit.lowerBound < end { end = hit.lowerBound }
+		}
+		if let punctuation = phrase.firstIndex(where: { ",;!?()\"".contains($0) }), punctuation < end { end = punctuation }
+		let words = phrase[..<end].split(separator: " ").map(String.init)
+		guard let first = words.first else { return nil }
+		// "like a cozy night" — unless it's capitalised, as in "like A Quiet Place".
+		if notTitles.contains(first.lowercased()), first.first?.isUppercase != true { return nil }
+		let title = words.prefix(6).joined(separator: " ").trimmingCharacters(in: .punctuationCharacters)
+		return title.isEmpty ? nil : title
+	}
+
+	/// A title for comparing: lower case, letters and digits only, no leading "the".
+	static func normalized(_ title: String) -> String {
+		var words = title.lowercased().replacingOccurrences(of: "\u{2019}", with: "'")
+			.split { !$0.isLetter && !$0.isNumber }.map(String.init)
+		if words.count > 1, words.first == "the" { words.removeFirst() }
+		return words.joined(separator: " ")
+	}
+
+	/// Whether TMDb's title is the one the sentence named: the same, or one the
+	/// other with a subtitle ("The Gentlemen" and "The Gentlemen: Season 1" would,
+	/// "Gentle" and "The Gentlemen" wouldn't).
+	static func isMatch(typed: String, title: String) -> Bool {
+		let a = normalized(typed), b = normalized(title)
+		guard !a.isEmpty, !b.isEmpty else { return false }
+		if a == b { return true }
+		let (short, long) = a.count <= b.count ? (a, b) : (b, a)
+		return long.hasPrefix(short + " ") && Double(short.count) / Double(long.count) >= 0.6
+	}
+}
+
+/// A film or show a sentence named, as TMDb has it.
+struct ReferenceTitle {
+	let kind: MediaKind
+	let id: Int
+	/// TMDb's name for it.
+	let title: String
+	/// Its genre names, and a few of its keywords' ids.
+	let genres: [String]
+	let keywordIDs: [Int]
+	/// What TMDb recommends for it.
+	let recommendations: [TMDbSuggestedTitle]
+
+	/// Looks `typed` up: the first search result that is that title, with its
+	/// genres, keywords and recommendations — or nil when TMDb has no such title
+	/// (or can't be reached), which is also what "like a cozy night" comes to.
+	static func find(_ typed: String) async -> ReferenceTitle? {
+		let service = TMDbService.shared
+		guard let results = try? await service.multiSearch(query: typed),
+		      let hit = results.first(where: { TitleReference.isMatch(typed: typed, title: $0.displayTitle) }) else { return nil }
+		let kind: MediaKind = hit.media_type == "tv" ? .show : .film
+		var genres: [String] = []
+		if kind == .film {
+			genres = ((try? await service.movie(id: hit.id))?.genres ?? []).compactMap(\.name)
+		} else {
+			genres = ((try? await service.tv(id: hit.id))?.genres ?? []).compactMap(\.name)
+		}
+		let keywords = ((try? await service.keywords(kind, id: hit.id)) ?? []).prefix(4).map(\.id)
+		let recommendations = (try? await TMDbSuggestions.titles(kind, hit.id)) ?? []
+		return ReferenceTitle(kind: kind, id: hit.id, title: hit.displayTitle, genres: genres,
+		                      keywordIDs: Array(keywords), recommendations: recommendations)
 	}
 }
 
@@ -353,20 +473,44 @@ final class DescribeSession {
 		}
 		var (read, model) = await DescribeInterpreter.interpret(trimmed, genreNames: filmNames + tvOnly)
 		for genre in picked.sorted() where !read.genres.contains(genre) { read.genres.append(genre) }
-		query = read
 		usedModel = model
+
+		// "Like The Gentlemen": the titles TMDb knows by those names, kept under
+		// the names TMDb gives them. A name TMDb doesn't know is dropped.
+		var references: [ReferenceTitle] = []
+		for typed in read.references.prefix(2) {
+			if let found = await ReferenceTitle.find(typed) { references.append(found) }
+		}
+		read.references = references.map(\.title)
+		// The genres asked for in words; with none, the first title's own stand in.
+		let askedGenres = read.genres
+		if askedGenres.isEmpty, let first = references.first {
+			let allowed = filmNames + tvOnly
+			var taken = Set<String>()
+			for name in first.genres {
+				let set = Similarity.genreSet([name])
+				guard taken.isDisjoint(with: set), let match = allowed.first(where: {
+					!Similarity.genreSet([$0]).isDisjoint(with: set)
+				}) else { continue }
+				taken.formUnion(set)
+				read.genres.append(match)
+				if read.genres.count == 2 { break }
+			}
+		}
+		query = read
 
 		var kinds: [MediaKind] = []
 		switch kind {
 		case .shows: kinds = [.show]
 		case .films: kinds = [.film]
-		case .all:   kinds = read.kind.map { [$0] } ?? [.film, .show]
+		case .all:   kinds = read.kind.map { [$0] } ?? references.first.map { [$0.kind] } ?? [.film, .show]
 		}
 
 		var keywordIDs: [Int] = []
 		for word in read.keywords.prefix(3) {
 			if let id = try? await TMDbService.shared.keywordID(for: word) { keywordIDs.append(id) }
 		}
+		keywordIDs += references.first?.keywordIDs.prefix(4) ?? []
 
 		var found: [[Suggestion]] = []
 		var reached = false
@@ -406,7 +550,29 @@ final class DescribeSession {
 		var merged: [Suggestion] = []
 		let longest = found.map(\.count).max() ?? 0
 		for index in 0..<longest { for list in found where index < list.count { merged.append(list[index]) } }
-		candidates = taste.ranked(merged)
+		// What TMDb recommends for the titles named come first — people who liked
+		// them went on to watch these — as long as they fit the rest of the
+		// sentence; then the matches for its genres and keywords.
+		let avoided = Similarity.genreSet(read.avoidGenres)
+		let wantedGenres = Similarity.genreSet(askedGenres)
+		var recommended: [Suggestion] = []
+		for reference in references {
+			let table = Dictionary((reference.kind == .show ? tv : movie).compactMap { genre in
+				genre.name.map { (genre.id, $0) }
+			}, uniquingKeysWith: { first, _ in first })
+			for title in reference.recommendations {
+				guard let suggestion = Suggestion(title, kind: reference.kind, genreNames: table),
+				      kind.includes(suggestion.kind),
+				      !recommended.contains(where: { $0.id == suggestion.id }) else { continue }
+				let genres = Similarity.genreSet(suggestion.genres)
+				guard genres.isDisjoint(with: avoided), wantedGenres.isEmpty || !genres.isDisjoint(with: wantedGenres)
+				else { continue }
+				recommended.append(suggestion)
+			}
+		}
+		let named = Set(references.map { $0.kind.key(tmdbID: $0.id) })
+		let taken = Set(recommended.map(\.id)).union(named)
+		candidates = taste.ranked(recommended) + taste.ranked(merged.filter { !taken.contains($0.id) })
 		await judgeEndings(wanted: read.ending)
 		phase = .ready
 	}

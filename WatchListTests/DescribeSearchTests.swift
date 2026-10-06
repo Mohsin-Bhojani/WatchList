@@ -111,6 +111,48 @@ struct DescribeSearchTests {
 		#expect(query.ending == .happy)
 	}
 
+	// MARK: Titles named
+
+	@Test func aTitleAfterLikeIsPickedOutOfTheSentence() {
+		#expect(TitleReference.extract(from: "British lingo and royalty with modern business like in The Gentlemen")
+			== ["The Gentlemen"])
+		#expect(TitleReference.extract(from: "something similar to Succession, but funnier") == ["Succession"])
+		#expect(TitleReference.extract(from: "a cozy mystery that reminds me of Only Murders in the Building")
+			== ["Only Murders in the Building"])
+		#expect(TitleReference.extract(from: "I want something like the gentlemen") == ["the gentlemen"])
+	}
+
+	@Test func likeWithoutATitleNamesNothing() {
+		#expect(TitleReference.extract(from: "something like a cozy night in").isEmpty)
+		#expect(TitleReference.extract(from: "a dislike of horror").isEmpty)
+		#expect(TitleReference.extract(from: "something romantic").isEmpty)
+		// A capital A after like is a title: A Quiet Place.
+		#expect(TitleReference.extract(from: "something like A Quiet Place") == ["A Quiet Place"])
+	}
+
+	@Test func aTitleIsMatchedLooselyButNotLoosely() {
+		#expect(TitleReference.isMatch(typed: "the gentlemen", title: "The Gentlemen"))
+		#expect(TitleReference.isMatch(typed: "Gentlemen", title: "The Gentlemen"))
+		#expect(TitleReference.isMatch(typed: "Only Murders in the Building", title: "Only Murders in the Building"))
+		#expect(!TitleReference.isMatch(typed: "Gentle", title: "The Gentlemen"))
+		#expect(!TitleReference.isMatch(typed: "a cozy night", title: "Cozy Night In: Part Two"))
+	}
+
+	@Test func aModelsTitleCountsOnlyIfTheSentenceHasIt() {
+		let query = WordListInterpreter.sanitized(
+			genres: ["Comedy"], avoid: [], keywords: [], similarTo: ["The Gentlemen", "Snatch"], kind: "either",
+			ending: "any", genreNames: genres, text: "British lingo and royalty like in the gentlemen")
+		#expect(query.references == ["The Gentlemen"])
+	}
+
+	@Test func theSummaryNamesTheTitlesToo() {
+		var query = DescribedQuery()
+		query.genres = ["Comedy"]
+		query.references = ["The Gentlemen"]
+		#expect(query.summary == "Comedy \u{00B7} like The Gentlemen")
+		#expect(!query.isEmpty)
+	}
+
 	// MARK: Endings
 
 	@Test func aWantedEndingLeavesOutTheOppositeAndKeepsWhatIsntKnown() {
