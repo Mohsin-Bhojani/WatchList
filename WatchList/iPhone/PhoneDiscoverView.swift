@@ -43,6 +43,9 @@ struct PhoneDiscoverView: View {
 	@State private var loader = DiscoverLoader()
 	@State private var filter = DiscoverFilter()
 	@State private var rotation = DiscoverRotation()
+	/// What's typed under Describe, and what asking for it found.
+	@State private var describeDraft = ""
+	@State private var describe = DescribeSession()
 	/// Titles swiped right still being added, kept out of the queue until they're in.
 	@State private var adding: Set<String> = []
 	/// This session's decisions, applied straight away so the next card comes in
@@ -64,6 +67,12 @@ struct PhoneDiscoverView: View {
 		let filter: DiscoverFilter
 	}
 
+	/// What a description is looked up with besides its words.
+	private struct DescribeInputs: Equatable {
+		let kind: BrowseKind
+		let genres: Set<String>
+	}
+
 	/// The genre tiles for the chosen type.
 	private var genreOptions: [String] {
 		DiscoverFilter.genreOptions(for: filter.kind, tv: loader.tvGenres, movie: loader.movieGenres)
@@ -75,8 +84,11 @@ struct PhoneDiscoverView: View {
 		let deal = DiscoverDeal(seeds: DiscoverFeed.seeds(shows: shows, films: films), filter: filter,
 		                        rotation: rotation, similar: loader.similar, fetched: loader.fetched,
 		                        excluded: excludedIDs(library), putOff: putOffDates())
-		let current = deal.current
-		let upcoming = upcomingArtwork(after: current, in: deal.queue)
+		// A description sets the cards aside for its own matches.
+		let describing = !filter.describe.isEmpty
+		let describedQueue = describing ? describe.results.filter { !deal.skipped.contains($0.id) } : []
+		let current = describing ? describedQueue.first : deal.current
+		let upcoming = upcomingArtwork(after: current, in: describing ? describedQueue : deal.queue)
 
 		NavigationStack {
 			VStack(spacing: 0) {
@@ -90,7 +102,8 @@ struct PhoneDiscoverView: View {
 				if let addError { errorBanner(addError) }
 				if let current {
 					DiscoverCard(suggestion: current,
-					             reason: DiscoverFeed.reason(for: current, in: library),
+					             reason: describing ? describe.query.map { "Matches \($0.summary)" }
+					                                : DiscoverFeed.reason(for: current, in: library),
 					             // The height left over sets its size on a phone; on an
 					             // iPad this keeps it from filling the whole width.
 					             posterMaxWidth: width > 0 ? width * 0.7 : 250,
@@ -121,6 +134,7 @@ struct PhoneDiscoverView: View {
 			}
 			.onChange(of: FillTrigger(seeds: deal.seedOrder, runningLow: deal.ready < DiscoverFeed.readyAhead,
 			                          fetched: loader.fetched.count, filter: filter), initial: true) {
+				guard filter.describe.isEmpty else { return }
 				let matching = filter
 				let turn = rotation
 				let ordered = deal.ordered
@@ -137,15 +151,32 @@ struct PhoneDiscoverView: View {
 				filter.genres.formIntersection(genreOptions)
 				if filter.seed != nil && deal.picked == nil { filter.seed = nil }
 			}
+			// Asking again when the type or genres change, so the matches follow them.
+			.onChange(of: DescribeInputs(kind: filter.kind, genres: filter.genres)) {
+				if !filter.describe.isEmpty { runDescribe(library: library) }
+			}
+			// Reset clears the description with the rest of the filter.
+			.onChange(of: filter.describe) {
+				if filter.describe.isEmpty { describe.clear(); describeDraft = "" }
+			}
 			.sheet(item: $comparing) { comparisonSheet($0, library: library) }
 		}
 		// Outside the page's dark colouring, so the filter sheet takes the system's.
-		.sheet(isPresented: $showingFilters) { filterSheet(seeds: deal.seeds) }
+		.sheet(isPresented: $showingFilters) { filterSheet(seeds: deal.seeds, library: library) }
 		.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
 	}
 
-	/// Type, Genre, then More like — opened tall enough to show all three.
-	private func filterSheet(seeds: [WatchedTitle]) -> some View {
+	/// Looks up the description in the filter, then ranks it by the library's taste.
+	private func runDescribe(library: [WatchedTitle]) {
+		let text = filter.describe
+		let kind = filter.kind
+		let genres = filter.genres
+		let taste = TasteProfile(library)
+		Task { await describe.run(text, kind: kind, picked: genres, taste: taste) }
+	}
+
+	/// Type, Genre (a dropdown), Describe, then More like — opened tall enough to show them.
+	private func filterSheet(seeds: [WatchedTitle], library: [WatchedTitle]) -> some View {
 		FilterSheet(title: "Filter", canReset: !filter.isDefault, phoneDetents: [.fraction(0.68), .large]) {
 			filter = DiscoverFilter()
 		} content: {
@@ -153,6 +184,10 @@ struct PhoneDiscoverView: View {
 			let genres = genreOptions
 			if !genres.isEmpty {
 				GenreRowsFilter(options: genres, picked: $filter.genres)
+			}
+			DescribeFilter(draft: $describeDraft, applied: filter.describe, session: describe) { text in
+				filter.describe = text
+				if text.isEmpty { describe.clear() } else { runDescribe(library: library) }
 			}
 			if !seeds.isEmpty {
 				MoreLikeFilter(seeds: seeds, picked: $filter.seed)
@@ -351,7 +386,9 @@ struct PhoneDiscoverView: View {
 	@ViewBuilder private func placeholder(seeds: [WatchedTitle]) -> some View {
 		let waiting = loader.isLoading || seeds.contains { !loader.fetched.contains($0.id) }
 		Group {
-			if !TMDbConfig.isConfigured {
+			if !filter.describe.isEmpty {
+				describedPlaceholder
+			} else if !TMDbConfig.isConfigured {
 				EmptyState(icon: "key", title: "No TMDb key",
 				           subtitle: "Discover finds its suggestions on TMDb, so it needs the API key. See README.md.")
 			} else if seeds.isEmpty && filter.isDefault {
@@ -384,6 +421,27 @@ struct PhoneDiscoverView: View {
 			}
 		}
 		.padding(.top, 36)
+	}
+
+	/// While a description is being looked up, or when nothing fits it.
+	@ViewBuilder private var describedPlaceholder: some View {
+		switch describe.phase {
+		case .failed(let message):
+			EmptyState(icon: "wifi.slash", title: "Couldn\u{2019}t look that up", subtitle: message)
+		case .ready:
+			EmptyState(icon: "text.magnifyingglass", title: "Nothing matches",
+			           subtitle: "Try describing it another way, or loosen the type and genre.")
+		default:
+			VStack(spacing: 12) {
+				ProgressView()
+					.controlSize(.large)
+				Text("Finding titles that fit\u{2026}")
+					.font(.system(size: 15, weight: .medium))
+					.foregroundStyle(.secondary)
+			}
+			.frame(maxWidth: .infinity)
+			.padding(.vertical, 60)
+		}
 	}
 
 	private func errorBanner(_ message: String) -> some View {

@@ -15,6 +15,8 @@ import SwiftUI
 struct GenreRowsFilter: View {
 	let options: [String]
 	@Binding var picked: Set<String>
+	/// Closed to start with: the heading says what's picked, and opens the tiles.
+	@State private var open = false
 
 	/// A tile: All, which clears the pick, or a genre.
 	enum Chip: Hashable {
@@ -49,8 +51,31 @@ struct GenreRowsFilter: View {
 			(chip.name as NSString).size(withAttributes: [.font: Self.font]).width + 2 * Self.padding
 		}
 		VStack(alignment: .leading, spacing: 10) {
-			FilterHeading("Genre", detail: detail)
-				.lineLimit(1)
+			Button {
+				Haptics.selection()
+				withAnimation(Glass.smooth) { open.toggle() }
+			} label: {
+				HStack(spacing: 8) {
+					FilterHeading("Genre", detail: detail)
+						.lineLimit(1)
+					Spacer(minLength: 8)
+					Image(systemName: "chevron.down")
+						.font(.system(size: 12, weight: .bold))
+						.foregroundStyle(.secondary)
+						.rotationEffect(.degrees(open ? 180 : 0))
+				}
+				.contentShape(Rectangle())
+			}
+			.buttonStyle(.plain)
+			.accessibilityLabel("Genre")
+			.accessibilityValue(detail ?? "All")
+			.accessibilityHint(open ? "Hides the genres" : "Shows the genres")
+			if open { tileRows(rows) }
+		}
+	}
+
+	private func tileRows(_ rows: [[Chip]]) -> some View {
+		VStack(alignment: .leading, spacing: 10) {
 			ScrollView(.horizontal) {
 				VStack(alignment: .leading, spacing: Self.spacing) {
 					ForEach(rows.indices, id: \.self) { index in
@@ -66,6 +91,7 @@ struct GenreRowsFilter: View {
 			.contentMargins(.horizontal, 20, for: .scrollContent)
 			.padding(.horizontal, -20)
 		}
+		.transition(.opacity.combined(with: .move(edge: .top)))
 	}
 
 	private func tile(_ chip: Chip) -> some View {
