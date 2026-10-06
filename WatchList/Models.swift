@@ -81,6 +81,10 @@ final class Show {
 	var dateAdded: Date
 	/// When it was marked Watched; nil while it isn't.
 	var watchedAt: Date?
+	/// What stood out, picked on the rating card (Aspects.swift). Defaulted, so
+	/// a store from before they existed migrates in place.
+	var likedAspects: [String] = []
+	var dislikedAspects: [String] = []
 
 	@Relationship(deleteRule: .cascade, inverse: \Season.show)
 	var seasons: [Season]
@@ -246,6 +250,10 @@ final class Film {
 	var dateAdded: Date
 	/// When it was marked Watched; nil while it isn't.
 	var watchedAt: Date?
+	/// What stood out, picked on the rating card (Aspects.swift). Defaulted, so
+	/// a store from before they existed migrates in place.
+	var likedAspects: [String] = []
+	var dislikedAspects: [String] = []
 
 	init(title: String,
 	     synopsis: String = "",

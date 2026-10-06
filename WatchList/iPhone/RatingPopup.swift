@@ -22,23 +22,28 @@ struct RatingSubject {
 	let stars: Double?
 	/// The private note, or nil for a title that keeps none — a season.
 	let note: String?
-	let save: (_ rating: Rating?, _ stars: Double?, _ note: String?) -> Void
+	/// What stood out, or nil for a title that keeps none — a season.
+	var aspects: AspectTaste?
+	let save: (_ rating: Rating?, _ stars: Double?, _ note: String?, _ aspects: AspectTaste?) -> Void
 }
 
 extension RatingSubject {
 	init(film: Film) {
 		self.init(title: film.title, posterURL: film.posterURL, rating: film.rating, stars: film.stars,
-		          note: film.notes) { rating, stars, note in
+		          note: film.notes, aspects: film.aspectTaste) { rating, stars, note, aspects in
 			film.rate(rating, stars: stars)
 			if let note { film.notes = note }
+			if let aspects { film.aspectTaste = aspects }
 		}
 	}
 
 	init(show: Show) {
 		self.init(title: show.title, posterURL: show.posterURL, placeholder: "tv",
-		          rating: show.rating, stars: show.stars, note: show.notes) { rating, stars, note in
+		          rating: show.rating, stars: show.stars, note: show.notes,
+		          aspects: show.aspectTaste) { rating, stars, note, aspects in
 			show.rate(rating, stars: stars)
 			if let note { show.notes = note }
+			if let aspects { show.aspectTaste = aspects }
 		}
 	}
 
@@ -46,7 +51,7 @@ extension RatingSubject {
 		let show = season.show
 		self.init(title: show.map { "\($0.title) · \(season.displayName)" } ?? season.displayName,
 		          posterURL: season.posterURL.isEmpty ? (show?.posterURL ?? "") : season.posterURL,
-		          placeholder: "tv", rating: season.rating, stars: season.stars, note: nil) { rating, stars, _ in
+		          placeholder: "tv", rating: season.rating, stars: season.stars, note: nil) { rating, stars, _, _ in
 			season.rate(rating, stars: stars)
 		}
 	}
@@ -65,6 +70,7 @@ struct RatingPopup: View {
 	/// Stars picked by hand in this edit; nil shows the verdict's own.
 	@State private var stars: Double?
 	@State private var note: String
+	@State private var aspects: AspectTaste
 
 	private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
@@ -76,6 +82,7 @@ struct RatingPopup: View {
 		_rating = State(initialValue: subject.rating)
 		_stars = State(initialValue: StarRating.explicit(subject.stars, afterChoosing: subject.rating))
 		_note = State(initialValue: subject.note ?? "")
+		_aspects = State(initialValue: subject.aspects ?? AspectTaste())
 	}
 
 	init(film: Film, mode: Mode, tint: Color, onClose: @escaping () -> Void) {
@@ -139,6 +146,8 @@ struct RatingPopup: View {
 				}
 			}
 
+			if subject.aspects != nil { aspectChips }
+
 			if subject.note != nil {
 				TextField("Add a private note…", text: $note, axis: .vertical)
 					.lineLimit(1...4)
@@ -174,6 +183,55 @@ struct RatingPopup: View {
 		             in: RoundedRectangle(cornerRadius: 28, style: .continuous))
 	}
 
+	/// "What stood out?": each tap moves an aspect from unmarked to liked to
+	/// disliked and back, so a title can say what worked and what didn't.
+	private var aspectChips: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			HStack {
+				Text("What stood out, optional")
+					.font(.system(size: 13, weight: .medium))
+					.foregroundStyle(.white.opacity(0.6))
+				Spacer()
+				Text("Tap again if it didn\u{2019}t work")
+					.font(.system(size: 11, weight: .medium))
+					.foregroundStyle(.white.opacity(0.4))
+			}
+			TileFlowLayout(spacing: 8) {
+				ForEach(Aspect.allCases) { aspectChip($0) }
+			}
+		}
+	}
+
+	private func aspectChip(_ aspect: Aspect) -> some View {
+		let state = aspects.state(of: aspect)
+		let shape = Capsule()
+		let fill: Color = switch state {
+		case .unmarked: .white.opacity(0.07)
+		case .liked:    PhoneFilmDetailView.teal.opacity(0.55)
+		case .disliked: .red.opacity(0.45)
+		}
+		return Button {
+			Haptics.selection()
+			aspects.cycle(aspect)
+		} label: {
+			HStack(spacing: 5) {
+				Image(systemName: state == .disliked ? "hand.thumbsdown.fill" : aspect.systemImage)
+					.font(.system(size: 11, weight: .semibold))
+				Text(aspect.rawValue)
+					.font(.system(size: 13, weight: .semibold))
+					.strikethrough(state == .disliked)
+			}
+			.foregroundStyle(.white)
+			.padding(.horizontal, 11)
+			.padding(.vertical, 7)
+			.background(fill, in: shape)
+			.overlay(shape.strokeBorder(.white.opacity(state == .unmarked ? 0 : 0.5), lineWidth: 1))
+		}
+		.buttonStyle(.plain)
+		.accessibilityLabel(aspect.rawValue)
+		.accessibilityValue(state == .liked ? "Liked" : state == .disliked ? "Disliked" : "Not picked")
+	}
+
 	/// Tapping the chosen verdict again clears the rating. Hand-picked stars
 	/// stay only if they still fit the verdict chosen.
 	private func option(_ option: Rating) -> some View {
@@ -204,7 +262,7 @@ struct RatingPopup: View {
 
 	private func save() {
 		let trimmed = subject.note == nil ? nil : note.trimmingCharacters(in: .whitespacesAndNewlines)
-		withAnimation(Glass.smooth) { subject.save(rating, stars, trimmed) }
+		withAnimation(Glass.smooth) { subject.save(rating, stars, trimmed, subject.aspects == nil ? nil : aspects) }
 		Haptics.success()
 		onClose()
 	}
