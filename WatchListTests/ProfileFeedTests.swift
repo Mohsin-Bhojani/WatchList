@@ -96,24 +96,6 @@ struct ProfileFeedTests {
 		#expect(week.days[3].titles.isEmpty)
 	}
 
-	@Test func episodesMarkedInOneGoAreLeftOut() {
-		// A season set to Watched marks every episode within the same instant.
-		let season = (0..<8).map {
-			watch(chicago, "Chicago P.D.", minutes: 43, daysAgo: 0, second: Double($0) * 0.01)
-		}
-		let evening = [
-			watch(severance, "Severance", minutes: 50, daysAgo: 0),
-			watch(severance, "Severance", minutes: 50, daysAgo: 0, hour: 10),
-		]
-		// Marked in the same instant as the season, but a film always counts.
-		let film = watch(thar, "Thar", film: true, minutes: 128, daysAgo: 0)
-
-		let kept = ProfileFeed.watchedOneByOne(season + evening + [film])
-		#expect(!kept.contains { $0.titleID == chicago })
-		#expect(kept.filter { $0.titleID == severance }.count == 2)
-		#expect(kept.contains { $0.titleID == thar })
-	}
-
 	@Test func onlyWatchedEpisodesAndFilmsCountWithTheirRuntimes() {
 		let show = Show(title: "Severance", status: .watching)
 		let season = Season(seasonNumber: 1)

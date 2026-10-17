@@ -329,8 +329,7 @@ private struct ProfileWeekSection: View {
 	}
 
 	var body: some View {
-		let week = ProfileFeed.week(ProfileFeed.watchedOneByOne(ProfileFeed.watches(episodes: episodes, films: films)),
-		                            now: now)
+		let week = ProfileFeed.week(ProfileFeed.watches(episodes: episodes, films: films), now: now)
 		// Gone once midnight moves the week on past it.
 		let day = week.days.first { $0.id == picked }
 		VStack(alignment: .leading, spacing: 10) {

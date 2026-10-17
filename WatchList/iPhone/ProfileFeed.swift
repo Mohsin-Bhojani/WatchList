@@ -93,31 +93,6 @@ enum ProfileFeed {
 		return watches
 	}
 
-	/// Episodes marked this close together were marked in one go.
-	static let markedTogether: TimeInterval = 2
-
-	/// Leaves out a show's episodes marked Watched in one go — setting a season or
-	/// show to Watched marks all of them in the same instant — since that's the
-	/// library catching up, not an evening's watching. Films always count.
-	static func watchedOneByOne(_ watches: [Watch]) -> [Watch] {
-		var kept = watches.filter(\.isFilm)
-		let byShow = Dictionary(grouping: watches.filter { !$0.isFilm }, by: \.titleID)
-		for marks in byShow.values {
-			let sorted = marks.sorted { $0.at < $1.at }
-			var first = 0
-			while first < sorted.count {
-				var last = first
-				while last + 1 < sorted.count,
-				      sorted[last + 1].at.timeIntervalSince(sorted[last].at) < markedTogether {
-					last += 1
-				}
-				if last == first { kept.append(sorted[first]) }
-				first = last + 1
-			}
-		}
-		return kept
-	}
-
 	/// The seven days up to and including `now`'s, each with the minutes watched
 	/// that day and the titles behind them, and the week's titles. Anything
 	/// outside those days is left out.
