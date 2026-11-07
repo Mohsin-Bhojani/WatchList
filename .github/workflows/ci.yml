@@ -86,6 +86,19 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
           | xcbeautify --renderer github-actions
 
+      # The simulator only builds arm64. A device build also compiles the watch
+      # app for arm64_32, where CGFloat and friends resolve differently, so
+      # code can pass the tests above and still not build for a real phone.
+      - name: Build for devices
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project WatchList.xcodeproj \
+            -scheme WatchList \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+          | xcbeautify --renderer github-actions
+
       - name: Upload results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

@@ -22,6 +22,7 @@
 //  them.
 //
 
+import CoreGraphics
 import Foundation
 
 /// A title TMDb suggests, with what its card and the comparisons need.
