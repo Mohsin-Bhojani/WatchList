@@ -2,11 +2,12 @@
 //  DesignSystem.swift
 //  WatchList
 //
-//  "Editorial Paper" design language: a calm, warm off-white paper canvas,
-//  refined serif headlines, hairline-bordered cards, generous whitespace and a
-//  single warm-red accent. Sophisticated magazine / print feel, adapts to
-//  light & dark. The public API (Glass, .glass(), GlassBackground, Haptics,
-//  etc.) is intentionally unchanged so every screen restyles automatically.
+//  Liquid Glass, as the title pages already are: the page is a colour blur lit
+//  by your accent palette over a cool neutral ground, and every card, chip and
+//  control is translucent glass floating over it — never an opaque panel.
+//  Follows the iPhone's light and dark. Serif headlines stay. The public API
+//  (Glass, .glass(), GlassBackground, Haptics, etc.) is unchanged, so every
+//  screen picks the look up from here.
 //  Every colour is a colour set in Assets.xcassets, under Colors — light and
 //  dark variants included — and is referred to here by its generated name.
 //
@@ -24,12 +25,12 @@ enum Glass {
 	static var accent2: Color { AppTheme.shared.palette.accent2 }
 	static var accent3: Color { AppTheme.shared.palette.accent3 }
 
-	// Status tints, kept muted and editorial (Colors/Status).
+	// Status tints, light and dark (Colors/Status).
 	static let toWatch     = Color(.statusToWatch)    // ochre
 	static let watching    = Color(.statusWatching)   // red
 	static let watched     = Color(.statusWatched)    // muted green
 
-	// Rating tints (best -> worst), muted to match the editorial palette (Colors/Verdicts).
+	// Rating tints (best -> worst), light and dark (Colors/Verdicts).
 	static let ratingPerfection = Color(.ratingPerfection)   // teal-green
 	static let ratingGoForIt    = Color(.ratingGoForIt)      // olive
 	static let ratingTimepass   = Color(.ratingTimepass)     // amber
@@ -40,7 +41,8 @@ enum Glass {
 	static let tierWatch   = Color(.tierWatch)     // green
 	static let tierRewatch = Color(.tierRewatch)   // gold
 
-	// Paper surfaces, light and dark (Colors/Paper).
+	// The ground under the blur, the glass's tint, edges and text, light and dark
+	// (Colors/Paper — the name is older than the look).
 	static let paper    = Color(.paper)
 	static let surface  = Color(.surface)
 	static let hairline = Color(.hairline)
@@ -88,38 +90,61 @@ enum Glass {
 	static let ambient: [Color] = [paper, surface, paper, surface]
 }
 
-// MARK: - Paper background
+// MARK: - Colour blur backdrop
 
-/// A calm, flat warm-paper canvas with a whisper of warmth at the top. This is
-/// the editorial counterpart to the old ambient gradient.
+/// The page behind everything that isn't a title page: a cool neutral ground
+/// with your accent palette's three colours blurred into it — the main one
+/// high on the left, the third on the right, the deep one low — so the glass
+/// on top has colour to catch.
 struct GlassBackground: View {
+	/// Kept for source compatibility; the palette's colours are used instead.
 	var tints: [Color] = Glass.ambient
+	@Environment(\.colorScheme) private var scheme
+
 	var body: some View {
-		ZStack {
-			Glass.paper.ignoresSafeArea()
-			LinearGradient(colors: [Glass.accent.opacity(0.05), .clear],
-			               startPoint: .top, endPoint: .center)
-				.ignoresSafeArea()
+		GeometryReader { geometry in
+			let width = geometry.size.width
+			let height = geometry.size.height
+			ZStack {
+				Glass.paper
+				light(Glass.accent, size: width * 1.15, at: CGPoint(x: width * 0.12, y: height * 0.06))
+				light(Glass.accent3, size: width * 0.95, at: CGPoint(x: width * 0.98, y: height * 0.38))
+				// The deep shade lights the foot by day; at night it would only muddy
+				// the dark, so the main colour comes back there instead.
+				light(scheme == .dark ? Glass.accent : Glass.accent2,
+				      size: width * 1.25, at: CGPoint(x: width * 0.25, y: height * 0.95))
+			}
+			.drawingGroup()
 		}
+		.ignoresSafeArea()
+		.accessibilityHidden(true)
+	}
+
+	private func light(_ color: Color, size: CGFloat, at point: CGPoint) -> some View {
+		Circle()
+			.fill(color.opacity(scheme == .dark ? 0.36 : 0.32))
+			.frame(width: size, height: size)
+			.position(point)
+			.blur(radius: size * 0.32)
 	}
 }
 
 // MARK: - Card surface
 
-/// The workhorse surface used by every card, chip and control: a clean paper
-/// panel with a fine hairline border and a soft, restrained shadow.
+/// The workhorse surface used by every card, chip and control: Liquid Glass,
+/// tinted a little toward the ground so text reads on it by day and night,
+/// with a fine edge where the glass meets a pale page.
 struct GlassSurface: ViewModifier {
 	var cornerRadius: CGFloat = Glass.corner
 	var material: Material = .ultraThinMaterial   // kept for API compatibility
 	var strokeOpacity: Double = 0.16
-	var shadow: Double = 0.05
+	var shadow: Double = 0.05                      // kept for API compatibility
 
 	func body(content: Content) -> some View {
 		let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
 		return content
-			.background(Glass.surface, in: shape)
-			.overlay(shape.strokeBorder(Glass.hairline.opacity(strokeOpacity), lineWidth: 1))
-			.shadow(color: .black.opacity(shadow), radius: 10, x: 0, y: 6)
+			.glassEffect(.regular.tint(Glass.surface), in: shape)
+			.overlay(shape.strokeBorder(Glass.hairline.opacity(strokeOpacity * 0.45), lineWidth: 0.5))
 	}
 }
 

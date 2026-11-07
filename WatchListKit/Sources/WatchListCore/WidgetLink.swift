@@ -43,10 +43,12 @@ public nonisolated struct WidgetSnapshot: Codable, Equatable {
 }
 
 public nonisolated struct WidgetShow: Codable, Equatable, Identifiable {
-	public init(id: UUID, title: String, artFile: String? = nil, upcoming: [WidgetEpisode], watched: Int, total: Int, caughtUpLine: String? = nil) {
+	public init(id: UUID, title: String, artFile: String? = nil, posterFile: String? = nil, upcoming: [WidgetEpisode],
+	            watched: Int, total: Int, caughtUpLine: String? = nil) {
 		self.id = id
 		self.title = title
 		self.artFile = artFile
+		self.posterFile = posterFile
 		self.upcoming = upcoming
 		self.watched = watched
 		self.total = total
@@ -55,8 +57,11 @@ public nonisolated struct WidgetShow: Codable, Equatable, Identifiable {
 
 	public let id: UUID
 	public let title: String
-	/// Its picture in the shared folder's Art directory, when there is one.
+	/// Its landscape picture in the shared folder's Art directory, when there is one.
 	public var artFile: String?
+	/// Its portrait poster there, for the poster style and the shelf. Optional,
+	/// so a snapshot written before posters were still reads.
+	public var posterFile: String?
 	/// The next episodes out and not yet watched, in running order.
 	public var upcoming: [WidgetEpisode]
 	public var watched: Int
@@ -108,6 +113,32 @@ public nonisolated struct WidgetStore {
 	public var snapshotURL: URL { directory.appendingPathComponent("UpNext.json") }
 	public var outboxURL: URL { directory.appendingPathComponent("UpNextMarks.json") }
 	public var artDirectory: URL { directory.appendingPathComponent("Art", isDirectory: true) }
+	public var pageURL: URL { directory.appendingPathComponent("UpNextPage.json") }
+
+	// MARK: Paging
+
+	/// Which of the shows a widget set to all of them is on: the arrows turn it.
+	/// One for every such widget, so they move together.
+	public func page() -> Int {
+		read(Int.self, at: pageURL) ?? 0
+	}
+
+	/// Moves the page on by `step` (back when negative), wrapping round `count`.
+	public func turnPage(by step: Int, of count: Int) {
+		guard count > 0 else { return }
+		coordinated(pageURL) { url in
+			let current = read(Int.self, at: url) ?? 0
+			write(((current + step) % count + count) % count, to: url)
+		}
+	}
+
+	/// The show a widget shows: the one it was set to when that's still being
+	/// watched, otherwise the paged one of all of them.
+	public static func show(in snapshot: WidgetSnapshot, chosen: UUID?, page: Int) -> WidgetShow? {
+		if let chosen, let show = snapshot.shows.first(where: { $0.id == chosen }) { return show }
+		guard !snapshot.shows.isEmpty else { return nil }
+		return snapshot.shows[(page % snapshot.shows.count + snapshot.shows.count) % snapshot.shows.count]
+	}
 
 	// MARK: Snapshot
 

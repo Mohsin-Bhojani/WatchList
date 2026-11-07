@@ -2,8 +2,8 @@
 //  RootView.swift
 //  WatchList
 //
-//  Top-level shell. Sets the Editorial Paper chrome (refined serif navigation
-//  titles over the paper canvas), then hosts PhoneRootView on every device: the
+//  Top-level shell. Sets the navigation chrome (serif titles in ink over the
+//  colour-blur backdrop), then hosts PhoneRootView on every device: the
 //  Liquid Glass tab bar on iPhone, the floating tab bar and sidebar on iPad. Also
 //  re-applies the user's accent color when the app returns to the foreground
 //  (e.g. after changing it in the iOS Settings app).
@@ -20,7 +20,7 @@ struct RootView: View {
 	@Environment(\.scenePhase) private var scenePhase
 
 	init() {
-		// Serif, ink-colored navigation titles for the editorial feel.
+		// Serif, ink-coloured navigation titles.
 		let ink = UIColor(resource: .ink)
 		func serif(_ size: CGFloat, _ weight: UIFont.Weight) -> UIFont {
 			let base = UIFont.systemFont(ofSize: size, weight: weight)

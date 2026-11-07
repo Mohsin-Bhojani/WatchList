@@ -25,6 +25,8 @@ final class WidgetSync {
 	nonisolated static let upcomingCount = 4
 	/// Pictures are drawn at most this wide on the largest widget.
 	private static let artWidth: CGFloat = 600
+	/// Posters are drawn narrower: a third of a large widget at most.
+	private static let posterWidth: CGFloat = 300
 
 	private var context: ModelContext?
 	private var saveObserver: NSObjectProtocol?
@@ -75,7 +77,10 @@ final class WidgetSync {
 		let shows = (try? context.fetch(FetchDescriptor<Show>(sortBy: [SortDescriptor(\.dateAdded, order: .reverse)]))) ?? []
 		var snapshot = Self.snapshot(of: shows)
 		let art = await writeArt(for: HomeFeed.watching(shows), in: store)
-		for index in snapshot.shows.indices { snapshot.shows[index].artFile = art[snapshot.shows[index].id] }
+		for index in snapshot.shows.indices {
+			snapshot.shows[index].artFile = art[snapshot.shows[index].id]?.landscape
+			snapshot.shows[index].posterFile = art[snapshot.shows[index].id]?.poster
+		}
 		store.write(snapshot)
 		WidgetCenter.shared.reloadTimelines(ofKind: WidgetLink.kind)
 	}
@@ -97,26 +102,33 @@ final class WidgetSync {
 		return WidgetSnapshot(shows: rows, writtenAt: now)
 	}
 
-	/// A small JPEG of each show's backdrop (or poster), in the shared folder,
-	/// by show id. Pictures of shows no longer listed are removed.
-	private func writeArt(for shows: [Show], in store: WidgetStore) async -> [UUID: String] {
+	/// Small JPEGs of each show's landscape picture (its backdrop, or poster
+	/// without one) and its portrait poster, in the shared folder by show id.
+	/// Pictures of shows no longer listed are removed.
+	private func writeArt(for shows: [Show], in store: WidgetStore) async -> [UUID: (landscape: String?, poster: String?)] {
 		let folder = store.artDirectory
 		try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-		var written: [UUID: String] = [:]
+		var written: [UUID: (landscape: String?, poster: String?)] = [:]
 		for show in shows {
-			let source = show.backdropURL.isEmpty ? show.posterURL : show.backdropURL
-			guard let url = URL(string: source), let image = await ImageCache.shared.image(for: url),
-			      let jpeg = Self.scaled(image, toWidth: Self.artWidth).jpegData(compressionQuality: 0.75) else { continue }
-			let name = "\(show.id.uuidString).jpg"
-			try? jpeg.write(to: folder.appendingPathComponent(name), options: .atomic)
-			written[show.id] = name
+			let landscape = show.backdropURL.isEmpty ? show.posterURL : show.backdropURL
+			written[show.id] = (
+				await writePicture(landscape, named: "\(show.id.uuidString).jpg", width: Self.artWidth, in: folder),
+				await writePicture(show.posterURL, named: "\(show.id.uuidString)-poster.jpg", width: Self.posterWidth, in: folder))
 		}
-		let keep = Set(written.values)
+		let keep = Set(written.values.flatMap { [$0.landscape, $0.poster].compactMap { $0 } })
 		for file in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
 		where !keep.contains(file.lastPathComponent) {
 			try? FileManager.default.removeItem(at: file)
 		}
 		return written
+	}
+
+	/// One picture, shrunk to `width` and saved as `name`; its name, or nil.
+	private func writePicture(_ source: String, named name: String, width: CGFloat, in folder: URL) async -> String? {
+		guard let url = URL(string: source), let image = await ImageCache.shared.image(for: url),
+		      let jpeg = Self.scaled(image, toWidth: width).jpegData(compressionQuality: 0.75) else { return nil }
+		try? jpeg.write(to: folder.appendingPathComponent(name), options: .atomic)
+		return name
 	}
 
 	private static func scaled(_ image: UIImage, toWidth width: CGFloat) -> UIImage {

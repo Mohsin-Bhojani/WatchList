@@ -136,3 +136,45 @@ struct WidgetMarkApplyTests {
 		#expect(show.status == .watching)
 	}
 }
+
+struct WidgetPagingTests {
+
+	private func store() throws -> WidgetStore {
+		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+		return WidgetStore(directory: directory)
+	}
+
+	private func snapshot(_ titles: [String]) -> WidgetSnapshot {
+		WidgetSnapshot(shows: titles.map { WidgetShow(id: UUID(), title: $0, upcoming: [], watched: 0, total: 1) },
+		               writtenAt: .now)
+	}
+
+	@Test func theArrowsWrapRoundBothWays() throws {
+		let store = try store()
+		#expect(store.page() == 0)
+		store.turnPage(by: -1, of: 3)
+		#expect(store.page() == 2)
+		store.turnPage(by: 1, of: 3)
+		store.turnPage(by: 1, of: 3)
+		#expect(store.page() == 1)
+	}
+
+	@Test func aChosenShowWinsWhileItsStillBeingWatched() {
+		let shows = snapshot(["One", "Two", "Three"])
+		let two = shows.shows[1].id
+		#expect(WidgetStore.show(in: shows, chosen: two, page: 0)?.title == "Two")
+		// Finished or no longer Watching: back to the paged one.
+		#expect(WidgetStore.show(in: shows, chosen: UUID(), page: 2)?.title == "Three")
+		#expect(WidgetStore.show(in: shows, chosen: nil, page: 4)?.title == "Two")   // wraps
+		#expect(WidgetStore.show(in: snapshot([]), chosen: nil, page: 0) == nil)
+	}
+
+	@Test func aSnapshotFromBeforePostersStillReads() throws {
+		let json = #"{"shows":[{"id":"\#(UUID().uuidString)","title":"Old","upcoming":[],"watched":1,"total":2}],"writtenAt":"2026-11-07T10:00:00Z"}"#
+		let decoder = JSONDecoder()
+		decoder.dateDecodingStrategy = .iso8601
+		let snapshot = try decoder.decode(WidgetSnapshot.self, from: Data(json.utf8))
+		#expect(snapshot.shows[0].posterFile == nil)
+	}
+}
