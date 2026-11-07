@@ -55,19 +55,19 @@ public enum LibraryStore {
 		                   configurations: [configuration(at: url)])
 	}
 
-	static let schema = Schema(versionedSchema: LibrarySchemaV1.self)
+	nonisolated static let schema = Schema(versionedSchema: LibrarySchemaV1.self)
 
 	/// Where the library has always lived: default.store in the app's own
 	/// Application Support. Spelt out, not left to SwiftData: its default looks
 	/// for an App Group first, and since the widget gave the app one, that would
 	/// open a new, empty store in the group's folder and leave the library
 	/// where it was, unseen. No iCloud either — nothing here syncs.
-	static func configuration(at url: URL? = nil) -> ModelConfiguration {
+	nonisolated static func configuration(at url: URL? = nil) -> ModelConfiguration {
 		ModelConfiguration(schema: schema, url: url ?? defaultURL, cloudKitDatabase: .none)
 	}
 
 	/// The library's file: the app's Application Support, default.store.
-	public static var defaultURL: URL {
+	public nonisolated static var defaultURL: URL {
 		URL.applicationSupportDirectory.appendingPathComponent("default.store")
 	}
 }

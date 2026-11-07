@@ -28,6 +28,12 @@ struct WatchListApp: App {
 		])
 		// Before any window, so the watch's actions can arrive with the app in the background.
 		WatchSync.shared.activate()
+		// The copy of the library one earlier build left in the widget's folder,
+		// removed once it's sure to hold nothing the library doesn't.
+		Task.detached(priority: .utility) {
+			guard let copy = StrayLibraryCopy.groupCopyURL else { return }
+			_ = StrayLibraryCopy.removeIfCovered(copyAt: copy, libraryAt: LibraryStore.defaultURL)
+		}
 	}
 
 	var body: some Scene {
