@@ -9,6 +9,10 @@
 /* Begin PBXBuildFile section */
 		7A1C0A092F9A000100C0FFEE /* WatchList Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7A1C0B012F9A000100C0FFEE /* WatchList Widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A1C0B042F9A000100C0FFEE /* WatchList Widget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7A1C0C032F9A000100C0FFEE /* WatchListCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1C0C022F9A000100C0FFEE /* WatchListCore */; };
+		7A1C0C052F9A000100C0FFEE /* WatchListLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1C0C042F9A000100C0FFEE /* WatchListLibrary */; };
+		7A1C0C072F9A000100C0FFEE /* WatchListCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1C0C062F9A000100C0FFEE /* WatchListCore */; };
+		7A1C0C092F9A000100C0FFEE /* WatchListCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1C0C082F9A000100C0FFEE /* WatchListCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -96,11 +100,6 @@
 			path = "WatchList Widget";
 			sourceTree = "<group>";
 		};
-		7A1C0B082F9A000100C0FFEE /* WidgetShared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = WidgetShared;
-			sourceTree = "<group>";
-		};
 		CEA6DF4B2F8F71C8004545F7 /* WatchList */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = WatchList;
@@ -123,6 +122,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A1C0C072F9A000100C0FFEE /* WatchListCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,6 +130,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A1C0C092F9A000100C0FFEE /* WatchListCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -137,6 +138,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A1C0C032F9A000100C0FFEE /* WatchListCore in Frameworks */,
+				7A1C0C052F9A000100C0FFEE /* WatchListLibrary in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -177,7 +180,6 @@
 				7A1C0A032F9A000100C0FFEE /* WatchList Watch App */,
 				7A1C0A042F9A000100C0FFEE /* Shared */,
 				7A1C0B072F9A000100C0FFEE /* WatchList Widget */,
-				7A1C0B082F9A000100C0FFEE /* WidgetShared */,
 				CEA6DF5D2F8F71D5004545F7 /* WatchListTests */,
 				CEA6DF672F8F71D5004545F7 /* WatchListUITests */,
 				CEA6DF4A2F8F71C8004545F7 /* Products */,
@@ -217,6 +219,7 @@
 			);
 			name = "WatchList Watch App";
 			packageProductDependencies = (
+				7A1C0C062F9A000100C0FFEE /* WatchListCore */,
 			);
 			productName = "WatchList Watch App";
 			productReference = 7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */;
@@ -236,10 +239,10 @@
 			);
 			fileSystemSynchronizedGroups = (
 				7A1C0B072F9A000100C0FFEE /* WatchList Widget */,
-				7A1C0B082F9A000100C0FFEE /* WidgetShared */,
 			);
 			name = "WatchList Widget";
 			packageProductDependencies = (
+				7A1C0C082F9A000100C0FFEE /* WatchListCore */,
 			);
 			productName = "WatchList Widget";
 			productReference = 7A1C0B042F9A000100C0FFEE /* WatchList Widget.appex */;
@@ -263,11 +266,12 @@
 			);
 			fileSystemSynchronizedGroups = (
 				7A1C0A042F9A000100C0FFEE /* Shared */,
-				7A1C0B082F9A000100C0FFEE /* WidgetShared */,
 				CEA6DF4B2F8F71C8004545F7 /* WatchList */,
 			);
 			name = WatchList;
 			packageProductDependencies = (
+				7A1C0C022F9A000100C0FFEE /* WatchListCore */,
+				7A1C0C042F9A000100C0FFEE /* WatchListLibrary */,
 			);
 			productName = WatchList;
 			productReference = CEA6DF492F8F71C8004545F7 /* WatchList.app */;
@@ -357,6 +361,9 @@
 			);
 			mainGroup = CEA6DF402F8F71C8004545F7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7A1C0C012F9A000100C0FFEE /* XCLocalSwiftPackageReference "WatchListKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CEA6DF4A2F8F71C8004545F7 /* Products */;
 			projectDirPath = "";
@@ -932,6 +939,32 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		7A1C0C012F9A000100C0FFEE /* XCLocalSwiftPackageReference "WatchListKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = WatchListKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7A1C0C022F9A000100C0FFEE /* WatchListCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchListCore;
+		};
+		7A1C0C042F9A000100C0FFEE /* WatchListLibrary */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchListLibrary;
+		};
+		7A1C0C062F9A000100C0FFEE /* WatchListCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchListCore;
+		};
+		7A1C0C082F9A000100C0FFEE /* WatchListCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchListCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = CEA6DF412F8F71C8004545F7 /* Project object */;
 }

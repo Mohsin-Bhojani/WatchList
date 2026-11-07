@@ -11,6 +11,8 @@ import Foundation
 import SwiftData
 import Testing
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 @MainActor
 struct LibraryRestoreTests {
@@ -172,6 +174,16 @@ struct LibraryRestoreTests {
 
 @MainActor
 struct LibrarySchemaTests {
+
+	/// The library opens from the app's own folder even though the app has an
+	/// App Group (for the widget): SwiftData's default would move it into the
+	/// group's folder, where there's an empty store and none of the library.
+	@Test func theLibraryStaysInTheAppsOwnFolder() throws {
+		let url = try #require(LibraryStore.configuration().url as URL?)
+		#expect(url == URL.applicationSupportDirectory.appendingPathComponent("default.store"))
+		#expect(!url.path.contains("/AppGroup/"))
+		#expect(!url.path.contains("group.com.mohsin.WatchList"))
+	}
 
 	@Test func aStoreFromBeforeTheSchemaWasVersionedOpensWithEverythingInIt() throws {
 		let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

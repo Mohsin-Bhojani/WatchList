@@ -15,6 +15,8 @@
 import Foundation
 import Testing
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 private func decode<T: Decodable>(_ json: String) throws -> T {
 	try JSONDecoder().decode(T.self, from: Data(json.utf8))

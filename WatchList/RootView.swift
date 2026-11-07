@@ -12,6 +12,8 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import WatchListCore
+import WatchListLibrary
 
 struct RootView: View {
 	@ObservedObject private var theme = AppTheme.shared

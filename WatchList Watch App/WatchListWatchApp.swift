@@ -12,6 +12,7 @@
 
 import SwiftUI
 import WatchKit
+import WatchListCore
 
 @main
 struct WatchListWatchApp: App {
@@ -25,6 +26,9 @@ struct WatchListWatchApp: App {
 		_store = State(initialValue: store)
 		sync = PhoneSync(store: store)
 		sync.start()
+		// Artwork kept on the watch stays under a size, as on the iPhone;
+		// anything dropped downloads again.
+		Task.detached(priority: .background) { Artwork.files.trim(to: 60 * 1024 * 1024) }
 	}
 
 	var body: some Scene {

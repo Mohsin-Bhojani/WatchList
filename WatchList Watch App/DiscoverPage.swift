@@ -6,7 +6,7 @@
 //  poster at a time, as big as the screen allows and centred, on a gradient of
 //  its own colour. The watch fetches the suggestions from TMDb itself, for the
 //  titles the iPhone sent, and deals them as the iPhone's Discover does
-//  (Shared/DiscoverQueue.swift).
+//  (WatchListCore/DiscoverQueue.swift).
 //    - tap the poster for the rest of the iPhone's card — the title, why it's
 //      suggested, TMDb's stars, the verdict and kind, the synopsis — with the
 //      three decisions as buttons
@@ -17,6 +17,7 @@
 //
 
 import SwiftUI
+import WatchListCore
 
 struct DiscoverPage: View {
 	@Environment(WatchStore.self) private var store

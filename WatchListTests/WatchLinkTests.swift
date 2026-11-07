@@ -11,6 +11,8 @@ import Foundation
 import SwiftData
 import Testing
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 @MainActor
 struct WatchLinkTests {
@@ -50,7 +52,7 @@ struct WatchLinkTests {
 		let upNext = WatchSnapshotBuilder.upNext([waiting, started], upcoming: 3)
 
 		#expect(upNext.map(\.title) == ["Started"])
-		#expect(upNext[0].upcoming.map(\.code) == ["S1 · E2", "S1 · E3", "S2 · E1"])
+		#expect(upNext[0].upcoming.map(\.code) == ["S1 E2", "S1 E3", "S2 E1"])
 		#expect(upNext[0].remaining == 5)                         // the special counts, last
 		#expect(upNext[0].episodeCount == 6)
 		#expect(upNext[0].upcoming[0].status == .toWatch)

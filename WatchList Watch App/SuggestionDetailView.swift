@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import WatchListCore
 
 struct SuggestionDetailView: View {
 	let suggestion: Suggestion

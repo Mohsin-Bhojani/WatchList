@@ -12,6 +12,7 @@
 //
 
 import SwiftUI
+import WatchListCore
 
 struct UpNextPage: View {
 	@Environment(WatchStore.self) private var store
@@ -292,10 +293,3 @@ struct MarkedNote: Identifiable, Equatable {
 	let tier: EpisodeTier?
 }
 
-extension UpNextEpisode {
-	/// "Season 2 · Episode 8", as the iPhone's hero says it — "Specials" for season 0.
-	var line: String {
-		let season = seasonNumber == 0 ? "Specials" : "Season \(seasonNumber)"
-		return "\(season) · Episode \(episodeNumber)"
-	}
-}

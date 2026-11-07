@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import WatchListCore
 
 struct MessageView: View {
 	let systemImage: String

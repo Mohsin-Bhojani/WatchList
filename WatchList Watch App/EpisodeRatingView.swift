@@ -10,6 +10,7 @@
 
 import SwiftUI
 import WatchKit
+import WatchListCore
 
 struct EpisodeRatingView: View {
 	let showTitle: String

@@ -17,6 +17,7 @@
 import Foundation
 import Observation
 import OSLog
+import WatchListCore
 
 @MainActor
 @Observable

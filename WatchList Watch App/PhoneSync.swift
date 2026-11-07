@@ -2,7 +2,7 @@
 //  PhoneSync.swift
 //  WatchList Watch App
 //
-//  The watch's end of the link with the iPhone app (Shared/WatchLink.swift) —
+//  The watch's end of the link with the iPhone app (WatchListCore/WatchLink.swift) —
 //  the one place the watch app talks to WatchConnectivity:
 //    - snapshots arrive as the application context, and are kept by WatchStore
 //    - each action taken here goes with transferUserInfo, which queues it and
@@ -21,6 +21,7 @@
 import Foundation
 import OSLog
 import WatchConnectivity
+import WatchListCore
 
 @MainActor
 final class PhoneSync: NSObject {

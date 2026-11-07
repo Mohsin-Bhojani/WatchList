@@ -10,6 +10,8 @@
 
 import Testing
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 @MainActor
 struct SearchLinkTests {

@@ -11,6 +11,7 @@
 //
 
 import SwiftUI
+import WatchListCore
 
 /// Filter's lists, pushed onto the app's one NavigationStack.
 enum FilterRoute: Hashable {

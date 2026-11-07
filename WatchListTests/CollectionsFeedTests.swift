@@ -10,6 +10,8 @@ import Foundation
 import SwiftData
 import Testing
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 @MainActor
 struct CollectionsFeedTests {

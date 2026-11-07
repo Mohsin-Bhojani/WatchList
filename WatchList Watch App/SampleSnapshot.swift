@@ -10,6 +10,7 @@
 #if DEBUG
 import Foundation
 import SwiftUI
+import WatchListCore
 
 extension PhoneSnapshot {
 	static let sample: PhoneSnapshot = {

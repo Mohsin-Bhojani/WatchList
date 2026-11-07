@@ -16,6 +16,8 @@ import Foundation
 import Testing
 import UIKit
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 /// A fixed "now" and calendar, so day boundaries don't depend on the machine.
 private enum Clock {

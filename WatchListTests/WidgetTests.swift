@@ -10,6 +10,8 @@ import Foundation
 import SwiftData
 import Testing
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 @MainActor
 struct WidgetSnapshotTests {
@@ -42,7 +44,7 @@ struct WidgetSnapshotTests {
 
 		#expect(snapshot.shows.map(\.title) == ["Watching"])
 		let row = snapshot.shows[0]
-		#expect(row.upcoming.map(\.code) == ["S1 · E2", "S1 · E3"])   // not the one in December
+		#expect(row.upcoming.map(\.code) == ["S1 E2", "S1 E3"])   // not the one in December
 		#expect(row.watched == 1)
 		#expect(row.total == 4)
 		#expect(row.caughtUpLine == nil)
@@ -71,8 +73,8 @@ struct WidgetStoreTests {
 
 	@Test func markingQueuesItAndMovesTheShowOn() throws {
 		let store = try store()
-		let first = WidgetEpisode(id: UUID(), code: "S1 · E4", title: "Four")
-		let second = WidgetEpisode(id: UUID(), code: "S1 · E5", title: "Five")
+		let first = WidgetEpisode(id: UUID(), code: "S1 E4", title: "Four")
+		let second = WidgetEpisode(id: UUID(), code: "S1 E5", title: "Five")
 		store.write(snapshot([first, second]))
 
 		store.mark(episode: first.id)
@@ -85,7 +87,7 @@ struct WidgetStoreTests {
 
 	@Test func aDoubleTapIsMarkedOnce() throws {
 		let store = try store()
-		let episode = WidgetEpisode(id: UUID(), code: "S1 · E1", title: "One")
+		let episode = WidgetEpisode(id: UUID(), code: "S1 E1", title: "One")
 		store.write(snapshot([episode]))
 		store.mark(episode: episode.id)
 		store.mark(episode: episode.id)

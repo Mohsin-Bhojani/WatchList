@@ -12,6 +12,8 @@ import Foundation
 import Testing
 import UIKit
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 @MainActor
 struct NextEpisodeTests {

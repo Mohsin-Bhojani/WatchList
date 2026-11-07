@@ -108,7 +108,7 @@ is embedded in the iPhone app and marked as able to run without it. No
 capabilities or entitlements are needed — no App Groups, iCloud or push — so a
 free Personal Team can sign it.
 
-- **The library stays on the iPhone.** `WatchList/WatchSync.swift` sends the watch
+- **The library stays on the iPhone.** `WatchList/Services/WatchSync.swift` sends the watch
   a snapshot — Up Next, the titles Discover starts from, and what it leaves out —
   as the WatchConnectivity *application context* whenever the library changes.
 - **The watch's actions** (a mark, a rating, Undo, Add / Not interested / Later)
@@ -120,7 +120,7 @@ free Personal Team can sign it.
 - **A refresh message** asks the iPhone for a snapshot straight away when the
   watch app opens or the iPhone comes back in reach.
 - **Discover on the watch** fetches from TMDb itself, using the same queue,
-  filter and rotation as the iPhone (`Shared/DiscoverQueue.swift`). The watch
+  filter and rotation as the iPhone (`WatchListCore/DiscoverQueue.swift`). The watch
   build reads the key from the same `Secrets.xcconfig`.
 - **Offline**, the watch shows the last snapshot (kept in Application Support)
   and cached artwork, and holds its actions until the iPhone is back.
@@ -151,23 +151,33 @@ picks whichever iPhone simulator the runner has, and runs the same command.
 ## Project layout
 
 ```
-WatchList/
-├── WatchListApp.swift        App entry point and SwiftData container
-├── Models.swift              Show / Season / Episode / Film, statuses, ratings
-├── WatchSync.swift           The iPhone's end of the watch link
-├── ImportCoordinator.swift   A link or a search pick → populated models
-├── CreditsLoader.swift       Cast / Similar / Images mapping and session cache
-├── LibraryRefresher.swift    The once-a-day new-episode top-up
-├── DesignSystem.swift        Colours, typography, materials
-├── Components.swift          Shared rows, cards, pickers, tab bar
-└── *View.swift               Screens
-Shared/                       Compiled into both apps: library values, the TMDb
-                              client, Discover's queue, the watch link, app icon
+WatchListKit/                 A local Swift package, built once and shared
+├── WatchListCore/            Plain values, the TMDb client, air dates, Discover's
+│                             queue, and what the iPhone says to the watch and the
+│                             widget. Foundation only; used by all three.
+└── WatchListLibrary/         The SwiftData models and the rules that read them:
+                              what's next, watched dates, ratings, collections,
+                              the daily refresh, export and restore. iPhone only.
+WatchList/                    The iPhone and iPad app
+├── WatchListApp.swift        Entry point, the store, the background refresh
+├── RootView.swift            The shell every device opens to
+├── Views/                    Screens and their pieces
+└── Services/                 TMDb loaders, image cache, import, Describe, and
+                              the links to the watch and the widget
 WatchList Watch App/          The watch app: PhoneSync, WatchStore, Up Next, Discover
-Configuration/                xcconfig files (the API key lives here, untracked)
-WatchListTests/               Swift Testing unit tests
+WatchList Widget/             The Up Next widget and its Mark Watched intent
+Shared/                       The app icon and colours both apps use
+Configuration/                xcconfig and Info.plist files (the API key lives
+                              here, untracked)
+WatchListTests/               Swift Testing unit tests, and Fixtures/LibraryV1.store:
+                              a real library store every change must still open
 WatchListUITests/             XCUITest launch tests
 ```
+
+The package's declarations are `public` so the app targets can use them; the
+tests use `@testable import` and see the rest. Models move between files freely,
+but a model's name, a stored property's name or type, or an enum's raw value
+can't change without a new schema version (`LibrarySchema.swift`).
 
 ## Attribution
 

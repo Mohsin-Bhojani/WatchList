@@ -4,7 +4,7 @@
 //
 //  Up Next on the Home Screen and Lock Screen: the shows you're Watching and
 //  the episode each is up to, from the snapshot the app writes
-//  (WidgetShared/WidgetLink.swift). On the Home Screen, Mark Watched marks the
+//  (WatchListCore/WidgetLink.swift). On the Home Screen, Mark Watched marks the
 //  episode from the widget itself; the app applies it next time it's open.
 //
 //    small   the first show, its episode and Mark Watched
@@ -17,6 +17,7 @@
 import AppIntents
 import SwiftUI
 import WidgetKit
+import WatchListCore
 
 // MARK: - Mark Watched
 
@@ -290,7 +291,7 @@ private struct EmptyUpNext: View {
 extension WidgetSnapshot {
 	static let preview = WidgetSnapshot(shows: [
 		WidgetShow(id: UUID(), title: "The Long Road", artFile: nil,
-		           upcoming: [WidgetEpisode(id: UUID(), code: "S2 · E5", title: "Low Water")],
+		           upcoming: [WidgetEpisode(id: UUID(), code: "S2 E5", title: "Low Water")],
 		           watched: 12, total: 18, caughtUpLine: nil),
 		WidgetShow(id: UUID(), title: "Harbour Lights", artFile: nil, upcoming: [],
 		           watched: 8, total: 10, caughtUpLine: "Caught up · Next Friday"),

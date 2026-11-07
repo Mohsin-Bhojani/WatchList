@@ -8,6 +8,8 @@
 
 import SwiftUI
 import SwiftData
+import WatchListCore
+import WatchListLibrary
 
 @main
 struct WatchListApp: App {

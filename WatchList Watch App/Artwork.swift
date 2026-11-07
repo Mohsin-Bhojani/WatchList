@@ -9,11 +9,10 @@
 //  image and dimmed so white text reads on it.
 //
 
-import CryptoKit
 import ImageIO
-import OSLog
 import SwiftUI
 import UIKit
+import WatchListCore
 
 @MainActor
 enum Artwork {
@@ -30,7 +29,6 @@ enum Artwork {
 
 	private static var memory: [String: Loaded] = [:]
 	private static var inFlight: [String: Task<Loaded?, Never>] = [:]
-	private static let log = Logger(subsystem: "com.mohsin.WatchList.watchkitapp", category: "Artwork")
 
 	/// Already loaded this launch.
 	static func cached(_ url: String) -> Loaded? { memory[url] }
@@ -94,26 +92,13 @@ enum Artwork {
 		return url.replacingCharacters(in: marker.upperBound..<end, with: size)
 	}
 
-	nonisolated private static func fetch(_ url: String) async -> Decoded? {
-		let file = cacheFile(for: url)
-		if let data = try? Data(contentsOf: file), let decoded = decode(data) { return decoded }
-		guard let address = URL(string: url),
-		      let (data, response) = try? await URLSession.shared.data(from: address),
-		      (response as? HTTPURLResponse)?.statusCode == 200,
-		      let decoded = decode(data) else { return nil }
-		do {
-			try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-			try data.write(to: file, options: .atomic)
-		} catch {
-			Logger(subsystem: "com.mohsin.WatchList.watchkitapp", category: "Artwork")
-				.error("Couldn't keep artwork: \(error.localizedDescription, privacy: .public)")
-		}
-		return decoded
-	}
+	/// Downloaded artwork on disk, in the same form as the iPhone's (ImageFiles).
+	nonisolated static let files = ImageFiles.named("Artwork")
 
-	nonisolated private static func cacheFile(for url: String) -> URL {
-		let name = SHA256.hash(data: Data(url.utf8)).map { String(format: "%02x", $0) }.joined()
-		return URL.cachesDirectory.appending(path: "Artwork").appending(path: name)
+	nonisolated private static func fetch(_ url: String) async -> Decoded? {
+		guard let address = URL(string: url) else { return nil }
+		if let data = files.cached(address), let decoded = decode(data) { return decoded }
+		return await files.download(address).flatMap(decode)
 	}
 
 	/// Decoded no bigger than the watch needs, with its dimmed average colour.

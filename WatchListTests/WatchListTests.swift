@@ -7,6 +7,8 @@
 
 import Testing
 @testable import WatchList
+@testable import WatchListCore
+@testable import WatchListLibrary
 
 struct WatchListTests {
 
