@@ -67,8 +67,9 @@ struct PhoneFilmDetailView: View {
 					}
 				}
 			} rest: {
-				PageTrailerCard(backdropURL: film.backdropURL)
+				TitleTrailerSection(kind: .film, tmdbID: film.tmdbID, backdropURL: film.backdropURL, titled: false)
 				if !film.synopsis.isEmpty { PageSynopsisCard(text: film.synopsis) }
+				WhereToWatchSection(kind: .film, tmdbID: film.tmdbID)
 				if let tmdbID = film.tmdbID {
 					CommunitySection(title: .film(tmdbID: tmdbID), scale: .verdict, yours: film.rating?.rawValue)
 				}

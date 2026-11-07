@@ -36,3 +36,6 @@ playground.xcworkspace
 
 # Claude Code working directories (these hold full copies of the tree)
 .claude/
+
+# JetBrains IDEs
+.idea/

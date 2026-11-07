@@ -119,9 +119,12 @@ struct PhoneRootView: View {
 			let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
 			try? FileManager.default.removeItem(at: documents.appendingPathComponent("Collections", isDirectory: true))
 			// Tops shows up with newly aired episodes, at most once a day.
-			guard LibraryRefresher.autoCheckIsDue,
-			      let shows = try? ctx.fetch(FetchDescriptor<Show>()) else { return }
-			_ = await LibraryRefresher.refreshAll(shows: shows, into: ctx)
+			guard let shows = try? ctx.fetch(FetchDescriptor<Show>()) else { return }
+			if LibraryRefresher.autoCheckIsDue {
+				_ = await LibraryRefresher.refreshAll(shows: shows, into: ctx)
+			}
+			// What's out is on Home now; the background won't announce it again.
+			EpisodeAlerts.markSeen(in: shows)
 		}
 		// A collection deleted while its sidebar item is open falls back to Collections.
 		.onChange(of: collections.map(\.id)) {

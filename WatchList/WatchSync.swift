@@ -384,8 +384,9 @@ enum WatchSnapshotBuilder {
 // MARK: - Hooking it up
 
 extension View {
-	/// Hands WatchSync the library, and sends the watch a fresh snapshot each
-	/// time the app comes to the front.
+	/// Hands WatchSync and WidgetSync the library, sends the watch a fresh
+	/// snapshot each time the app comes to the front, and applies the widget's
+	/// marks then too.
 	func syncsWithWatch() -> some View {
 		modifier(WatchSyncModifier())
 	}
@@ -397,9 +398,21 @@ private struct WatchSyncModifier: ViewModifier {
 
 	func body(content: Content) -> some View {
 		content
-			.task { WatchSync.shared.attach(context) }
+			.task {
+				WatchSync.shared.attach(context)
+				WidgetSync.shared.attach(context)
+			}
 			.onChange(of: scenePhase) { _, phase in
-				if phase == .active { WatchSync.shared.scheduleSend() }
+				switch phase {
+				case .active:
+					WatchSync.shared.scheduleSend()
+					// What was marked on the widget while the app was away.
+					WidgetSync.shared.applyMarks()
+				case .background:
+					Task { await WidgetSync.shared.write() }
+				default:
+					break
+				}
 			}
 	}
 }

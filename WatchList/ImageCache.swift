@@ -72,7 +72,12 @@ actor ImageCache {
 	/// network, decoded ready to draw.
 	private nonisolated static func load(_ url: URL) async -> UIImage? {
 		let cacheFile = directory.appendingPathComponent(fileName(for: url))
-		if let data = try? Data(contentsOf: cacheFile), let image = decoded(data) { return image }
+		if let data = try? Data(contentsOf: cacheFile), let image = decoded(data) {
+			// Dated as used, so trimming drops what hasn't been drawn in longest
+			// rather than what was downloaded first.
+			try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: cacheFile.path)
+			return image
+		}
 		if url.isFileURL {
 			return (try? Data(contentsOf: ManualPosterStore.resolve(url))).flatMap(decoded)
 		}
@@ -94,8 +99,8 @@ actor ImageCache {
 		return cgImage.bytesPerRow * cgImage.height
 	}
 
-	/// Keeps the disk cache under `limit` bytes, dropping the files written
-	/// longest ago first.
+	/// Keeps the disk cache under `limit` bytes, dropping the files used
+	/// longest ago first — a file is re-dated each time it's read.
 	nonisolated static func trimDisk(to limit: Int = 200 * 1024 * 1024) {
 		let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .contentModificationDateKey]
 		guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: keys)

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		7A1C0A092F9A000100C0FFEE /* WatchList Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7A1C0B012F9A000100C0FFEE /* WatchList Widget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A1C0B042F9A000100C0FFEE /* WatchList Widget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -17,6 +18,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 7A1C0A012F9A000100C0FFEE;
 			remoteInfo = "WatchList Watch App";
+		};
+		7A1C0B022F9A000100C0FFEE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CEA6DF412F8F71C8004545F7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A1C0B092F9A000100C0FFEE;
+			remoteInfo = "WatchList Widget";
 		};
 		CEA6DF5B2F8F71D5004545F7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -46,10 +54,24 @@
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7A1C0B032F9A000100C0FFEE /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7A1C0B012F9A000100C0FFEE /* WatchList Widget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WatchList Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A1C0B042F9A000100C0FFEE /* WatchList Widget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "WatchList Widget.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A1C0B052F9A000100C0FFEE /* Info-Widget.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Widget.plist"; sourceTree = "<group>"; };
+		7A1C0B062F9A000100C0FFEE /* Info-iOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-iOS.plist"; sourceTree = "<group>"; };
 		CE1A0F0100000000000000A2 /* WatchList.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = WatchList.xcconfig; sourceTree = "<group>"; };
 		CE1A0F0100000000000000A3 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
 		CE1A0F0100000000000000A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -67,6 +89,16 @@
 		7A1C0A042F9A000100C0FFEE /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		7A1C0B072F9A000100C0FFEE /* WatchList Widget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "WatchList Widget";
+			sourceTree = "<group>";
+		};
+		7A1C0B082F9A000100C0FFEE /* WidgetShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WidgetShared;
 			sourceTree = "<group>";
 		};
 		CEA6DF4B2F8F71C8004545F7 /* WatchList */ = {
@@ -88,6 +120,13 @@
 
 /* Begin PBXFrameworksBuildPhase section */
 		7A1C0A062F9A000100C0FFEE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A1C0B0A2F9A000100C0FFEE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -124,6 +163,8 @@
 				CE1A0F0100000000000000A2 /* WatchList.xcconfig */,
 				CE1A0F0100000000000000A3 /* Secrets.example.xcconfig */,
 				CE1A0F0100000000000000A4 /* Info.plist */,
+				7A1C0B062F9A000100C0FFEE /* Info-iOS.plist */,
+				7A1C0B052F9A000100C0FFEE /* Info-Widget.plist */,
 			);
 			path = Configuration;
 			sourceTree = "<group>";
@@ -135,6 +176,8 @@
 				CEA6DF4B2F8F71C8004545F7 /* WatchList */,
 				7A1C0A032F9A000100C0FFEE /* WatchList Watch App */,
 				7A1C0A042F9A000100C0FFEE /* Shared */,
+				7A1C0B072F9A000100C0FFEE /* WatchList Widget */,
+				7A1C0B082F9A000100C0FFEE /* WidgetShared */,
 				CEA6DF5D2F8F71D5004545F7 /* WatchListTests */,
 				CEA6DF672F8F71D5004545F7 /* WatchListUITests */,
 				CEA6DF4A2F8F71C8004545F7 /* Products */,
@@ -148,6 +191,7 @@
 				CEA6DF5A2F8F71D5004545F7 /* WatchListTests.xctest */,
 				CEA6DF642F8F71D5004545F7 /* WatchListUITests.xctest */,
 				7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */,
+				7A1C0B042F9A000100C0FFEE /* WatchList Widget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -178,6 +222,29 @@
 			productReference = 7A1C0A022F9A000100C0FFEE /* WatchList Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
+		7A1C0B092F9A000100C0FFEE /* WatchList Widget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A1C0B102F9A000100C0FFEE /* Build configuration list for PBXNativeTarget "WatchList Widget" */;
+			buildPhases = (
+				7A1C0B0C2F9A000100C0FFEE /* Sources */,
+				7A1C0B0A2F9A000100C0FFEE /* Frameworks */,
+				7A1C0B0B2F9A000100C0FFEE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7A1C0B072F9A000100C0FFEE /* WatchList Widget */,
+				7A1C0B082F9A000100C0FFEE /* WidgetShared */,
+			);
+			name = "WatchList Widget";
+			packageProductDependencies = (
+			);
+			productName = "WatchList Widget";
+			productReference = 7A1C0B042F9A000100C0FFEE /* WatchList Widget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		CEA6DF482F8F71C8004545F7 /* WatchList */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CEA6DF6D2F8F71D5004545F7 /* Build configuration list for PBXNativeTarget "WatchList" */;
@@ -186,14 +253,17 @@
 				CEA6DF462F8F71C8004545F7 /* Frameworks */,
 				CEA6DF472F8F71C8004545F7 /* Resources */,
 				7A1C0A082F9A000100C0FFEE /* Embed Watch Content */,
+				7A1C0B032F9A000100C0FFEE /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				7A1C0A0B2F9A000100C0FFEE /* PBXTargetDependency */,
+				7A1C0B0D2F9A000100C0FFEE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7A1C0A042F9A000100C0FFEE /* Shared */,
+				7A1C0B082F9A000100C0FFEE /* WidgetShared */,
 				CEA6DF4B2F8F71C8004545F7 /* WatchList */,
 			);
 			name = WatchList;
@@ -262,6 +332,9 @@
 					7A1C0A012F9A000100C0FFEE = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					7A1C0B092F9A000100C0FFEE = {
+						CreatedOnToolsVersion = 26.5;
+					};
 					CEA6DF482F8F71C8004545F7 = {
 						CreatedOnToolsVersion = 26.3;
 					};
@@ -293,12 +366,20 @@
 				CEA6DF592F8F71D5004545F7 /* WatchListTests */,
 				CEA6DF632F8F71D5004545F7 /* WatchListUITests */,
 				7A1C0A012F9A000100C0FFEE /* WatchList Watch App */,
+				7A1C0B092F9A000100C0FFEE /* WatchList Widget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		7A1C0A072F9A000100C0FFEE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A1C0B0B2F9A000100C0FFEE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -336,6 +417,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7A1C0B0C2F9A000100C0FFEE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CEA6DF452F8F71C8004545F7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -364,6 +452,11 @@
 			isa = PBXTargetDependency;
 			target = 7A1C0A012F9A000100C0FFEE /* WatchList Watch App */;
 			targetProxy = 7A1C0A0A2F9A000100C0FFEE /* PBXContainerItemProxy */;
+		};
+		7A1C0B0D2F9A000100C0FFEE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A1C0B092F9A000100C0FFEE /* WatchList Widget */;
+			targetProxy = 7A1C0B022F9A000100C0FFEE /* PBXContainerItemProxy */;
 		};
 		CEA6DF5C2F8F71D5004545F7 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -446,6 +539,62 @@
 			};
 			name = Release;
 		};
+		7A1C0B0E2F9A000100C0FFEE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "WatchList Widget/WatchListWidget.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WQXS3525ZF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Configuration/Info-Widget.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = WatchList;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohsin.WatchList.UpNextWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7A1C0B0F2F9A000100C0FFEE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "WatchList Widget/WatchListWidget.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WQXS3525ZF;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Configuration/Info-Widget.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = WatchList;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohsin.WatchList.UpNextWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		CEA6DF6E2F8F71D5004545F7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CE1A0F0100000000000000A2 /* WatchList.xcconfig */;
@@ -458,6 +607,7 @@
 				DEVELOPMENT_TEAM = WQXS3525ZF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Configuration/Info-iOS.plist";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "WatchList asks the helper on your Mac for suggestions based on your ratings, such as films similar to the ones you rated Perfection.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -493,6 +643,7 @@
 				DEVELOPMENT_TEAM = WQXS3525ZF;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Configuration/Info-iOS.plist";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "WatchList asks the helper on your Mac for suggestions based on your ratings, such as films similar to the ones you rated Perfection.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -731,6 +882,15 @@
 			buildConfigurations = (
 				7A1C0A0D2F9A000100C0FFEE /* Debug */,
 				7A1C0A0E2F9A000100C0FFEE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A1C0B102F9A000100C0FFEE /* Build configuration list for PBXNativeTarget "WatchList Widget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A1C0B0E2F9A000100C0FFEE /* Debug */,
+				7A1C0B0F2F9A000100C0FFEE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

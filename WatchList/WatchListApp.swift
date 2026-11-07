@@ -11,6 +11,10 @@ import SwiftData
 
 @main
 struct WatchListApp: App {
+	/// Versioned, with a migration plan for later changes (LibrarySchema.swift).
+	private let container = LibraryStore.makeContainer()
+	@Environment(\.scenePhase) private var scenePhase
+
 	init() {
 		// Preference default; the user can change this in the iOS Settings app
 		// (defined in Settings.bundle). Registering here keeps it ON until then.
@@ -28,8 +32,14 @@ struct WatchListApp: App {
 		WindowGroup {
 			RootView()
 				.syncsWithWatch()
+				.onChange(of: scenePhase) { _, phase in
+					// Leaving the app is when to book the next background check.
+					if phase == .background { BackgroundRefresh.schedule() }
+				}
 		}
-		.modelContainer(for: [Show.self, Season.self, Episode.self, Film.self, TitleCollection.self,
-		                      SuggestionDecision.self])
+		.modelContainer(container)
+		.backgroundTask(.appRefresh(BackgroundRefresh.identifier)) { [container] in
+			await BackgroundRefresh.run(in: container)
+		}
 	}
 }

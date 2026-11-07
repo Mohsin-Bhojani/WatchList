@@ -273,3 +273,38 @@ struct ManualPosterTests {
 		}
 	}
 }
+
+// MARK: - New-episode alerts
+
+@MainActor
+struct EpisodeAlertTests {
+
+	@Test func justAiredUnwatchedEpisodesOfWatchingShowsAreDue() {
+		let show = airingShow(["2026-10-20", "2026-11-06", "2026-11-07", "2026-11-14"], watched: 0)
+		let due = EpisodeAlerts.due(in: [show], notified: [], asOf: Clock.now, calendar: Clock.calendar)
+		#expect(due.map(\.episodeNumber) == [2, 3])               // not the old one, not the coming one
+	}
+
+	@Test func nothingTwiceAndNothingWatched() {
+		let show = airingShow(["2026-11-06", "2026-11-07"], watched: 1)
+		let second = show.sortedSeasons[0].sortedEpisodes[1]
+		#expect(EpisodeAlerts.due(in: [show], notified: [second.id], asOf: Clock.now, calendar: Clock.calendar).isEmpty)
+	}
+
+	@Test func onlyShowsBeingWatched() {
+		let show = airingShow(["2026-11-07"])
+		show.status = .toWatch
+		#expect(EpisodeAlerts.due(in: [show], notified: [], asOf: Clock.now, calendar: Clock.calendar).isEmpty)
+	}
+
+	@Test func oneAlertAShow() {
+		let show = airingShow(["2026-11-06", "2026-11-07"])
+		let second = show.sortedSeasons[0].sortedEpisodes[1]
+		let one = EpisodeAlerts.alerts(for: [second])
+		#expect(one == [EpisodeAlerts.Alert(id: "new-episodes-\(show.id.uuidString)", title: "Weekly",
+		                                    body: "\(ShowFacts.code(second)) · E2 is out now.")])
+		let both = EpisodeAlerts.alerts(for: show.sortedSeasons[0].sortedEpisodes)
+		#expect(both.count == 1)
+		#expect(both[0].body == "2 new episodes are out.")
+	}
+}

@@ -18,4 +18,7 @@
 // Configuration/Info.plist holds only TMDBAPIKey, whose value is this setting
 // substituted at build time; Xcode merges its generated keys into that file.
 // TMDbConfig.apiKey reads it back out of the bundle at runtime.
+//
+// The iPhone app's target overrides this with Configuration/Info-iOS.plist:
+// the same key, plus the background-refresh keys only it uses.
 INFOPLIST_FILE = Configuration/Info.plist

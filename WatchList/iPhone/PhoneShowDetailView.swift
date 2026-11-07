@@ -69,8 +69,9 @@ struct PhoneShowDetailView: View {
 				if show.status == .watching { upNextSection }
 			} rest: {
 				seasonsSection
-				PageSection(title: "Trailer") { PageTrailerCard(backdropURL: show.backdropURL) }
+				TitleTrailerSection(kind: .show, tmdbID: show.tmdbID, backdropURL: show.backdropURL)
 				if !show.overview.isEmpty { PageSynopsisCard(text: show.overview) }
+				WhereToWatchSection(kind: .show, tmdbID: show.tmdbID)
 				if let tmdbID = show.tmdbID {
 					CommunitySection(title: .show(tmdbID: tmdbID), scale: .verdict, yours: show.rating?.rawValue)
 				}

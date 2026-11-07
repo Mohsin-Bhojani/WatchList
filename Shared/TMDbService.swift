@@ -45,6 +45,9 @@ enum TMDbConfig {
 	/// hundred of these and they are drawn barely 100pt wide.
 	static func galleryThumb(_ path: String?) -> String { image(path, size: "w342") }
 
+	/// A streaming service's square logo, drawn small.
+	static func logo(_ path: String?) -> String { image(path, size: "w92") }
+
 	/// What the full-screen viewer loads.
 	static func fullSize(_ path: String?) -> String { image(path, size: "original") }
 
@@ -298,6 +301,41 @@ struct TMDbImageSet: Decodable {
 
 // MARK: - Service
 
+// MARK: - Videos and where to watch DTOs
+
+struct TMDbVideo: Decodable, Equatable {
+	let key: String
+	let site: String?
+	let type: String?
+	let official: Bool?
+	let iso_639_1: String?
+	let published_at: String?
+	let name: String?
+}
+
+struct TMDbVideoList: Decodable { let results: [TMDbVideo]? }
+
+struct TMDbWatchProvider: Decodable, Equatable {
+	let provider_id: Int
+	let provider_name: String?
+	let logo_path: String?
+	let display_priority: Int?
+}
+
+/// One country's offers. `link` is TMDb's page for the title there.
+struct TMDbRegionProviders: Decodable, Equatable {
+	let link: String?
+	let flatrate: [TMDbWatchProvider]?
+	let free: [TMDbWatchProvider]?
+	let ads: [TMDbWatchProvider]?
+	let rent: [TMDbWatchProvider]?
+	let buy: [TMDbWatchProvider]?
+}
+
+/// Offers by country code ("GB", "US"). TMDb's data comes from JustWatch,
+/// which has to be credited wherever it's shown.
+struct TMDbWatchProviders: Decodable { let results: [String: TMDbRegionProviders]? }
+
 struct TMDbService {
 	static let shared = TMDbService()
 	private let session = URLSession.shared
@@ -429,6 +467,20 @@ struct TMDbService {
 	/// Every poster, backdrop and logo TMDb holds for a film.
 	func movieImages(movieID: Int) async throws -> TMDbImageSet {
 		try await get("/movie/\(movieID)/images", localized: false)
+	}
+
+	// MARK: Videos and where to watch
+
+	/// Trailers, teasers and clips. Unlocalised, then filtered by language on
+	/// the phone, so a title with no English trailer still has one to offer.
+	func videos(_ kind: MediaKind, id: Int) async throws -> [TMDbVideo] {
+		let path = kind == .film ? "/movie/\(id)/videos" : "/tv/\(id)/videos"
+		let list: TMDbVideoList = try await get(path, localized: false)
+		return list.results ?? []
+	}
+
+	func watchProviders(_ kind: MediaKind, id: Int) async throws -> TMDbWatchProviders {
+		try await get(kind == .film ? "/movie/\(id)/watch/providers" : "/tv/\(id)/watch/providers")
 	}
 
 	// MARK: Networking

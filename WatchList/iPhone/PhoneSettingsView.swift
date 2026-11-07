@@ -16,6 +16,8 @@ struct PhoneSettingsView: View {
 	@ObservedObject private var theme = AppTheme.shared
 	@AppStorage("autoMarkEpisodesWatched") private var autoMarkEpisodes = true
 	@AppStorage("autoCheckNewEpisodes") private var autoCheckEpisodes = true
+	@AppStorage(EpisodeAlerts.enabledKey) private var notifyNewEpisodes = false
+	@State private var notifyNote: String?
 
 	@Environment(\.modelContext) private var ctx
 	@Query private var shows: [Show]
@@ -27,6 +29,9 @@ struct PhoneSettingsView: View {
 	@State private var exportDocument: ExportDocument?
 	@State private var exporting = false
 	@State private var exportResult: String?
+	@Query private var decisions: [SuggestionDecision]
+	@State private var importing = false
+	@State private var restoreResult: String?
 
 	private let columns = [GridItem(.adaptive(minimum: 96), spacing: 12)]
 
@@ -56,6 +61,12 @@ struct PhoneSettingsView: View {
 					Haptics.success()
 				case .failure(let error):
 					exportResult = "Couldn't save the export: \(error.localizedDescription)"
+				}
+			}
+			.fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
+				switch result {
+				case .success(let url): restore(from: url)
+				case .failure(let error): restoreResult = "Couldn't open the file: \(error.localizedDescription)"
 				}
 			}
 		}
@@ -139,7 +150,30 @@ struct PhoneSettingsView: View {
 						.foregroundStyle(Glass.ink)
 				}
 				.tint(Glass.accent)
-				Text("Looks for new seasons and episodes once a day. Only ever adds — your watched marks and ratings are never changed.")
+				Text("Looks for new seasons and episodes once a day, and fills in details of ones that have just aired. Your watched marks and ratings are never changed.")
+					.font(.system(size: 13, weight: .medium))
+					.foregroundStyle(.secondary)
+
+				divider
+
+				Toggle(isOn: $notifyNewEpisodes) {
+					Text("Notify when episodes air")
+						.font(.system(size: 16, weight: .semibold))
+						.foregroundStyle(Glass.ink)
+				}
+				.tint(Glass.accent)
+				.onChange(of: notifyNewEpisodes) { _, on in
+					guard on else { notifyNote = nil; return }
+					Task {
+						if await EpisodeAlerts.requestPermission() {
+							notifyNote = nil
+						} else {
+							notifyNewEpisodes = false
+							notifyNote = "Notifications are off for WatchList. Turn them on in the Settings app first."
+						}
+					}
+				}
+				Text(notifyNote ?? "For shows you're watching. The iPhone checks in the background a few times a day, so a notification can come a few hours after an episode airs.")
 					.font(.system(size: 13, weight: .medium))
 					.foregroundStyle(.secondary)
 
@@ -198,7 +232,7 @@ struct PhoneSettingsView: View {
 				Text("Export library")
 					.font(.system(size: 16, weight: .semibold))
 					.foregroundStyle(Glass.ink)
-				Text("Saves your shows, seasons, episodes and films — statuses, verdicts, stars, episode ratings, notes and watched dates — and your collections as one JSON file. Nothing in the app changes.")
+				Text("Saves your shows, seasons, episodes and films — statuses, verdicts, stars, episode ratings, notes and watched dates — your collections and Discover choices as one JSON file. Nothing in the app changes.")
 					.font(.system(size: 13, weight: .medium))
 					.foregroundStyle(.secondary)
 
@@ -221,6 +255,32 @@ struct PhoneSettingsView: View {
 						.font(.system(size: 13, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
+
+				divider
+
+				Text("Restore library")
+					.font(.system(size: 16, weight: .semibold))
+					.foregroundStyle(Glass.ink)
+				Text("Adds back the titles, collections and Discover choices in an export. Anything already in your library is left as it is.")
+					.font(.system(size: 13, weight: .medium))
+					.foregroundStyle(.secondary)
+
+				Button {
+					Haptics.tap()
+					restoreResult = nil
+					importing = true
+				} label: {
+					Label("Restore from JSON…", systemImage: "square.and.arrow.down")
+						.font(.system(size: 15, weight: .semibold))
+						.foregroundStyle(Glass.accent)
+				}
+				.buttonStyle(.pressable)
+
+				if let restoreResult {
+					Text(restoreResult)
+						.font(.system(size: 13, weight: .medium))
+						.foregroundStyle(.secondary)
+				}
 			}
 			.padding(16)
 			.glass(cornerRadius: 22)
@@ -230,13 +290,28 @@ struct PhoneSettingsView: View {
 	/// Builds the file from what's in the library now, then asks where to save
 	/// it. Reading only — nothing in the library is touched.
 	private func prepareExport() {
-		let export = LibraryExport(shows: shows, films: films, collections: collections)
+		let export = LibraryExport(shows: shows, films: films, collections: collections, decisions: decisions)
 		do {
 			exportDocument = ExportDocument(data: try export.encoded())
 			exportResult = nil
 			exporting = true
 		} catch {
 			exportResult = "Couldn't build the export: \(error.localizedDescription)"
+		}
+	}
+
+	/// Reads the picked file and adds what it holds that the library doesn't.
+	private func restore(from url: URL) {
+		let scoped = url.startAccessingSecurityScopedResource()
+		defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+		do {
+			let export = try LibraryRestore.read(try Data(contentsOf: url))
+			let report = try LibraryRestore.restore(export, into: ctx)
+			restoreResult = report.summary
+			report.addedSomething ? Haptics.success() : Haptics.tap()
+			if report.addedSomething { WatchSync.shared.scheduleSend() }
+		} catch {
+			restoreResult = error.localizedDescription
 		}
 	}
 

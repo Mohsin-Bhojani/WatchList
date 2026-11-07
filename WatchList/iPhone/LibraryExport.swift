@@ -15,17 +15,25 @@
 //  Reads only. The library store, and the stars, watched dates and collections
 //  kept beside it, are left exactly as they were.
 //
+//  Format 3 adds what Restore (LibraryRestore.swift) needs to put a title back
+//  exactly — hand-picked stars, when a verdict was given, what stood out, tech
+//  specs, the stored artwork — and Discover's decisions. Every one of those is
+//  optional, so a format 2 file still restores, with those filled in as best
+//  they can be.
+//
 
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct LibraryExport: Codable {
 	var app = "WatchList"
-	var formatVersion = 2
+	var formatVersion = 3
 	var exportedAt: Date
 	var films: [FilmRecord]
 	var shows: [ShowRecord]
 	var collections: [CollectionRecord]
+	/// Discover's suggestions turned down or put off. Format 3 on.
+	var suggestionDecisions: [DecisionRecord]?
 }
 
 // MARK: - Rows
@@ -83,6 +91,13 @@ extension LibraryExport {
 		var starDistribution: [String: Int]
 		var imdbID: String?
 		var tmdbID: Int?
+		// Format 3 on.
+		var handPickedStars: Double?
+		var ratedAt: Date?
+		var likedAspects: [String]?
+		var dislikedAspects: [String]?
+		var specs: TechSpecs?
+		var year: String?
 	}
 
 	struct ShowRecord: Codable {
@@ -108,6 +123,13 @@ extension LibraryExport {
 		var seasons: [SeasonRecord]
 		var imdbID: String?
 		var tmdbID: Int?
+		// Format 3 on.
+		var handPickedStars: Double?
+		var ratedAt: Date?
+		var likedAspects: [String]?
+		var dislikedAspects: [String]?
+		var firstAirYear: String?
+		var dateWatched: Date?
 	}
 
 	struct SeasonRecord: Codable {
@@ -132,6 +154,11 @@ extension LibraryExport {
 		var starDistribution: [String: Int]
 		var numberOfEpisodes: Int
 		var episodes: [EpisodeRecord]
+		// Format 3 on. `images` falls back to the show's; these are its own.
+		var handPickedStars: Double?
+		var ratedAt: Date?
+		var posterURL: String?
+		var airYear: String?
 	}
 
 	struct EpisodeRecord: Codable {
@@ -155,6 +182,10 @@ extension LibraryExport {
 		var verdictDistribution: [String: Int]
 		var starDistribution: [String: Int]
 		var imdbID: String?
+		// Format 3 on. `images` falls back to the show's; this is its own.
+		var stillURL: String?
+		var specs: TechSpecs?
+		var tmdbShowID: Int?
 	}
 
 	struct CollectionRecord: Codable {
@@ -164,6 +195,12 @@ extension LibraryExport {
 		var titleIDs: [UUID]
 		/// The same titles by name, for reading the file by eye.
 		var titles: [String]
+	}
+
+	struct DecisionRecord: Codable, Equatable {
+		var key: String
+		var choice: String
+		var decidedAt: Date
 	}
 }
 
@@ -191,7 +228,8 @@ enum RatingDistribution {
 extension LibraryExport {
 	/// Films and shows A–Z, seasons and episodes in number order, collections
 	/// as they're listed.
-	init(shows: [Show], films: [Film], collections: [TitleCollection], now: Date = .now) {
+	init(shows: [Show], films: [Film], collections: [TitleCollection],
+	     decisions: [SuggestionDecision] = [], now: Date = .now) {
 		let rows = ExportRows(collections: collections)
 		let byTitle: (String, String) -> Bool = { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
 		exportedAt = now
@@ -205,6 +243,16 @@ extension LibraryExport {
 			CollectionRecord(id: collection.id, name: collection.name, created: collection.created,
 			                 titleIDs: collection.titleIDs, titles: collection.titleIDs.compactMap { names[$0] })
 		}
+		suggestionDecisions = decisions.sorted { $0.key < $1.key }.map {
+			DecisionRecord(key: $0.key, choice: $0.choice.rawValue, decidedAt: $0.decidedAt)
+		}
+	}
+
+	/// Reads a file `encoded()` wrote — this format or an earlier one.
+	static func decoded(from data: Data) throws -> LibraryExport {
+		let decoder = JSONDecoder()
+		decoder.dateDecodingStrategy = .iso8601
+		return try decoder.decode(LibraryExport.self, from: data)
 	}
 
 	/// Pretty-printed with sorted keys and ISO 8601 dates, so it reads and
@@ -245,7 +293,10 @@ private struct ExportRows {
 			collections: collectionRefs(film.id),
 			verdictDistribution: RatingDistribution.verdicts(film.rating),
 			starDistribution: RatingDistribution.stars(ratings.stars),
-			imdbID: film.imdbID, tmdbID: film.tmdbID)
+			imdbID: film.imdbID, tmdbID: film.tmdbID,
+			handPickedStars: film.stars, ratedAt: film.ratedAt,
+			likedAspects: film.likedAspects, dislikedAspects: film.dislikedAspects,
+			specs: film.specs, year: text(film.year))
 	}
 
 	func show(_ show: Show) -> Row.ShowRecord {
@@ -267,7 +318,10 @@ private struct ExportRows {
 			starDistribution: RatingDistribution.stars(ratings.stars),
 			numberOfSeasons: show.seasons.count,
 			seasons: show.sortedSeasons.map { season($0, of: show, collections: collections) },
-			imdbID: show.imdbID, tmdbID: show.tmdbID)
+			imdbID: show.imdbID, tmdbID: show.tmdbID,
+			handPickedStars: show.stars, ratedAt: show.ratedAt,
+			likedAspects: show.likedAspects, dislikedAspects: show.dislikedAspects,
+			firstAirYear: text(show.firstAirYear), dateWatched: show.watchedAt)
 	}
 
 	private func season(_ season: Season, of show: Show, collections: [Row.CollectionRef]) -> Row.SeasonRecord {
@@ -291,7 +345,9 @@ private struct ExportRows {
 			verdictDistribution: RatingDistribution.verdicts(season.rating),
 			starDistribution: RatingDistribution.stars(ratings.stars),
 			numberOfEpisodes: episodes.count,
-			episodes: episodes.map { episode($0, in: season, of: show, portrait: portrait, collections: collections) })
+			episodes: episodes.map { episode($0, in: season, of: show, portrait: portrait, collections: collections) },
+			handPickedStars: season.stars, ratedAt: season.ratedAt,
+			posterURL: text(season.posterURL), airYear: text(season.airYear))
 	}
 
 	private func episode(_ episode: Episode, in season: Season, of show: Show, portrait: String?,
@@ -311,7 +367,8 @@ private struct ExportRows {
 			dateWatched: episode.watchedAt, placesToWatch: [], collections: collections,
 			verdictDistribution: RatingDistribution.episodeRatings(episode.episodeTier),
 			starDistribution: RatingDistribution.stars(nil),
-			imdbID: episode.imdbID)
+			imdbID: episode.imdbID,
+			stillURL: text(episode.stillURL), specs: episode.specs, tmdbShowID: episode.tmdbShowID)
 	}
 
 	// MARK: Pieces

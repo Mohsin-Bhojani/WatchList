@@ -120,7 +120,7 @@ struct LibraryExportTests {
 		let decoder = JSONDecoder()
 		decoder.dateDecodingStrategy = .iso8601
 		let readBack = try decoder.decode(LibraryExport.self, from: export.encoded())
-		#expect(readBack.formatVersion == 2)
+		#expect(readBack.formatVersion == 3)
 		#expect(readBack.exportedAt == now)
 		#expect(readBack.shows.first?.seasons.first?.episodes.count == 2)
 		#expect(readBack.collections.first?.titles == ["Sicario", "Severance"])

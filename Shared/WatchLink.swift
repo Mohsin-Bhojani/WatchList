@@ -99,8 +99,10 @@ struct UpNextEpisode: Codable, Equatable, Identifiable {
 	let tier: EpisodeTier?
 
 	/// "S2 · E8", or "Special · E1" for season 0.
-	var code: String {
-		seasonNumber == 0 ? "Special · E\(episodeNumber)" : "S\(seasonNumber) · E\(episodeNumber)"
+	var code: String { Self.code(season: seasonNumber, episode: episodeNumber) }
+
+	static func code(season: Int, episode: Int) -> String {
+		season == 0 ? "Special · E\(episode)" : "S\(season) · E\(episode)"
 	}
 }
 
