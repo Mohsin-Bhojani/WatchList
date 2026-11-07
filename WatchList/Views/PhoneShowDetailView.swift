@@ -34,6 +34,8 @@ struct PhoneShowDetailView: View {
 
 	@State private var compactBar = false
 	@State private var ratingPopup: RatingPopup.Mode?
+	/// The season the Seasons tabs are on, once one is picked.
+	@State private var pickedSeason: UUID?
 	@State private var ratingEpisode: Episode?
 	@State private var showingArtwork = false
 	@State private var confirmingRemove = false
@@ -223,39 +225,54 @@ struct PhoneShowDetailView: View {
 		PageSection(title: "Up next") {
 			VStack(alignment: .leading, spacing: 12) {
 				if let next {
-					HStack(spacing: 12) {
-						NavigationLink { PhoneEpisodeView(episode: next) } label: {
-							HStack(spacing: 12) {
-								PosterImage(urlString: next.stillURL.isEmpty ? show.backdropURL : next.stillURL,
-								            systemPlaceholder: "film")
-									.frame(width: 88, height: 50)
-									.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-									.overlay {
-										Image(systemName: "play.fill")
-											.font(.system(size: 12, weight: .bold))
-											.foregroundStyle(.white.opacity(0.85))
-									}
-								VStack(alignment: .leading, spacing: 3) {
-									Text("\(ShowFacts.code(next)) · \(next.displayTitle)")
-										.font(.system(size: 13, weight: .bold))
+					// After design B: the still large, play-style, with where you are on
+					// it; Mark Watched and the season's episodes under it.
+					NavigationLink { PhoneEpisodeView(episode: next) } label: {
+						PosterImage(urlString: next.stillURL.isEmpty ? show.backdropURL
+						            : next.stillURL.replacingOccurrences(of: "/t/p/w300/", with: "/t/p/w780/"),
+						            systemPlaceholder: "film")
+							.aspectRatio(16 / 9, contentMode: .fit)
+							.frame(maxWidth: .infinity)
+							.overlay {
+								LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+							}
+							.overlay(alignment: .bottomLeading) {
+								VStack(alignment: .leading, spacing: 4) {
+									Text(["UP NEXT", ShowFacts.code(next),
+									      (next.runtimeMinutes ?? next.specs?.runtimeMinutes).map { "\($0) min" }]
+										.compactMap { $0 }.joined(separator: " · "))
+										.font(.system(size: 11, weight: .bold))
+										.foregroundStyle(.white.opacity(0.85))
+									Text(next.displayTitle)
+										.font(.system(size: 20, weight: .bold))
 										.foregroundStyle(.white)
 										.lineLimit(2)
-									Text(ShowFacts.progressLine(watched: show.watchedEpisodeCount,
-									                            total: show.episodeCount))
-										.font(.system(size: 11, weight: .medium))
-										.foregroundStyle(.white.opacity(0.6))
 								}
-								Spacer(minLength: 0)
+								.padding(14)
 							}
-							.contentShape(Rectangle())
+							.clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+					}
+					.buttonStyle(.pressable)
+					HStack(spacing: 8) {
+						Button { ratingEpisode = next } label: {
+							Label("Mark Watched", systemImage: "checkmark")
+								.font(.system(size: 15, weight: .semibold))
+								.foregroundStyle(.black)
+								.frame(maxWidth: .infinity, minHeight: GlassControl.height)
+								.background(.white, in: Capsule())
 						}
-						.buttonStyle(.plain)
-						Button("Mark watched") { ratingEpisode = next }
-							.font(.system(size: 12, weight: .semibold))
-							.foregroundStyle(.white)
-							.padding(.horizontal, 14)
-							.frame(height: GlassControl.height)
-							.glassEffect(.regular.tint(Self.watchingFill.opacity(0.25)), in: Capsule())
+						.buttonStyle(.pressable)
+						if let season = next.season {
+							NavigationLink { PhoneSeasonView(season: season) } label: {
+								Text("Episodes")
+									.font(.system(size: 15, weight: .semibold))
+									.foregroundStyle(.white)
+									.padding(.horizontal, 18)
+									.frame(minHeight: GlassControl.height)
+							}
+							.buttonStyle(.plain)
+							.glassEffect(.regular.interactive(), in: Capsule())
+						}
 					}
 				} else if let waiting = HomeFeed.nextToAir(of: show) {
 					// Caught up: nothing out to mark, and the show isn't finished.
@@ -311,6 +328,10 @@ struct PhoneShowDetailView: View {
 
 	// MARK: Seasons
 
+	/// After design B of the alternatives: the seasons as tabs — each saying
+	/// how far through it you are — over the chosen season's episodes, each
+	/// numbered in a disc of its rating's colour. The season's own page, with
+	/// its verdict and artwork, is a tap on its name.
 	private var seasonsSection: some View {
 		PageSection(title: "Seasons") {
 			if show.seasons.isEmpty {
@@ -322,49 +343,123 @@ struct PhoneShowDetailView: View {
 					.padding(14)
 					.liquidCard(cornerRadius: 20)
 			} else {
-				ScrollView(.horizontal) {
-					HStack(alignment: .top, spacing: 10) {
-						ForEach(show.sortedSeasons) { seasonCard($0) }
+				let current = shownSeason
+				VStack(alignment: .leading, spacing: 10) {
+					ScrollView(.horizontal) {
+						HStack(spacing: 6) {
+							ForEach(show.sortedSeasons) { seasonTab($0, chosen: $0.id == current?.id) }
+						}
+						.padding(.horizontal, 18)
 					}
-					.padding(.horizontal, 18)
+					.scrollIndicators(.hidden)
+					.padding(.horizontal, -18)
+					if let current {
+						VStack(spacing: 0) {
+							ForEach(Array(current.sortedEpisodes.enumerated()), id: \.element.id) { index, episode in
+								if index > 0 { PageRowDivider(inset: 54) }
+								seasonEpisodeRow(episode)
+							}
+							PageRowDivider(inset: 0)
+							NavigationLink { PhoneSeasonView(season: current) } label: {
+								HStack {
+									Text("\(current.displayName) page")
+										.font(.system(size: 14, weight: .semibold))
+									Spacer()
+									VerdictChip(rating: current.rating, emptyLabel: "Rate")
+									Image(systemName: "chevron.right")
+										.font(.system(size: 12, weight: .bold))
+										.foregroundStyle(.white.opacity(0.5))
+								}
+								.foregroundStyle(.white)
+								.padding(.vertical, 12)
+								.contentShape(Rectangle())
+							}
+							.buttonStyle(.plain)
+						}
+						.padding(.horizontal, 14)
+						.padding(.vertical, 4)
+						.liquidCard(cornerRadius: 20)
+					}
 				}
-				.scrollIndicators(.hidden)
-				.padding(.horizontal, -18)
 			}
 		}
 	}
 
-	private func seasonCard(_ season: Season) -> some View {
-		VStack(alignment: .leading, spacing: 8) {
-			NavigationLink { PhoneSeasonView(season: season) } label: {
-				PosterImage(urlString: seasonArt(season), systemPlaceholder: "tv")
-					.frame(width: 132, height: 76)
-					.overlay {
-						LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-					}
-					.overlay(alignment: .bottomLeading) {
-						VStack(alignment: .leading, spacing: 0) {
-							Text(season.displayName)
-								.font(.system(size: 12, weight: .bold))
-								.lineLimit(1)
-							Text(ShowFacts.episodes(season.episodes.count))
-								.font(.system(size: 10, weight: .medium))
-								.foregroundStyle(.white.opacity(0.75))
-						}
-						.foregroundStyle(.white)
-						.padding(7)
-					}
-					.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-			}
-			.buttonStyle(.pressable)
+	/// The season the tabs show: the one picked, else the one you're in — where
+	/// the next episode is — else the last.
+	private var shownSeason: Season? {
+		let seasons = show.sortedSeasons
+		if let pickedSeason, let picked = seasons.first(where: { $0.id == pickedSeason }) { return picked }
+		return next?.season ?? seasons.last { $0.seasonNumber > 0 } ?? seasons.last
+	}
+
+	private func seasonTab(_ season: Season, chosen: Bool) -> some View {
+		let total = season.episodes.count
+		let watched = season.watchedCount
+		let label = season.seasonNumber == 0 ? "Specials" : "Season \(season.seasonNumber)"
+		let progress = total > 0 && watched == total ? " ✓" : watched > 0 ? " · \(watched)/\(total)" : ""
+		return Button {
+			Haptics.selection()
+			withAnimation(Glass.smooth) { pickedSeason = season.id }
+		} label: {
+			Text(label + progress)
+				.font(.system(size: 13, weight: .semibold))
+				.foregroundStyle(chosen ? Color.black : .white)
+				.padding(.horizontal, 14)
+				.frame(minHeight: 36)
+				.background(chosen ? AnyShapeStyle(.white) : AnyShapeStyle(.white.opacity(0.12)), in: Capsule())
+		}
+		.buttonStyle(.plain)
+		.accessibilityAddTraits(chosen ? .isSelected : [])
+	}
+
+	private func seasonEpisodeRow(_ episode: Episode) -> some View {
+		let watched = episode.status == .watched
+		let aired = AirDate.hasAired(episode.airDate, today: AirDate.day(.now)) ?? true
+		return HStack(spacing: 10) {
 			Menu {
-				VerdictMenuSection(item: season)
+				Section("Rate this episode") {
+					ForEach(EpisodeTier.allCases) { tier in
+						Toggle(tier.rawValue, isOn: Binding(get: { episode.episodeTier == tier }, set: { isOn in
+							Haptics.selection()
+							withAnimation(Glass.smooth) { episode.episodeTier = isOn ? tier : nil }
+						}))
+					}
+				}
 			} label: {
-				VerdictChip(rating: season.rating, emptyLabel: "Rate")
+				EpisodeNumberDisc(number: episode.episodeNumber, tier: episode.episodeTier)
+			}
+			.accessibilityLabel("Episode \(episode.episodeNumber), \(episode.episodeTier?.rawValue ?? "not rated"). Rate it")
+			NavigationLink { PhoneEpisodeView(episode: episode) } label: {
+				VStack(alignment: .leading, spacing: 2) {
+					Text(episode.displayTitle)
+						.font(.system(size: 15, weight: .semibold))
+						.foregroundStyle(.white.opacity(aired ? 1 : 0.7))
+						.lineLimit(1)
+					Text(watched ? episode.watchedAt.map { "Watched \(FilmFacts.shortDate($0))" } ?? "Watched"
+					     : aired ? (FilmFacts.runtime(episode.runtimeMinutes) ?? "Not watched")
+					     : AirDate.phrase(episode.airDate).map { "Airs \($0)" } ?? "Coming")
+						.font(.system(size: 12, weight: .medium))
+						.foregroundStyle(.white.opacity(0.6))
+				}
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.contentShape(Rectangle())
+			}
+			.buttonStyle(.plain)
+			if aired {
+				Button {
+					Haptics.selection()
+					withAnimation(Glass.smooth) { watched ? episode.mark(.toWatch) : episode.markWatched() }
+				} label: {
+					Image(systemName: watched ? "checkmark.circle.fill" : "circle")
+						.font(.system(size: 22, weight: .semibold))
+						.foregroundStyle(watched ? PhoneFilmDetailView.teal : .white.opacity(0.5))
+				}
+				.buttonStyle(.plain)
+				.accessibilityLabel(watched ? "Watched" : "Mark watched")
 			}
 		}
-		.padding(6)
-		.liquidCard(cornerRadius: 14)
+		.padding(.vertical, 9)
 	}
 
 	/// A season's card art: its first episode's still, else its poster, else the

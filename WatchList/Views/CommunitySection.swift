@@ -41,63 +41,77 @@ struct CommunitySection: View {
 		}
 	}
 
-	/// "62% Go For It", as the design has it.
+	/// The rating most gave, in its colour, and how many rated it.
 	private func headline(_ opinion: CommunityOpinion) -> some View {
-		Group {
+		HStack(alignment: .firstTextBaseline) {
 			if let leading = opinion.leading {
-				HStack(spacing: 8) {
-					Circle()
-						.fill(scale.tint(leading.option))
-						.frame(width: 10, height: 10)
-					Text("\(Int((leading.share * 100).rounded()))% \(leading.option)")
-						.font(.system(size: 22, weight: .bold))
-						.foregroundStyle(.white)
-						.lineLimit(1)
-						.minimumScaleFactor(0.7)
-				}
-				.accessibilityElement(children: .combine)
-				.accessibilityLabel("\(Int((leading.share * 100).rounded())) per cent said \(leading.option)")
+				Text(leading.option)
+					.font(.system(size: 22, weight: .bold, design: .serif))
+					.foregroundStyle(scale.tint(leading.option))
+					.lineLimit(1)
+					.minimumScaleFactor(0.7)
 			}
+			Spacer()
+			Text("\(opinion.total) rating\(opinion.total == 1 ? "" : "s")")
+				.font(.system(size: 12, weight: .medium))
+				.foregroundStyle(.white.opacity(0.6))
 		}
+		.accessibilityElement(children: .combine)
 	}
 
-	/// A bar for each rating, longest first in the scale's own order.
+	/// After design B of the alternatives: one bar split by how everyone
+	/// rated it, in the scale's order, with yours marked under its share and
+	/// the colours named beneath.
 	private func spread(_ opinion: CommunityOpinion) -> some View {
-		VStack(spacing: 6) {
-			ForEach(opinion.spread, id: \.option) { entry in
-				HStack(spacing: 8) {
-					Text(entry.option)
-						.font(.system(size: 13, weight: .medium))
-						.foregroundStyle(.white.opacity(entry.count > 0 ? 0.9 : 0.5))
-						.frame(width: 84, alignment: .leading)
-						.lineLimit(1)
-						.minimumScaleFactor(0.8)
-					GeometryReader { proxy in
-						let share = opinion.share(of: entry.option)
-						Capsule()
-							.fill(.white.opacity(0.12))
-							.overlay(alignment: .leading) {
-								Capsule()
-									.fill(scale.tint(entry.option))
-									.frame(width: max(proxy.size.width * share, share > 0 ? 6 : 0))
+		let options = scale.options
+		let shares = options.map { opinion.share(of: $0) }
+		return VStack(alignment: .leading, spacing: 8) {
+			GeometryReader { proxy in
+				let width = proxy.size.width
+				let gaps = CGFloat(max(shares.filter { $0 > 0 }.count - 1, 0)) * 2
+				ZStack(alignment: .topLeading) {
+					HStack(spacing: 2) {
+						ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+							if shares[index] > 0 {
+								Rectangle()
+									.fill(scale.tint(option))
+									.frame(width: (width - gaps) * shares[index])
 							}
-							.clipShape(Capsule())
+						}
 					}
-					.frame(height: 8)
-					Text("\(entry.count)")
-						.font(.system(size: 12, weight: .semibold, design: .rounded))
-						.foregroundStyle(.white.opacity(entry.count > 0 ? 0.8 : 0.4))
-						.frame(width: 22, alignment: .trailing)
-					// Yours, marked where it sits.
-					Image(systemName: "person.fill")
-						.font(.system(size: 10, weight: .bold))
-						.foregroundStyle(entry.option == opinion.yours ? .white : .clear)
-						.accessibilityHidden(entry.option != opinion.yours)
-						.accessibilityLabel("Your rating")
+					.frame(height: 14)
+					.clipShape(Capsule())
+					// Yours, under the middle of its share.
+					if let yours = opinion.yours, let index = options.firstIndex(of: yours) {
+						let before = shares[..<index].reduce(0, +)
+						let middle = (width - gaps) * (before + shares[index] / 2)
+						HStack(spacing: 3) {
+							Image(systemName: "arrowtriangle.up.fill")
+								.font(.system(size: 8))
+							Text("You")
+								.font(.system(size: 11, weight: .bold))
+						}
+						.foregroundStyle(scale.tint(yours))
+						.fixedSize()
+						.offset(x: min(max(middle - 14, 0), width - 34), y: 18)
+					}
 				}
-				.accessibilityElement(children: .combine)
-				.accessibilityLabel("\(entry.option), \(entry.count)\(entry.option == opinion.yours ? ", yours" : "")")
 			}
+			.frame(height: 34)
+			.accessibilityElement()
+			.accessibilityLabel(options.enumerated().map { "\($0.element) \(Int((shares[$0.offset] * 100).rounded())) per cent" }
+				.joined(separator: ", ") + (opinion.yours.map { ". Yours: \($0)" } ?? ""))
+			TileFlowLayout(spacing: 10) {
+				ForEach(options, id: \.self) { option in
+					HStack(spacing: 4) {
+						RoundedRectangle(cornerRadius: 2).fill(scale.tint(option)).frame(width: 8, height: 8)
+						Text(option)
+							.font(.system(size: 11, weight: .medium))
+							.foregroundStyle(.white.opacity(0.75))
+					}
+				}
+			}
+			.accessibilityHidden(true)
 		}
 	}
 

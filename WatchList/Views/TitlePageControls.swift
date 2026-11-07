@@ -74,18 +74,18 @@ struct VerdictChip: View {
 	var body: some View {
 		HStack(spacing: 5) {
 			if let rating {
-				Circle()
-					.fill(Glass.tint(rating))
-					.frame(width: 7, height: 7)
+				Image(systemName: rating.systemImage)
+					.font(.system(size: 10, weight: .bold))
 			}
 			Text(rating?.rawValue ?? emptyLabel)
-				.font(.system(size: 12, weight: .semibold))
+				.font(.system(size: 12, weight: .bold))
 				.lineLimit(1)
 		}
-		.foregroundStyle(.white.opacity(rating == nil ? 0.75 : 1))
+		// Rated: solid in the verdict's colour (design A); unrated, faint glass.
+		.foregroundStyle(rating == nil ? .white.opacity(0.75) : Glass.onTint)
 		.padding(.horizontal, 9)
 		.padding(.vertical, 5)
-		.background(.white.opacity(rating == nil ? 0.1 : 0.12), in: Capsule())
+		.background(rating.map { Glass.tint($0) } ?? .white.opacity(0.1), in: Capsule())
 	}
 }
 

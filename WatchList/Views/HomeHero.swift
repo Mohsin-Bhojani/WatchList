@@ -140,34 +140,84 @@ struct HomeHeroPage: View {
 			.allowsHitTesting(false)
 	}
 
+	/// The episode panel, after design A of the alternatives: Liquid Glass over
+	/// the art's lower edge — the episode and its length, the show and the
+	/// episode's name, how far through the show is, then Mark Watched and a way
+	/// into the show. Caught up, it says when the next one airs instead.
 	private func details(progress: String, next: Episode?) -> some View {
-		VStack(spacing: 2) {
-			Text(progress)
-				.font(.system(size: 15, weight: .medium))
-				.foregroundStyle(.white.opacity(0.92))
-				.shadow(color: .black.opacity(0.25), radius: 4, y: 1)
-			Text(show.title)
-				.font(.system(size: 22, weight: .bold))
-				.foregroundStyle(.white)
-				.multilineTextAlignment(.center)
-				.lineLimit(2)
-				.minimumScaleFactor(0.8)
-				.shadow(color: .black.opacity(0.25), radius: 6, y: 1)
-			// Caught up, there's nothing out to mark until the next one airs.
-			if !caughtUp(next: next) {
-				Button(action: markWatched) {
-					Text("Mark Watched")
-						.font(.system(size: 16, weight: .medium))
-						.foregroundStyle(.white)
-						.padding(.horizontal, 6)
+		let watched = show.watchedEpisodeCount
+		let total = show.episodeCount
+		let runtime = next.flatMap { $0.runtimeMinutes ?? $0.specs?.runtimeMinutes }
+		return VStack(alignment: .leading, spacing: 10) {
+			Text([next.map(ShowFacts.code), runtime.map { "\($0) min" }].compactMap { $0 }.joined(separator: " · ")
+			     .ifEmpty(progress))
+				.font(.system(size: 12, weight: .semibold))
+				.foregroundStyle(.white.opacity(0.78))
+			VStack(alignment: .leading, spacing: 2) {
+				Text(show.title)
+					.font(.system(size: 22, weight: .bold))
+					.foregroundStyle(.white)
+					.lineLimit(2)
+					.minimumScaleFactor(0.8)
+				// An episode whose only name is its own code ("S2E2") would just
+				// repeat the line above, so it is left out.
+				if let name = next.map(ShowFacts.distinctName) ?? progress {
+					Text(name)
+						.font(.system(size: 15, weight: .regular))
+						.foregroundStyle(.white.opacity(0.88))
+						.lineLimit(1)
 				}
-				.buttonStyle(.glass)
-				.controlSize(.large)
-				.padding(.top, 10)
-				.accessibilityLabel(next == nil ? "Mark \(show.title) watched" : "Mark \(progress) watched")
+			}
+			if total > 0 {
+				HStack(spacing: 8) {
+					Capsule()
+						.fill(.white.opacity(0.22))
+						.frame(height: 5)
+						.overlay(alignment: .leading) {
+							GeometryReader { bar in
+								Capsule().fill(.white)
+									.frame(width: bar.size.width * ShowFacts.fraction(watched: watched, total: total))
+							}
+						}
+					Text("\(watched) of \(total)")
+						.font(.system(size: 12, weight: .medium).monospacedDigit())
+						.foregroundStyle(.white.opacity(0.78))
+				}
+				.accessibilityElement(children: .ignore)
+				.accessibilityLabel("\(watched) of \(total) episodes watched")
+			}
+			HStack(spacing: 8) {
+				// Caught up, there's nothing out to mark until the next one airs.
+				if !caughtUp(next: next) {
+					Button(action: markWatched) {
+						Label("Mark Watched", systemImage: "checkmark")
+							.font(.system(size: 16, weight: .semibold))
+							.foregroundStyle(.black)
+							.frame(maxWidth: .infinity, minHeight: GlassControl.height)
+							.background(.white, in: Capsule())
+							.contentShape(Capsule())
+					}
+					.buttonStyle(.pressable)
+					.accessibilityLabel(next == nil ? "Mark \(show.title) watched" : "Mark \(progress) watched")
+				} else {
+					Spacer(minLength: 0)
+				}
+				Button(action: onOpen) {
+					Image(systemName: "chevron.right")
+						.font(.system(size: 16, weight: .semibold))
+						.foregroundStyle(.white)
+						.frame(width: GlassControl.height, height: GlassControl.height)
+						.contentShape(Circle())
+				}
+				.buttonStyle(.plain)
+				.glassEffect(.regular.interactive(), in: Circle())
+				.accessibilityLabel("Open \(show.title)")
 			}
 		}
-		.padding(.horizontal, 24)
+		.padding(16)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.glassEffect(.regular.tint(.black.opacity(0.28)), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+		.padding(.horizontal, 14)
 	}
 
 	/// The sideways layout's words, left-aligned: where the show is up to, its
@@ -481,4 +531,8 @@ struct RecentlyWatchedCard: View {
 			if let sampled { tone = sampled }
 		}
 	}
+}
+
+private extension String {
+	func ifEmpty(_ other: String) -> String { isEmpty ? other : self }
 }

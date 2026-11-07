@@ -198,7 +198,7 @@ struct PhoneSeasonView: View {
 			} else {
 				VStack(spacing: 0) {
 					ForEach(Array(season.sortedEpisodes.enumerated()), id: \.element.id) { index, episode in
-						if index > 0 { PageRowDivider(inset: 112) }
+						if index > 0 { PageRowDivider(inset: 54) }
 						episodeRow(episode)
 					}
 				}
@@ -212,25 +212,36 @@ struct PhoneSeasonView: View {
 	private func episodeRow(_ episode: Episode) -> some View {
 		let watched = episode.status == .watched
 		return HStack(spacing: 10) {
+			// The number in a disc of its rating's colour (design B); tapped, it rates.
+			Menu {
+				Section("Rate this episode") {
+					ForEach(EpisodeTier.allCases) { tier in
+						Toggle(tier.rawValue, isOn: tierToggle(episode, tier))
+					}
+				}
+			} label: {
+				EpisodeNumberDisc(number: episode.episodeNumber, tier: episode.episodeTier)
+			}
+			.accessibilityLabel("Episode \(episode.episodeNumber), \(episode.episodeTier?.rawValue ?? "not rated"). Rate it")
 			NavigationLink { PhoneEpisodeView(episode: episode) } label: {
 				HStack(spacing: 10) {
-					PosterImage(urlString: episode.stillURL, systemPlaceholder: "film")
-						.frame(width: 92, height: 52)
-						.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-						.opacity(watched ? 0.6 : 1)
 					VStack(alignment: .leading, spacing: 3) {
-						Text("E\(episode.episodeNumber) · \(episode.displayTitle)")
-							.font(.system(size: 13, weight: .bold))
-							.foregroundStyle(.white)
+						Text(episode.displayTitle)
+							.font(.system(size: 14, weight: .bold))
+							.foregroundStyle(.white.opacity(watched ? 0.75 : 1))
 							.lineLimit(2)
 						let meta = [FilmFacts.releaseDate(episode.airDate), FilmFacts.runtime(episode.runtimeMinutes)]
 							.compactMap { $0 }
-						if !meta.isEmpty {
+						HStack(spacing: 0) {
+							if let tier = episode.episodeTier {
+								Text(tier.rawValue).foregroundStyle(Glass.tint(tier))
+								if !meta.isEmpty { Text(" · ") }
+							}
 							Text(meta.joined(separator: " · "))
-								.font(.system(size: 11, weight: .medium))
-								.foregroundStyle(.white.opacity(0.6))
-								.lineLimit(1)
 						}
+						.font(.system(size: 11, weight: .medium))
+						.foregroundStyle(.white.opacity(0.6))
+						.lineLimit(1)
 					}
 					Spacer(minLength: 0)
 				}
@@ -249,15 +260,6 @@ struct PhoneSeasonView: View {
 				}
 				.buttonStyle(.plain)
 				.accessibilityLabel(watched ? "Watched" : "Mark watched")
-				Menu {
-					Section("Rate this episode") {
-						ForEach(EpisodeTier.allCases) { tier in
-							Toggle(tier.rawValue, isOn: tierToggle(episode, tier))
-						}
-					}
-				} label: {
-					TierChip(tier: episode.episodeTier)
-				}
 			}
 		}
 		.padding(.vertical, 8)
@@ -304,5 +306,27 @@ struct PhoneSeasonView: View {
 
 	private func remove() {
 		ctx.delete(season, afterLeaving: dismiss)
+	}
+}
+
+/// An episode's number in a disc of its rating's colour — dashed while it has
+/// none — after design B of the alternatives.
+struct EpisodeNumberDisc: View {
+	let number: Int
+	let tier: EpisodeTier?
+
+	var body: some View {
+		Text("\(number)")
+			.font(.system(size: 15, weight: .bold, design: .rounded))
+			.foregroundStyle(tier == nil ? .white : Glass.onTint)
+			.frame(width: 34, height: 34)
+			.background {
+				if let tier {
+					Circle().fill(Glass.tint(tier))
+				} else {
+					Circle().fill(.white.opacity(0.08))
+					Circle().strokeBorder(.white.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+				}
+			}
 	}
 }

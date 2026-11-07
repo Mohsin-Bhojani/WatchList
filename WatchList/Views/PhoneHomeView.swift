@@ -85,7 +85,8 @@ struct PhoneHomeView: View {
 						// while the hero is swiped and scrolls away with it.
 						.overlay(alignment: .top) {
 							ScreenHeader(title: "Home", onBand: !watching.isEmpty,
-							             topPadding: max(screen.topInset, 20))
+							             topPadding: max(screen.topInset, 20),
+							             subtitle: watching.isEmpty ? nil : "\(watching.count) watching")
 						}
 					VStack(alignment: .leading, spacing: 30) {
 						toWatch
@@ -103,6 +104,7 @@ struct PhoneHomeView: View {
 				}
 			}
 			.ignoresSafeArea(edges: .top)
+			.scrollsToTopOnReselect(.home)
 			// On an iPad the bar is over the hero: see-through while the page is at
 			// its top, then the usual soft edge once anything scrolls under it.
 			.onScrollGeometryChange(for: BarScroll.self) { geometry in
@@ -115,6 +117,10 @@ struct PhoneHomeView: View {
 			.scrollEdgeEffectHidden(isPad && !watching.isEmpty && !barScroll.moved, for: .top)
 			.background(GlassBackground())
 			.screenBar("Home", onBand: !watching.isEmpty && !barScroll.pastHero)
+			// Nothing Watching: the palette lights the pages again.
+			.onChange(of: watching.first?.id, initial: true) { _, first in
+				if first == nil { BackdropLight.shared.tone = nil }
+			}
 			.navigationDestination(item: $openedShow) { PhoneShowDetailView(show: $0) }
 		}
 		// Measured here, outside the scroll view that ignores the top safe area
@@ -145,7 +151,11 @@ struct PhoneHomeView: View {
 						             textBottom: count > 1 ? 34 : 23,
 						             cascadeWatched: cascadeWatched,
 						             wide: wideHero,
-						             onBand: { heroScroll.bands[show.id] = $0 },
+						             onBand: { tone in
+						             	heroScroll.bands[show.id] = tone
+						             	// The first Watching show lights every page's backdrop.
+						             	if show.id == watching.first?.id { BackdropLight.shared.tone = tone }
+						             },
 						             onRateEpisode: { ratingEpisode = $0 }) {
 							openedShow = show
 						}
@@ -217,37 +227,54 @@ struct PhoneHomeView: View {
 		.accessibilityHidden(true)
 	}
 
+	/// After design A of the alternatives: the shape of what goes here — a glass
+	/// poster between two outlines — then what to do, two ways in.
 	private var emptyHero: some View {
-		VStack(spacing: 12) {
-			Image(systemName: "play.tv")
-				.font(.system(size: 42, weight: .light))
-				.foregroundStyle(Glass.accent)
-			Text("Nothing in progress")
-				.font(.system(size: 26, weight: .bold))
+		VStack(spacing: 14) {
+			ZStack {
+				ForEach([-1.0, 1.0], id: \.self) { side in
+					RoundedRectangle(cornerRadius: 12, style: .continuous)
+						.strokeBorder(Glass.ink.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+						.frame(width: 76, height: 114)
+						.rotationEffect(.degrees(9 * side))
+						.offset(x: 44 * side, y: 8)
+				}
+				Image(systemName: "play.fill")
+					.font(.system(size: 26))
+					.foregroundStyle(Glass.accent)
+					.frame(width: 76, height: 114)
+					.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+			}
+			.frame(height: 130)
+			.accessibilityHidden(true)
+			Text("Nothing on Up Next")
+				.font(.system(size: 24, weight: .bold))
 				.foregroundStyle(Glass.ink)
-			Text("Set a show to Watching and the episode you're up to shows up here.")
+			Text("Start a show and the next episode waits here, with Mark Watched one tap away.")
 				.font(.system(size: 15))
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
-			Button("Open Shows") { openTab(.shows) }
-				.buttonStyle(.glass)
-				.controlSize(.large)
-				.padding(.top, 6)
+			HStack(spacing: 10) {
+				Button("Pick from your shows") { openTab(.shows) }
+					.buttonStyle(.glassProminent)
+				Button("Discover") { openTab(.discover) }
+					.buttonStyle(.glass)
+			}
+			.controlSize(.large)
+			.padding(.top, 4)
 		}
-		.padding(.horizontal, 36)
+		.padding(.horizontal, 30)
 		// Clear of the header laid over the top — on an iPad it's in the bar.
 		.padding(.top, max(screen.topInset, 20) + (ScreenHeader.isInBar ? 0 : 56))
 		.frame(maxWidth: .infinity)
-		.frame(height: heroHeight * 0.8)
-		.background(LinearGradient(colors: [Glass.accent.opacity(0.16), .clear],
-		                           startPoint: .top, endPoint: .bottom))
+		.frame(height: heroHeight * 0.85)
 	}
 
 	// MARK: To Watch
 
 	private var toWatch: some View {
 		shelf("To Watch", items: HomeFeed.toWatch(shows: shows, films: films), showsRating: false,
-		      empty: "Titles you add as To Watch wait here, newest first. Anything rated Skip is left out.") {
+		      empty: "Nothing waiting. Add a title from Discover or search.", emptyAction: ("Discover", .discover)) {
 			ToWatchListView()
 		}
 	}
@@ -258,45 +285,48 @@ struct PhoneHomeView: View {
 		shelf("Recently watched",
 		      items: HomeFeed.recentlyWatched(shows: shows, films: films),
 		      showsRating: true,
-		      empty: "Titles you mark Watched land here, the most recent first.") {
+		      empty: "Titles you mark Watched land here, the most recent first.", emptyAction: ("Shows", .shows)) {
 			RecentlyWatchedListView()
 		}
 	}
 
-	/// A heading with All, then a sideways row of up to 20 poster cards — with
-	/// their rating strip, or as posters alone.
+	/// After design A of the alternatives: the heading, counted, is itself the
+	/// way to the whole list; under it a sideways rail of title cards that lets
+	/// the next one peek in, so there's plainly more. Empty, a glass row says so
+	/// and offers a way in.
 	private func shelf<All: View>(_ title: String, items: [WatchedTitle], showsRating: Bool, empty: String,
-	                              @ViewBuilder all: @escaping () -> All) -> some View {
+	                              emptyAction: (String, PhoneTab), @ViewBuilder all: @escaping () -> All) -> some View {
 		VStack(alignment: .leading, spacing: 12) {
-			HStack(alignment: .firstTextBaseline) {
-				Text(title)
-					.font(.system(size: 22, weight: .bold))
-					.foregroundStyle(Glass.ink)
-				Spacer()
-				if !items.isEmpty {
-					NavigationLink { all() } label: {
-						Text("All")
-							.font(.system(size: 16, weight: .semibold))
-							.foregroundStyle(Glass.accent)
-					}
+			Group {
+				if items.isEmpty {
+					heading(title, count: 0, chevron: false)
+				} else {
+					NavigationLink { all() } label: { heading(title, count: items.count, chevron: true) }
+						.buttonStyle(.plain)
 				}
 			}
 			.padding(.horizontal, 18)
 
 			if items.isEmpty {
-				Text(empty)
-					.font(.system(size: 14, weight: .medium, design: .rounded))
-					.foregroundStyle(.secondary)
-					.frame(maxWidth: .infinity, alignment: .leading)
-					.padding(16)
-					.glass(cornerRadius: 18)
-					.padding(.horizontal, 18)
+				HStack(spacing: 12) {
+					Text(empty)
+						.font(.system(size: 14, weight: .medium, design: .rounded))
+						.foregroundStyle(.secondary)
+						.frame(maxWidth: .infinity, alignment: .leading)
+					Button(emptyAction.0) { openTab(emptyAction.1) }
+						.buttonStyle(.glass)
+				}
+				.padding(.horizontal, 16)
+				.padding(.vertical, 12)
+				.glass(cornerRadius: 18)
+				.padding(.horizontal, 18)
 			} else {
 				ScrollView(.horizontal) {
 					LazyHStack(alignment: .top, spacing: 12) {
 						ForEach(Array(items.prefix(20))) { item in
 							NavigationLink { item.destination } label: {
-								RecentlyWatchedCard(item: item, showsRating: showsRating)
+								FadedPosterCard(item: item)
+									.frame(width: 128)
 							}
 							.buttonStyle(.pressable)
 						}
@@ -306,6 +336,26 @@ struct PhoneHomeView: View {
 				.scrollIndicators(.hidden)
 			}
 		}
+	}
+
+	private func heading(_ title: String, count: Int, chevron: Bool) -> some View {
+		HStack(alignment: .firstTextBaseline, spacing: 6) {
+			Text(title)
+				.font(.system(size: 22, weight: .bold))
+				.foregroundStyle(Glass.ink)
+			Text("\(count)")
+				.font(.system(size: 15, weight: .medium).monospacedDigit())
+				.foregroundStyle(.secondary)
+			if chevron {
+				Image(systemName: "chevron.right")
+					.font(.system(size: 14, weight: .bold))
+					.foregroundStyle(.secondary)
+			}
+			Spacer(minLength: 0)
+		}
+		.contentShape(Rectangle())
+		.accessibilityElement(children: .combine)
+		.accessibilityHint(chevron ? "Shows them all" : "")
 	}
 }
 

@@ -174,35 +174,145 @@ struct TitleTrailerSection: View {
 	}
 }
 
-/// Where to watch: the services streaming, free, renting and selling the title
-/// in the iPhone's region. Shows nothing when there are none.
+// MARK: - Your services
+
+/// The streaming services you use, in your order — set in Settings. Where to
+/// watch puts the first of them that has a title on top.
+enum StreamingServices {
+	struct Saved: Codable, Equatable, Identifiable {
+		let id: Int
+		let name: String
+		let logoURL: String
+	}
+
+	private static let key = "myStreamingServices"
+
+	static var saved: [Saved] {
+		get {
+			UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode([Saved].self, from: $0) } ?? []
+		}
+		set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: key) }
+	}
+}
+
+extension TitleExtras {
+	/// The one way to watch to put first: the first of your services, in your
+	/// order, that streams it or has it free; else the first it streams on, by
+	/// TMDb's order; else the first anywhere. Nil when there are no offers.
+	static func best(_ availability: Availability, yours: [Int]) -> (kind: Offer.Kind, service: Service)? {
+		let watchable = availability.offers.filter { $0.kind == .stream || $0.kind == .free }
+		for id in yours {
+			for offer in watchable {
+				if let service = offer.services.first(where: { $0.id == id }) { return (offer.kind, service) }
+			}
+		}
+		if let offer = availability.offers.first, let service = offer.services.first { return (offer.kind, service) }
+		return nil
+	}
+
+	/// "Stream on Apple TV", "Free on…", "Rent on…", "Buy on…".
+	static func verb(_ kind: Offer.Kind) -> String {
+		switch kind {
+		case .stream: return "Stream on"
+		case .free:   return "Free on"
+		case .rent:   return "Rent on"
+		case .buy:    return "Buy on"
+		}
+	}
+}
+
+/// Where to watch, after design B of the alternatives: one clear way in — the
+/// first of your services that has it, else TMDb's best — as a large button,
+/// the other ways folded under it, and JustWatch credited. Nothing when there
+/// are no offers in the iPhone's region.
 struct WhereToWatchSection: View {
 	let kind: MediaKind
 	let tmdbID: Int?
 
 	@State private var availability: TitleExtras.Availability?
+	@State private var showingMore = false
 	@Environment(\.openURL) private var openURL
 
 	var body: some View {
 		Group {
 			if let availability {
+				let yours = StreamingServices.saved.map(\.id)
+				let best = TitleExtras.best(availability, yours: yours)
+				let others = availability.offers.flatMap { offer in
+					offer.services.filter { $0.id != best?.service.id || offer.kind != best?.kind }
+						.map { (offer.kind, $0) }
+				}
 				PageSection(title: "Where to watch") {
-					VStack(alignment: .leading, spacing: 14) {
-						ForEach(availability.offers) { offer($0) }
-						HStack {
-							Text("Data from JustWatch")
-								.font(.system(size: 11, weight: .medium))
-								.foregroundStyle(.white.opacity(0.5))
-							Spacer()
-							if let link = availability.link {
-								Button("See all") { openURL(link) }
-									.font(.system(size: 12, weight: .semibold))
-									.foregroundStyle(.white)
+					VStack(alignment: .leading, spacing: 10) {
+						if let best {
+							Button { if let link = availability.link { openURL(link) } } label: {
+								HStack(spacing: 12) {
+									PosterImage(urlString: best.service.logoURL, systemPlaceholder: "play.tv")
+										.frame(width: 34, height: 34)
+										.clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+									VStack(alignment: .leading, spacing: 1) {
+										Text("\(TitleExtras.verb(best.kind)) \(best.service.name)")
+											.font(.system(size: 16, weight: .bold))
+											.lineLimit(1)
+										if best.kind == .stream {
+											Text(yours.contains(best.service.id) ? "One of your services" : "With a subscription")
+												.font(.system(size: 12, weight: .medium))
+												.foregroundStyle(.black.opacity(0.6))
+										}
+									}
+									Spacer(minLength: 0)
+									Image(systemName: "arrow.up.right")
+										.font(.system(size: 14, weight: .bold))
+								}
+								.foregroundStyle(.black)
+								.padding(.horizontal, 14)
+								.frame(minHeight: 58)
+								.background(.white, in: Capsule())
 							}
+							.buttonStyle(.pressable)
 						}
+						if !others.isEmpty {
+							VStack(alignment: .leading, spacing: 10) {
+								Button {
+									withAnimation(Glass.smooth) { showingMore.toggle() }
+								} label: {
+									HStack {
+										Text("\(others.count) more way\(others.count == 1 ? "" : "s") to watch")
+											.font(.system(size: 14, weight: .semibold))
+										Spacer()
+										Image(systemName: "chevron.down")
+											.font(.system(size: 12, weight: .bold))
+											.rotationEffect(.degrees(showingMore ? 180 : 0))
+									}
+									.foregroundStyle(.white)
+									.contentShape(Rectangle())
+								}
+								.buttonStyle(.plain)
+								if showingMore {
+									ForEach(Array(others.enumerated()), id: \.offset) { _, entry in
+										HStack(spacing: 10) {
+											PosterImage(urlString: entry.1.logoURL, systemPlaceholder: "play.tv")
+												.frame(width: 28, height: 28)
+												.clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+											Text(entry.1.name)
+												.font(.system(size: 14, weight: .medium))
+												.foregroundStyle(.white)
+											Spacer()
+											Text(entry.0.rawValue)
+												.font(.system(size: 12, weight: .medium))
+												.foregroundStyle(.white.opacity(0.6))
+										}
+										.accessibilityElement(children: .combine)
+									}
+								}
+							}
+							.padding(14)
+							.liquidCard(cornerRadius: 18)
+						}
+						Text("Data from JustWatch")
+							.font(.system(size: 11, weight: .medium))
+							.foregroundStyle(.white.opacity(0.5))
 					}
-					.padding(14)
-					.liquidCard(cornerRadius: 20)
 				}
 			}
 		}
@@ -211,22 +321,77 @@ struct WhereToWatchSection: View {
 			availability = await TitleExtrasLoader.availability(kind, id: tmdbID)
 		}
 	}
+}
 
-	private func offer(_ offer: TitleExtras.Offer) -> some View {
-		VStack(alignment: .leading, spacing: 8) {
-			PageSmallCaps(text: offer.kind.rawValue)
-			ScrollView(.horizontal, showsIndicators: false) {
-				HStack(spacing: 10) {
-					ForEach(offer.services) { service in
-						PosterImage(urlString: service.logoURL, systemPlaceholder: "play.tv")
-							.frame(width: 44, height: 44)
-							.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-							.accessibilityLabel(service.name)
+// MARK: - Settings: your services
+
+/// Your streaming services, in order: drag to reorder, swipe to remove, and
+/// add from every service TMDb lists in the iPhone's region.
+struct StreamingServicesView: View {
+	@State private var saved = StreamingServices.saved
+	@State private var all: [TitleExtras.Service] = []
+	@State private var loading = true
+
+	var body: some View {
+		List {
+			Section {
+				if saved.isEmpty {
+					Text("None yet. Add the ones you pay for, and Where to watch puts them first.")
+						.foregroundStyle(.secondary)
+				}
+				ForEach(saved) { service in
+					row(name: service.name, logo: service.logoURL)
+				}
+				.onMove { saved.move(fromOffsets: $0, toOffset: $1); StreamingServices.saved = saved }
+				.onDelete { saved.remove(atOffsets: $0); StreamingServices.saved = saved }
+			} header: {
+				Text("Yours, in order")
+			} footer: {
+				Text("Where to watch offers the first of these that has a title.")
+			}
+			Section("Add") {
+				if loading { ProgressView() }
+				ForEach(all.filter { service in !saved.contains { $0.id == service.id } }) { service in
+					Button {
+						Haptics.selection()
+						saved.append(.init(id: service.id, name: service.name, logoURL: service.logoURL))
+						StreamingServices.saved = saved
+					} label: {
+						HStack {
+							row(name: service.name, logo: service.logoURL)
+							Spacer()
+							Image(systemName: "plus.circle.fill").foregroundStyle(Glass.accent)
+						}
 					}
+					.buttonStyle(.plain)
 				}
 			}
 		}
-		.accessibilityElement(children: .contain)
-		.accessibilityLabel("\(offer.kind.rawValue): \(offer.services.map(\.name).joined(separator: ", "))")
+		.scrollContentBackground(.hidden)
+		.background(GlassBackground())
+		.navigationTitle("Your services")
+		.toolbar { EditButton() }
+		.task {
+			// Films' and shows' lists together, each service once, TMDb's order.
+			let region = TitleExtras.region
+			async let films = try? TMDbService.shared.watchProviderList(.film, region: region)
+			async let shows = try? TMDbService.shared.watchProviderList(.show, region: region)
+			var seen = Set<Int>()
+			all = ((await films ?? []) + (await shows ?? []))
+				.sorted { ($0.display_priority ?? .max) < ($1.display_priority ?? .max) }
+				.filter { seen.insert($0.provider_id).inserted }
+				.map { TitleExtras.Service(id: $0.provider_id, name: $0.provider_name ?? "Unknown",
+				                           logoURL: TMDbConfig.logo($0.logo_path)) }
+			loading = false
+		}
+	}
+
+	private func row(name: String, logo: String) -> some View {
+		HStack(spacing: 12) {
+			PosterImage(urlString: logo, systemPlaceholder: "play.tv")
+				.frame(width: 32, height: 32)
+				.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+			Text(name)
+		}
 	}
 }

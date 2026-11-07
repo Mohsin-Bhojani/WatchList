@@ -4,8 +4,8 @@
 //
 //  The half-star scale that sits beside the four verdicts, and the rules that
 //  keep the two in step:
-//    - rating in stars picks the verdict: 0–2 Skip, 2.5–3.5 Timepass,
-//      4–4.5 Go For It, 5 Perfection
+//    - rating in stars picks the verdict: 0–1.5 Skip, 2–3 Timepass,
+//      3.5–4.5 Go For It, 5 Perfection
 //    - rating with a verdict assumes its stars: Skip 1, Timepass 3,
 //      Go For It 4, Perfection 5
 //  Either is optional; setting one sets the other. Hand-picked stars are kept
@@ -22,8 +22,8 @@ public enum StarRating {
 	/// The verdict a star rating stands for.
 	public static func verdict(for stars: Double) -> Rating {
 		switch snapped(stars) {
-		case ...2:   return .skip
-		case ...3.5: return .timepass
+		case ...1.5: return .skip
+		case ...3:   return .timepass
 		case ...4.5: return .goForIt
 		default:     return .perfection
 		}

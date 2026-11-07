@@ -68,13 +68,16 @@ struct PhoneStatsView: View {
 				VStack(spacing: 12) {
 					SheetTitle("Stats")
 						.padding(.bottom, 10)
+					// How far through, as rings (design B of the alternatives).
 					HStack(spacing: 12) {
-						tile("Shows", value: shows.count, systemImage: "tv")
-						tile("Films", value: films.count, systemImage: "film")
+						ring("Shows finished", done: shows.filter { $0.status == .watched }.count, of: shows.count,
+						     tint: Glass.watched)
+						ring("Films watched", done: films.filter { $0.status == .watched }.count, of: films.count,
+						     tint: Glass.watched)
 					}
 					HStack(spacing: 12) {
-						tile("Episodes", value: totalEpisodes, systemImage: "list.and.film")
-						tile("Eps Watched", value: watchedEpisodes, systemImage: "checkmark.circle.fill")
+						ring("Episodes watched", done: watchedEpisodes, of: totalEpisodes, tint: Glass.watching)
+						ring("Watched and rated", done: ratedWatchedCount, of: watchedTitleCount, tint: Glass.accent)
 					}
 					statusCard
 						.padding(.top, 12)
@@ -87,6 +90,44 @@ struct PhoneStatsView: View {
 			.toolbar(.hidden, for: .navigationBar)
 			.sheet(item: $filter) { PhoneStatItemsSheet(filter: $0) }
 		}
+	}
+
+	private var watchedTitleCount: Int {
+		shows.filter { $0.status == .watched }.count + films.filter { $0.status == .watched }.count
+	}
+
+	private var ratedWatchedCount: Int { watchedTitleCount - unratedWatchedCount }
+
+	/// A share as a ring with its percentage in it, the counts under it.
+	private func ring(_ label: String, done: Int, of total: Int, tint: Color) -> some View {
+		let fraction = total == 0 ? 0 : Double(done) / Double(total)
+		return VStack(spacing: 10) {
+			ZStack {
+				Circle().stroke(Glass.ink.opacity(0.12), lineWidth: 8)
+				Circle()
+					.trim(from: 0, to: fraction)
+					.stroke(tint, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+					.rotationEffect(.degrees(-90))
+				Text(total == 0 ? "–" : "\(Int((fraction * 100).rounded()))%")
+					.font(.system(size: 18, weight: .bold, design: .serif))
+					.foregroundStyle(Glass.ink)
+			}
+			.frame(width: 78, height: 78)
+			VStack(spacing: 2) {
+				Text(label)
+					.font(.system(size: 14, weight: .semibold))
+					.foregroundStyle(Glass.ink)
+				Text("\(done) of \(total)")
+					.font(.system(size: 12, weight: .medium))
+					.foregroundStyle(.secondary)
+			}
+			.multilineTextAlignment(.center)
+		}
+		.frame(maxWidth: .infinity)
+		.padding(16)
+		.glass(cornerRadius: 22)
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel("\(label): \(done) of \(total)")
 	}
 
 	private func tile(_ label: String, value: Int, systemImage: String) -> some View {

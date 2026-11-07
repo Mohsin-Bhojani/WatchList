@@ -2,10 +2,11 @@
 //  FadedPosterCard.swift
 //  WatchList
 //
-//  The Shows tab's grid card, like Home's Recently watched cards: the poster
-//  fading from its own colour down into a strip of its verdict's — a neutral
-//  slate when it isn't rated — with the title, its stars and details on the
-//  strip, and its watch status as a label on the poster.
+//  The Shows tab's grid card and Home's Recently watched card, after design B
+//  of the alternatives: the whole poster, clean, with the verdict as a seal in
+//  its corner (none while unrated), and the title and where it's up to under
+//  it on the page — the status a coloured dot beside its name in ink, so it
+//  reads in light and dark alike.
 //
 
 import SwiftUI
@@ -15,103 +16,57 @@ import WatchListLibrary
 struct FadedPosterCard: View {
 	let item: WatchedTitle
 
-	@State private var tone: UIColor?
-
-	private static let unratedColor = Color(.unratedTone)
-
-	init(item: WatchedTitle) {
-		self.item = item
-		_tone = State(initialValue: PageTheme.cached(item.posterURL))
-	}
-
-	/// A neutral dark until the poster's colour is in, or when there's no poster.
-	private var toneColor: Color { Color(uiColor: tone ?? UIColor(resource: .posterToneFallback)) }
-	private var verdictColor: Color { item.rating.map { Glass.tint($0) } ?? Self.unratedColor }
-
-	/// The verdict, then the kind and size: "Go For It · 3 seasons · 19 ep".
-	private var detailLine: String {
-		[item.rating?.rawValue ?? "", item.cardSubtitle].filter { !$0.isEmpty }.joined(separator: " · ")
+	/// "Watching · S2 E2" for a show under way; otherwise the kind and size.
+	private var detail: String {
+		if case .show(let show) = item, show.status == .watching, let next = HomeFeed.nextEpisode(of: show) {
+			return ShowFacts.code(next)
+		}
+		return item.cardSubtitle
 	}
 
 	var body: some View {
-		let shape = RoundedRectangle(cornerRadius: Glass.corner, style: .continuous)
-		VStack(alignment: .leading, spacing: 0) {
+		VStack(alignment: .leading, spacing: 8) {
 			PosterImage(urlString: item.posterURL, systemPlaceholder: item.placeholder)
 				.aspectRatio(2.0 / 3.0, contentMode: .fit)
-				.mask {
-					LinearGradient(stops: [
-						.init(color: .black, location: 0),
-						.init(color: .black, location: 0.74),
-						.init(color: .clear, location: 1),
-					], startPoint: .top, endPoint: .bottom)
+				.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+				.overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.1), lineWidth: 0.5))
+				.overlay(alignment: .bottomTrailing) {
+					if let rating = item.rating { VerdictSeal(rating: rating).padding(8) }
 				}
-				.overlay(alignment: .topTrailing) {
-					statusLabel
-						.padding(8)
-				}
+				.shadow(color: .black.opacity(0.18), radius: 10, y: 6)
 
 			VStack(alignment: .leading, spacing: 3) {
-				// The stars beside the title when both fit; otherwise the title
-				// keeps the room, and the verdict under it still says the rating.
-				ViewThatFits(in: .horizontal) {
-					HStack(alignment: .center, spacing: 6) {
-						title
-						Spacer(minLength: 0)
-						if let stars = item.stars {
-							StarsLabel(value: stars, size: 9, showsValue: false)
-								.fixedSize()
-						}
-					}
-					title
-				}
-				Text(detailLine)
-					.font(.system(size: 12, weight: .medium, design: .rounded))
-					.foregroundStyle(.white.opacity(0.8))
+				Text(item.title)
+					.font(.system(size: 15, weight: .bold, design: .serif))
+					.foregroundStyle(Glass.ink)
 					.lineLimit(1)
+				HStack(spacing: 5) {
+					Circle().fill(Glass.tint(item.status)).frame(width: 7, height: 7)
+					Text([item.status.rawValue, detail].filter { !$0.isEmpty }.joined(separator: " · "))
+						.font(.system(size: 12, weight: .medium, design: .rounded))
+						.foregroundStyle(Glass.ink.opacity(0.68))
+						.lineLimit(1)
+				}
 			}
-			.frame(maxWidth: .infinity, alignment: .leading)
-			.padding(.horizontal, 10)
-			// Up into the fade, so the details sit on the strip's colour.
-			.padding(.top, -16)
-			.padding(.bottom, 11)
+			.padding(.horizontal, 2)
 		}
-		// The poster's colour at the top, turning to the verdict's under the fade.
-		.background(LinearGradient(stops: [
-			.init(color: toneColor, location: 0),
-			.init(color: toneColor, location: 0.6),
-			.init(color: verdictColor, location: 0.86),
-			.init(color: verdictColor, location: 1),
-		], startPoint: .top, endPoint: .bottom))
-		.clipShape(shape)
-		.overlay(shape.strokeBorder(.white.opacity(0.1), lineWidth: 1))
-		.shadow(color: .black.opacity(0.12), radius: 10, y: 6)
 		.accessibilityElement(children: .combine)
-		.task(id: item.posterURL) {
-			guard let sampled = await PageTheme.load(item.posterURL), !Task.isCancelled,
-			      sampled != tone else { return }
-			withAnimation(.easeOut(duration: 0.3)) { tone = sampled }
-		}
 	}
+}
 
-	private var title: some View {
-		Text(item.title)
-			.font(.system(size: 15, weight: .bold, design: .serif))
-			.foregroundStyle(.white)
-			.lineLimit(1)
-	}
+/// A verdict as a seal: its colour, its symbol in near-black on it, ringed in
+/// the ground so it stands off any poster.
+struct VerdictSeal: View {
+	let rating: Rating
+	var size: CGFloat = 36
 
-	/// The watch status, named, in its own colour.
-	private var statusLabel: some View {
-		HStack(spacing: 4) {
-			Image(systemName: item.status.systemImage)
-				.font(.system(size: 9, weight: .bold))
-			Text(item.status.rawValue)
-				.font(.system(size: 11, weight: .semibold))
-		}
-		.foregroundStyle(.white)
-		.padding(.horizontal, 8)
-		.padding(.vertical, 4)
-		.background(Glass.tint(item.status).opacity(0.92), in: Capsule())
-		.overlay(Capsule().strokeBorder(.white.opacity(0.25), lineWidth: 1))
+	var body: some View {
+		Image(systemName: rating.systemImage)
+			.font(.system(size: size * 0.42, weight: .bold))
+			.foregroundStyle(Color(red: 0.04, green: 0.05, blue: 0.07))
+			.frame(width: size, height: size)
+			.background(Glass.tint(rating), in: Circle())
+			.overlay(Circle().strokeBorder(.black.opacity(0.45), lineWidth: 3))
+			.accessibilityLabel(rating.rawValue)
 	}
 }

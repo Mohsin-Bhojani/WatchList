@@ -26,8 +26,12 @@ struct ScreenHeader: View {
 	/// Space above the row. Home's scroll view runs up under the status bar, so
 	/// it passes the status bar's height; screens that keep the safe area don't.
 	var topPadding: CGFloat = 0
+	/// A live line under the name — "568 titles · 4 watching" — when the screen
+	/// has one.
+	var subtitle: String? = nil
 
 	@State private var showingProfile = false
+	@ObservedObject private var profile = ProfileStore.shared
 
 	private var ink: Color { onBand ? .white : Glass.ink }
 
@@ -36,25 +40,31 @@ struct ScreenHeader: View {
 	}
 
 	private var header: some View {
-		HStack {
-			Text(title)
-				.font(.system(size: 34, weight: .bold))
-				.foregroundStyle(ink)
-				.shadow(color: .black.opacity(onBand ? 0.25 : 0), radius: 6, y: 1)
-				.accessibilityAddTraits(.isHeader)
-				.allowsHitTesting(false)
-			Spacer()
-			// Glass, so over a band it takes on the colour behind it.
-			Button { showingProfile = true } label: {
-				Image(systemName: "person.crop.circle")
-					.font(.system(size: 22, weight: .medium))
+		HStack(alignment: .top) {
+			VStack(alignment: .leading, spacing: 2) {
+				Text(title)
+					.font(.system(size: 34, weight: .bold))
 					.foregroundStyle(ink)
+					.accessibilityAddTraits(.isHeader)
+				if let subtitle {
+					Text(subtitle)
+						.font(.system(size: 13, weight: .medium))
+						.foregroundStyle(ink.opacity(0.7))
+						.lineLimit(1)
+				}
+			}
+			.shadow(color: .black.opacity(onBand ? 0.25 : 0), radius: 6, y: 1)
+			.allowsHitTesting(false)
+			Spacer()
+			// Your picture, or your initial, ringed so it reads on any ground.
+			Button { showingProfile = true } label: {
+				ProfileAvatar(nickname: profile.nickname, image: profile.avatar, size: 40)
 					.frame(width: GlassControl.height, height: GlassControl.height)
 					.contentShape(Circle())
 			}
 			.buttonStyle(.plain)
-			.glassEffect(.regular.interactive(), in: Circle())
-			.accessibilityLabel("Profile")
+			.padding(.top, 2)
+			.accessibilityLabel(profile.nickname.isEmpty ? "Profile" : "Profile, \(profile.nickname)")
 		}
 		.padding(.horizontal, 20)
 		.padding(.top, topPadding)

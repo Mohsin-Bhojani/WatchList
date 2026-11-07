@@ -39,6 +39,16 @@ struct PhoneSettingsView: View {
 
 	/// No Done button: like Stats, the sheet closes with a swipe down, and its
 	/// name sits where Stats puts its own.
+	/// "for the 3 shows you're watching", "for the show you're watching".
+	private var watchingPhrase: String {
+		let count = HomeFeed.watching(shows).count
+		switch count {
+		case 0: return "for shows you're watching"
+		case 1: return "for the show you're watching"
+		default: return "for the \(count) shows you're watching"
+		}
+	}
+
 	var body: some View {
 		NavigationStack {
 			ScrollView {
@@ -48,6 +58,7 @@ struct PhoneSettingsView: View {
 					accentSection
 					episodesSection
 					newEpisodesSection
+					servicesSection
 					dataSection
 					aboutSection
 				}
@@ -76,43 +87,58 @@ struct PhoneSettingsView: View {
 
 	// MARK: Accent
 
+	/// After design A of the alternatives: how the chosen palette glows, live,
+	/// over a row of swatches, the chosen one ringed, and its name.
 	private var accentSection: some View {
-		VStack(alignment: .leading, spacing: 12) {
+		let chosen = AccentCatalog.all.first { $0.id == theme.accentID } ?? AccentCatalog.all[0]
+		return VStack(alignment: .leading, spacing: 12) {
 			SectionLabel(text: "Accent Color", systemImage: "paintpalette.fill")
-			LazyVGrid(columns: columns, spacing: 12) {
-				ForEach(AccentCatalog.all) { swatch($0) }
+			VStack(spacing: 14) {
+				ZStack(alignment: .bottomLeading) {
+					Glass.paper
+					RadialGradient(colors: [chosen.accent.opacity(0.75), .clear], center: UnitPoint(x: 0.15, y: 0.1),
+					               startRadius: 0, endRadius: 200)
+					RadialGradient(colors: [chosen.accent3.opacity(0.6), .clear], center: UnitPoint(x: 0.95, y: 0.6),
+					               startRadius: 0, endRadius: 170)
+					Text(BackdropLight.shared.tone == nil ? "How your screens will glow"
+					     : "Your show lights the page; this stays in your controls")
+						.font(.system(size: 13, weight: .semibold))
+						.foregroundStyle(Glass.ink)
+						.padding(.horizontal, 12)
+						.padding(.vertical, 8)
+						.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+						.padding(12)
+				}
+				.frame(height: 140)
+				.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+				.animation(Glass.smooth, value: theme.accentID)
+				.accessibilityHidden(true)
+				HStack {
+					ForEach(AccentCatalog.all) { swatch($0) }
+				}
+				Text(chosen.name)
+					.font(.system(size: 15, weight: .semibold))
+					.foregroundStyle(Glass.ink)
 			}
+			.padding(14)
+			.glass(cornerRadius: 22)
 		}
 	}
 
-	/// The chosen swatch is ringed in its own colour.
+	/// The chosen swatch is ringed in ink, apart from its own colour.
 	private func swatch(_ palette: AccentPalette) -> some View {
 		let selected = theme.accentID == palette.id
-		let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
 		return Button {
 			Haptics.selection()
 			withAnimation(Glass.pop) { theme.setAccent(palette.id) }
 		} label: {
-			VStack(spacing: 8) {
-				ZStack {
-					Circle()
-						.fill(palette.accent)
-						.frame(width: 34, height: 34)
-					if selected {
-						Image(systemName: "checkmark")
-							.font(.system(size: 14, weight: .bold))
-							.foregroundStyle(.white)
-					}
-				}
-				Text(palette.name)
-					.font(.system(size: 11, weight: .semibold))
-					.foregroundStyle(selected ? Glass.ink : .secondary)
-					.lineLimit(1)
-			}
-			.frame(maxWidth: .infinity)
-			.padding(.vertical, 13)
-			.glass(cornerRadius: 18)
-			.overlay(shape.strokeBorder(palette.accent.opacity(selected ? 1 : 0), lineWidth: 2))
+			Circle()
+				.fill(palette.accent)
+				.frame(width: 38, height: 38)
+				.padding(3)
+				.overlay(Circle().strokeBorder(Glass.ink.opacity(selected ? 0.9 : 0), lineWidth: 2))
+				.frame(maxWidth: .infinity)
+				.contentShape(Circle())
 		}
 		.buttonStyle(.pressable)
 		.accessibilityLabel(palette.name)
@@ -124,16 +150,10 @@ struct PhoneSettingsView: View {
 	private var episodesSection: some View {
 		VStack(alignment: .leading, spacing: 12) {
 			SectionLabel(text: "Episodes", systemImage: "list.and.film")
-			VStack(alignment: .leading, spacing: 8) {
-				Toggle(isOn: $autoMarkEpisodes) {
-					Text("Mark all episodes watched")
-						.font(.system(size: 16, weight: .semibold))
-						.foregroundStyle(Glass.ink)
-				}
-				.tint(Glass.accent)
-				Text("When you set a show or season to Watched, mark every episode watched too.")
-					.font(.system(size: 13, weight: .medium))
-					.foregroundStyle(.secondary)
+			VStack(alignment: .leading, spacing: 12) {
+				SettingToggle(title: "Mark all episodes watched", isOn: $autoMarkEpisodes,
+				              on: "On · a Watched show or season marks its episodes too",
+				              off: "Off · episodes are marked one by one")
 			}
 			.padding(16)
 			.glass(cornerRadius: 22)
@@ -146,24 +166,17 @@ struct PhoneSettingsView: View {
 		VStack(alignment: .leading, spacing: 12) {
 			SectionLabel(text: "New Episodes", systemImage: "arrow.triangle.2.circlepath")
 			VStack(alignment: .leading, spacing: 10) {
-				Toggle(isOn: $autoCheckEpisodes) {
-					Text("Check automatically")
-						.font(.system(size: 16, weight: .semibold))
-						.foregroundStyle(Glass.ink)
-				}
-				.tint(Glass.accent)
-				Text("Looks for new seasons and episodes once a day, and fills in details of ones that have just aired. Your watched marks and ratings are never changed.")
-					.font(.system(size: 13, weight: .medium))
-					.foregroundStyle(.secondary)
+				SettingToggle(title: "Check for new episodes", isOn: $autoCheckEpisodes,
+				              on: LibraryRefresher.lastChecked.map {
+				              	"On · checked \($0.formatted(.relative(presentation: .named)))"
+				              } ?? "On · once a day",
+				              off: "Off · only when you tap Check now")
 
 				divider
 
-				Toggle(isOn: $notifyNewEpisodes) {
-					Text("Notify when episodes air")
-						.font(.system(size: 16, weight: .semibold))
-						.foregroundStyle(Glass.ink)
-				}
-				.tint(Glass.accent)
+				SettingToggle(title: "Notify when episodes air", isOn: $notifyNewEpisodes,
+				              on: "On · \(watchingPhrase)",
+				              off: notifyNote ?? "Off · \(watchingPhrase)")
 				.onChange(of: notifyNewEpisodes) { _, on in
 					guard on else { notifyNote = nil; return }
 					Task {
@@ -171,13 +184,19 @@ struct PhoneSettingsView: View {
 							notifyNote = nil
 						} else {
 							notifyNewEpisodes = false
-							notifyNote = "Notifications are off for WatchList. Turn them on in the Settings app first."
+							notifyNote = "Off · notifications are off for WatchList in the Settings app"
 						}
 					}
 				}
-				Text(notifyNote ?? "For shows you're watching. The iPhone checks in the background a few times a day, so a notification can come a few hours after an episode airs.")
-					.font(.system(size: 13, weight: .medium))
-					.foregroundStyle(.secondary)
+
+				DisclosureGroup("How these work") {
+					Text("Once a day the iPhone adds new seasons and fills in details of episodes that just aired; your watched marks and ratings are never changed. It checks in the background a few times a day, so a notification can come a few hours after an episode airs.")
+						.font(.system(size: 13, weight: .medium))
+						.foregroundStyle(.secondary)
+						.padding(.top, 6)
+				}
+				.font(.system(size: 13, weight: .semibold))
+				.tint(.secondary)
 
 				divider
 
@@ -202,10 +221,6 @@ struct PhoneSettingsView: View {
 					Text(checkResult)
 						.font(.system(size: 13, weight: .medium))
 						.foregroundStyle(.secondary)
-				} else if let last = LibraryRefresher.lastChecked {
-					Text("Last checked \(last.formatted(.relative(presentation: .named))).")
-						.font(.system(size: 13, weight: .medium))
-						.foregroundStyle(.secondary)
 				}
 			}
 			.padding(16)
@@ -225,6 +240,39 @@ struct PhoneSettingsView: View {
 	}
 
 	// MARK: Your data
+
+	// MARK: Streaming services
+
+	/// The services you use, in your order: Where to watch puts the first of
+	/// them that has a title on top.
+	private var servicesSection: some View {
+		let saved = StreamingServices.saved
+		return VStack(alignment: .leading, spacing: 12) {
+			SectionLabel(text: "Streaming", systemImage: "play.tv")
+			NavigationLink { StreamingServicesView() } label: {
+				HStack(spacing: 12) {
+					VStack(alignment: .leading, spacing: 3) {
+						Text("Your services")
+							.font(.system(size: 16, weight: .semibold))
+							.foregroundStyle(Glass.ink)
+						Text(saved.isEmpty ? "None yet · Where to watch uses TMDb's order"
+						                   : saved.map(\.name).joined(separator: ", "))
+							.font(.system(size: 13, weight: .medium))
+							.foregroundStyle(.secondary)
+							.lineLimit(1)
+					}
+					Spacer()
+					Image(systemName: "chevron.right")
+						.font(.system(size: 13, weight: .bold))
+						.foregroundStyle(.secondary)
+				}
+				.padding(16)
+				.contentShape(Rectangle())
+			}
+			.buttonStyle(.plain)
+			.glass(cornerRadius: 22)
+		}
+	}
 
 	private var dataSection: some View {
 		let empty = shows.isEmpty && films.isEmpty
@@ -352,5 +400,34 @@ struct PhoneSettingsView: View {
 		let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 		let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
 		return "\(version) (\(build))"
+	}
+}
+
+/// A switch, after design B of the alternatives: its name, and under it what
+/// it's doing right now, a green dot while on.
+struct SettingToggle: View {
+	let title: String
+	@Binding var isOn: Bool
+	let on: String
+	let off: String
+
+	var body: some View {
+		Toggle(isOn: $isOn) {
+			VStack(alignment: .leading, spacing: 3) {
+				Text(title)
+					.font(.system(size: 16, weight: .semibold))
+					.foregroundStyle(Glass.ink)
+				HStack(spacing: 6) {
+					Circle()
+						.fill(isOn ? Glass.watched : Glass.ink.opacity(0.3))
+						.frame(width: 7, height: 7)
+					Text(isOn ? on : off)
+						.font(.system(size: 13, weight: .medium))
+						.foregroundStyle(.secondary)
+						.contentTransition(.opacity)
+				}
+			}
+		}
+		.tint(Glass.accent)
 	}
 }

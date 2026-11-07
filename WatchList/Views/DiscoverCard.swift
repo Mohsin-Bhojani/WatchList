@@ -21,6 +21,8 @@ import WatchListLibrary
 struct DiscoverCard: View {
 	let suggestion: Suggestion
 	let reason: String?
+	/// The poster of the library title it was suggested from, for the reason chip.
+	var reasonPosterURL: String? = nil
 	let posterMaxWidth: CGFloat
 	let showsHint: Bool
 	let onDecide: (CardDecision) -> Void
@@ -32,15 +34,44 @@ struct DiscoverCard: View {
 	var body: some View {
 		let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 		VStack(spacing: 12) {
-			if let reason {
-				Text(reason)
-					.font(.system(size: 14, weight: .medium))
-					.foregroundStyle(.white.opacity(0.8))
-					.lineLimit(1)
-					.minimumScaleFactor(0.85)
-			}
 			PosterImage(urlString: suggestion.largePosterURL, systemPlaceholder: suggestion.placeholder)
 				.aspectRatio(2.0 / 3.0, contentMode: .fit)
+				// Why it's here, on the poster itself (design B): the title it came
+				// from, small, beside the reason — and what it's tagged with.
+				.overlay(alignment: .topLeading) {
+					if let reason {
+						HStack(spacing: 6) {
+							if let reasonPosterURL, !reasonPosterURL.isEmpty {
+								PosterImage(urlString: reasonPosterURL, systemPlaceholder: "film")
+									.frame(width: 22, height: 22)
+									.clipShape(Circle())
+							}
+							Text(reason)
+								.font(.system(size: 12, weight: .semibold))
+								.foregroundStyle(.white)
+								.lineLimit(1)
+								.minimumScaleFactor(0.8)
+						}
+						.padding(.leading, reasonPosterURL == nil ? 10 : 4)
+						.padding(.trailing, 10)
+						.padding(.vertical, 4)
+						.glassEffect(.regular.tint(.black.opacity(0.3)), in: Capsule())
+						.padding(10)
+					}
+				}
+				.overlay(alignment: .bottomLeading) {
+					HStack(spacing: 6) {
+						ForEach(suggestion.genres.prefix(2), id: \.self) { genre in
+							Text(genre)
+								.font(.system(size: 12, weight: .semibold))
+								.foregroundStyle(.white)
+								.padding(.horizontal, 10)
+								.padding(.vertical, 5)
+								.glassEffect(.regular.tint(.black.opacity(0.3)), in: Capsule())
+						}
+					}
+					.padding(10)
+				}
 				.clipShape(shape)
 				.overlay(shape.strokeBorder(.white.opacity(0.14), lineWidth: 1))
 				.overlay { hint }

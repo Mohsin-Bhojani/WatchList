@@ -75,7 +75,7 @@ struct PhoneCollectionsView: View {
 				ScrollView {
 					VStack(alignment: .leading, spacing: 22) {
 						VStack(alignment: .leading, spacing: 14) {
-							ScreenHeader(title: "Collections")
+							ScreenHeader(title: "Collections", subtitle: "\(collections.count) collection\(collections.count == 1 ? "" : "s")")
 							if let filterSummary {
 								FilterSummaryButton(summary: filterSummary) { showingFilters = true }
 									.padding(.horizontal, 20)
@@ -88,6 +88,7 @@ struct PhoneCollectionsView: View {
 					.padding(.bottom, 24)
 				}
 				.reportsListAtTop($atTop)
+				.scrollsToTopOnReselect(.collections)
 			}
 			// Not shown, but it names the back button on a collection.
 			.navigationTitle("Collections")

@@ -24,6 +24,9 @@ struct FilterSheet<Content: View>: View {
 	let canReset: Bool
 	/// How tall it opens on a phone; an iPad's form sheet is always large.
 	var phoneDetents: Set<PresentationDetent> = [.medium, .large]
+	/// How many titles the filters leave, when the tab counts them: the sheet
+	/// then closes on "Show 12 titles" (design B) rather than Done.
+	var resultCount: Int? = nil
 	let reset: () -> Void
 	@ViewBuilder let content: () -> Content
 
@@ -49,8 +52,26 @@ struct FilterSheet<Content: View>: View {
 					}
 					.disabled(!canReset)
 				}
-				ToolbarItem(placement: .confirmationAction) {
-					Button("Done", systemImage: "checkmark", role: .confirm) { dismiss() }
+				if resultCount == nil {
+					ToolbarItem(placement: .confirmationAction) {
+						Button("Done", systemImage: "checkmark", role: .confirm) { dismiss() }
+					}
+				}
+			}
+			.safeAreaInset(edge: .bottom) {
+				if let resultCount {
+					Button { dismiss() } label: {
+						Text(resultCount == 0 ? "Nothing matches" : "Show \(resultCount) title\(resultCount == 1 ? "" : "s")")
+							.font(.system(size: 17, weight: .semibold))
+							.foregroundStyle(Color(.systemBackground))
+							.frame(maxWidth: .infinity, minHeight: 50)
+							.background(Glass.ink, in: Capsule())
+							.contentTransition(.numericText())
+					}
+					.buttonStyle(.pressable)
+					.padding(.horizontal, 20)
+					.padding(.bottom, 8)
+					.animation(Glass.smooth, value: resultCount)
 				}
 			}
 		}
@@ -105,55 +126,52 @@ struct SegmentedFilter<Value: Hashable>: View {
 	}
 }
 
-/// Sorts drawn like a segmented control. Tapping the chosen one again reverses
-/// it, so it says which way it runs: A–Z becomes Z–A, and the others turn their
-/// arrow round.
+/// The orders as a list to pick from, after design B of the alternatives:
+/// each its own row in one glass card, the chosen one ticked with the way it
+/// runs. Tapping the chosen one again reverses it: A–Z becomes Z–A, and the
+/// others turn their arrow round.
 struct SortSegments<Sort: ListSort>: View {
 	let title: String
 	@Binding var order: ListOrder<Sort>
 
-	@Namespace private var thumb
-
-	/// The system control's thumb: white, or a lighter grey in the dark.
-	private static var thumbColor: Color { Color(.segmentThumb) }
-
 	var body: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			FilterHeading(title, detail: order.summary)
-			HStack(spacing: 0) {
-				ForEach(Sort.allCases) { segment($0) }
+			VStack(spacing: 0) {
+				ForEach(Array(Sort.allCases.enumerated()), id: \.element.id) { index, sort in
+					if index > 0 { Divider().padding(.leading, 14) }
+					row(sort)
+				}
 			}
-			.padding(3)
-			.background(Capsule().fill(Color.primary.opacity(0.06)))
+			.glass(cornerRadius: 16)
 		}
 	}
 
-	private func segment(_ sort: Sort) -> some View {
+	private func row(_ sort: Sort) -> some View {
 		let chosen = order.sort == sort
 		return Button {
 			Haptics.selection()
 			withAnimation(Glass.smooth) { order.choose(sort) }
 		} label: {
-			HStack(spacing: 4) {
+			HStack(spacing: 8) {
 				Text(order.segmentTitle(for: sort))
+					.font(.system(size: 15, weight: chosen ? .semibold : .regular))
+					.foregroundStyle(Glass.ink)
 				if chosen, let arrow = order.arrowSymbol {
 					Image(systemName: arrow)
-						.font(.system(size: 11, weight: .bold))
+						.font(.system(size: 12, weight: .bold))
+						.foregroundStyle(.secondary)
 				}
-			}
-			.font(.system(size: 14, weight: .medium))
-			.foregroundStyle(Color.primary)
-			.frame(maxWidth: .infinity)
-			.frame(height: 30)
-			.background {
+				Spacer()
 				if chosen {
-					Capsule()
-						.fill(Self.thumbColor)
-						.shadow(color: .black.opacity(0.12), radius: 3, y: 1)
-						.matchedGeometryEffect(id: "thumb", in: thumb)
+					Image(systemName: "checkmark")
+						.font(.system(size: 14, weight: .bold))
+						.foregroundStyle(Glass.accent)
 				}
 			}
-			.contentShape(Capsule())
+			.padding(.horizontal, 14)
+			.frame(minHeight: 46)
+			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
 		.accessibilityLabel(chosen ? order.summary : sort.title)

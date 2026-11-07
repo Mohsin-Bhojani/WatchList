@@ -48,6 +48,10 @@ enum Glass {
 	static let hairline = Color(.hairline)
 	static let ink      = Color(.ink)
 
+	/// Text and symbols set on a solid meaning colour: near-black, which every
+	/// status, verdict and tier colour carries at 7:1 or more in both themes.
+	static let onTint = Color(red: 0.04, green: 0.05, blue: 0.07)
+
 	// Default corner radii — editorial favours gentle, restrained rounding.
 	static let corner: CGFloat = 14
 	static let cornerSmall: CGFloat = 10
@@ -92,10 +96,21 @@ enum Glass {
 
 // MARK: - Colour blur backdrop
 
+/// What lights the backdrop: the artwork colour of the show you're most into
+/// — the first one set to Watching, as Home samples it for its hero. Nil with
+/// nothing Watching, when the accent palette lights the page instead.
+@Observable
+final class BackdropLight {
+	static let shared = BackdropLight()
+	var tone: UIColor?
+}
+
 /// The page behind everything that isn't a title page: a cool neutral ground
-/// with your accent palette's three colours blurred into it — the main one
-/// high on the left, the third on the right, the deep one low — so the glass
-/// on top has colour to catch.
+/// with colour blurred into it, after design A of the alternatives — lit by
+/// the show you're watching, its colour high on the left and a deeper shade of
+/// it on the right, with your accent kept low as a small warm light (and in the
+/// controls). With nothing Watching, the palette's three colours light it: the
+/// main one high on the left, the third on the right, the deep one low.
 struct GlassBackground: View {
 	/// Kept for source compatibility; the palette's colours are used instead.
 	var tints: [Color] = Glass.ambient
@@ -107,22 +122,32 @@ struct GlassBackground: View {
 			let height = geometry.size.height
 			ZStack {
 				Glass.paper
-				light(Glass.accent, size: width * 1.15, at: CGPoint(x: width * 0.12, y: height * 0.06))
-				light(Glass.accent3, size: width * 0.95, at: CGPoint(x: width * 0.98, y: height * 0.38))
-				// The deep shade lights the foot by day; at night it would only muddy
-				// the dark, so the main colour comes back there instead.
-				light(scheme == .dark ? Glass.accent : Glass.accent2,
-				      size: width * 1.25, at: CGPoint(x: width * 0.25, y: height * 0.95))
+				if let tone = BackdropLight.shared.tone {
+					light(Color(uiColor: tone), strength: 1.4, size: width * 1.15,
+					      at: CGPoint(x: width * 0.18, y: height * 0.04))
+					light(Color(uiColor: ArtworkBand.deeper(tone)), strength: 1.5, size: width * 1.0,
+					      at: CGPoint(x: width * 1.0, y: height * 0.45))
+					light(Glass.accent, strength: 0.6, size: width * 1.1,
+					      at: CGPoint(x: width * 0.2, y: height * 1.0))
+				} else {
+					light(Glass.accent, size: width * 1.15, at: CGPoint(x: width * 0.12, y: height * 0.06))
+					light(Glass.accent3, size: width * 0.95, at: CGPoint(x: width * 0.98, y: height * 0.38))
+					// The deep shade lights the foot by day; at night it would only muddy
+					// the dark, so the main colour comes back there instead.
+					light(scheme == .dark ? Glass.accent : Glass.accent2,
+					      size: width * 1.25, at: CGPoint(x: width * 0.25, y: height * 0.95))
+				}
 			}
 			.drawingGroup()
+			.animation(.easeInOut(duration: 0.6), value: BackdropLight.shared.tone)
 		}
 		.ignoresSafeArea()
 		.accessibilityHidden(true)
 	}
 
-	private func light(_ color: Color, size: CGFloat, at point: CGPoint) -> some View {
+	private func light(_ color: Color, strength: Double = 1, size: CGFloat, at point: CGPoint) -> some View {
 		Circle()
-			.fill(color.opacity(scheme == .dark ? 0.36 : 0.32))
+			.fill(color.opacity(min((scheme == .dark ? 0.36 : 0.32) * strength, 0.6)))
 			.frame(width: size, height: size)
 			.position(point)
 			.blur(radius: size * 0.32)
@@ -192,6 +217,8 @@ extension ButtonStyle where Self == PressableStyle {
 
 // MARK: - Status pill / dot
 
+/// After design B of the alternatives: a glass pill with the status in ink —
+/// legible in light and dark — and its colour carried by the icon alone.
 struct StatusBadge: View {
 	let status: WatchStatus
 	var compact: Bool = false
@@ -199,20 +226,23 @@ struct StatusBadge: View {
 		HStack(spacing: 5) {
 			Image(systemName: status.systemImage)
 				.font(.system(size: compact ? 10 : 12, weight: .bold))
+				.foregroundStyle(Glass.tint(status))
 			if !compact {
 				Text(status.rawValue)
 					.font(.system(size: 12, weight: .semibold))
+					.foregroundStyle(Glass.ink)
 			}
 		}
-		.foregroundStyle(Glass.tint(status))
 		.padding(.horizontal, compact ? 8 : 11)
 		.padding(.vertical, compact ? 5 : 6)
-		.background(Glass.tint(status).opacity(0.14), in: Capsule())
-		.overlay(Capsule().strokeBorder(Glass.tint(status).opacity(0.4), lineWidth: 1))
+		.glassEffect(.regular, in: Capsule())
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel(status.rawValue)
 	}
 }
 
-/// The rating counterpart to `StatusBadge`, shown wherever a title has a rating.
+/// The rating counterpart to `StatusBadge`, after design A: the verdict's own
+/// colour, solid, with its symbol and name in near-black on it.
 struct RatingBadge: View {
 	let rating: Rating
 	var compact: Bool = false
@@ -222,14 +252,15 @@ struct RatingBadge: View {
 				.font(.system(size: compact ? 10 : 12, weight: .bold))
 			if !compact {
 				Text(rating.rawValue)
-					.font(.system(size: 12, weight: .semibold))
+					.font(.system(size: 12, weight: .bold))
 			}
 		}
-		.foregroundStyle(Glass.tint(rating))
+		.foregroundStyle(Glass.onTint)
 		.padding(.horizontal, compact ? 8 : 11)
 		.padding(.vertical, compact ? 5 : 6)
-		.background(Glass.tint(rating).opacity(0.14), in: Capsule())
-		.overlay(Capsule().strokeBorder(Glass.tint(rating).opacity(0.4), lineWidth: 1))
+		.background(Glass.tint(rating), in: Capsule())
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel(rating.rawValue)
 	}
 }
 

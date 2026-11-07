@@ -18,9 +18,9 @@ struct StarRatingTests {
 
 	@Test func starsPickTheVerdict() {
 		let expected: [(Double, Rating)] = [
-			(0, .skip), (0.5, .skip), (1, .skip), (1.5, .skip), (2, .skip),
-			(2.5, .timepass), (3, .timepass), (3.5, .timepass),
-			(4, .goForIt), (4.5, .goForIt),
+			(0, .skip), (0.5, .skip), (1, .skip), (1.5, .skip),
+			(2, .timepass), (2.5, .timepass), (3, .timepass),
+			(3.5, .goForIt), (4, .goForIt), (4.5, .goForIt),
 			(5, .perfection),
 		]
 		for (stars, verdict) in expected {

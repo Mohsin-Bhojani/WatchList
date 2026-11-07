@@ -540,6 +540,9 @@ public struct TMDbRegionProviders: Decodable, Equatable {
 	public let buy: [TMDbWatchProvider]?
 }
 
+/// The services a region has, from /watch/providers/movie or /tv.
+public struct TMDbWatchProviderList: Decodable { public let results: [TMDbWatchProvider]? }
+
 /// Offers by country code ("GB", "US"). TMDb's data comes from JustWatch,
 /// which has to be credited wherever it's shown.
 public struct TMDbWatchProviders: Decodable { public let results: [String: TMDbRegionProviders]? }
@@ -684,6 +687,13 @@ public struct TMDbService {
 	public func videos(_ kind: MediaKind, id: Int) async throws -> [TMDbVideo] {
 		let path = kind == .film ? "/movie/\(id)/videos" : "/tv/\(id)/videos"
 		let list: TMDbVideoList = try await get(path, localized: false)
+		return list.results ?? []
+	}
+
+	/// Every streaming, rental and shop service TMDb lists for `kind` in `region`.
+	public func watchProviderList(_ kind: MediaKind, region: String) async throws -> [TMDbWatchProvider] {
+		let list: TMDbWatchProviderList = try await get(kind == .film ? "/watch/providers/movie" : "/watch/providers/tv",
+		                                                query: ["watch_region": region])
 		return list.results ?? []
 	}
 

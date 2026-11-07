@@ -71,13 +71,21 @@ struct PhoneShowsView: View {
 		return parts.isEmpty ? nil : parts.joined(separator: " · ")
 	}
 
+	/// "568 titles · 4 watching": the library at a glance, under the name.
+	private var headerLine: String {
+		let total = shows.count + films.count
+		let watching = HomeFeed.watching(shows).count
+		let titles = "\(total) title\(total == 1 ? "" : "s")"
+		return watching == 0 ? titles : "\(titles) · \(watching) watching"
+	}
+
 	var body: some View {
 		NavigationStack {
 			ZStack {
 				GlassBackground()
 				ScrollView {
 					VStack(alignment: .leading, spacing: 14) {
-						ScreenHeader(title: kind.title)
+						ScreenHeader(title: kind.title, subtitle: headerLine)
 						if let filterSummary {
 							FilterSummaryButton(summary: filterSummary) { showingFilters = true }
 								.padding(.horizontal, 20)
@@ -89,6 +97,7 @@ struct PhoneShowsView: View {
 					.padding(.bottom, 18)
 				}
 				.reportsListAtTop($atTop)
+				.scrollsToTopOnReselect(.shows)
 			}
 			.screenBar(kind.title)
 			// Genres the new type doesn't have would hide everything.
@@ -99,7 +108,8 @@ struct PhoneShowsView: View {
 
 	private var filterSheet: some View {
 		FilterSheet(title: "Filter & Sort",
-		            canReset: kind != .all || status != .all || !pickedGenres.isEmpty || order != BrowseOrder()) {
+		            canReset: kind != .all || status != .all || !pickedGenres.isEmpty || order != BrowseOrder(),
+		            resultCount: displayed.count) {
 			kind = .all
 			status = .all
 			pickedGenres = []

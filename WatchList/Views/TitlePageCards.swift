@@ -69,37 +69,94 @@ struct PageSynopsisCard: View {
 }
 
 /// People in a row that runs out to the screen's edges.
+/// After design B of the alternatives: the first few as a short glass list —
+/// a face, the name and who they play — then everyone, a tap away.
 struct PageCastRow: View {
+	let cast: [CastEntry]
+	/// How many show before Full cast.
+	var shown = 3
+
+	var body: some View {
+		VStack(spacing: 0) {
+			ForEach(Array(cast.prefix(shown).enumerated()), id: \.element.id) { index, person in
+				if index > 0 { PageRowDivider(inset: 50) }
+				CastPersonRow(person: person)
+			}
+			if cast.count > shown {
+				PageRowDivider(inset: 0)
+				NavigationLink { FullCastView(cast: cast) } label: {
+					HStack {
+						Text("Full cast")
+							.font(.system(size: 14, weight: .semibold))
+						Spacer()
+						Text("\(cast.count)")
+							.font(.system(size: 13, weight: .medium))
+							.foregroundStyle(.white.opacity(0.6))
+						Image(systemName: "chevron.right")
+							.font(.system(size: 12, weight: .bold))
+							.foregroundStyle(.white.opacity(0.5))
+					}
+					.foregroundStyle(.white)
+					.padding(.vertical, 12)
+					.contentShape(Rectangle())
+				}
+				.buttonStyle(.plain)
+			}
+		}
+		.padding(.horizontal, 14)
+		.padding(.vertical, 2)
+		.liquidCard(cornerRadius: 20)
+	}
+}
+
+/// One person: their face, their name, "as" who they play, and why they're
+/// called out, if they are.
+struct CastPersonRow: View {
+	let person: CastEntry
+
+	var body: some View {
+		HStack(spacing: 12) {
+			PersonAvatar(urlString: person.profileURL, name: person.name)
+				.frame(width: 38, height: 38)
+				.overlay(Circle().strokeBorder(.white.opacity(0.15), lineWidth: 1))
+			VStack(alignment: .leading, spacing: 1) {
+				(Text(person.name).fontWeight(.semibold)
+					+ Text(person.character.isEmpty ? "" : " as \(person.character)").foregroundColor(.white.opacity(0.6)))
+					.font(.system(size: 14))
+					.foregroundStyle(.white)
+					.lineLimit(2)
+				if let flag = person.flag.label {
+					Text(flag)
+						.font(.system(size: 11, weight: .semibold))
+						.foregroundStyle(Glass.toWatch)
+				}
+			}
+			Spacer(minLength: 0)
+		}
+		.padding(.vertical, 9)
+		.accessibilityElement(children: .combine)
+	}
+}
+
+/// Everyone, in billing order.
+struct FullCastView: View {
 	let cast: [CastEntry]
 
 	var body: some View {
-		ScrollView(.horizontal) {
-			HStack(alignment: .top, spacing: 14) {
-				ForEach(cast) { person in
-					VStack(spacing: 6) {
-						PersonAvatar(urlString: person.profileURL, name: person.name)
-							.frame(width: 60, height: 60)
-							.overlay(Circle().strokeBorder(.white.opacity(0.15), lineWidth: 1))
-						Text(person.name)
-							.font(.system(size: 11, weight: .semibold))
-							.foregroundStyle(.white)
-							.multilineTextAlignment(.center)
-							.lineLimit(2)
-						if !person.character.isEmpty {
-							Text(person.character)
-								.font(.system(size: 10, weight: .medium))
-								.foregroundStyle(.white.opacity(0.55))
-								.lineLimit(1)
-						}
-					}
-					.frame(width: 76)
-					.accessibilityElement(children: .combine)
+		ScrollView {
+			VStack(spacing: 0) {
+				ForEach(Array(cast.enumerated()), id: \.element.id) { index, person in
+					if index > 0 { PageRowDivider(inset: 50) }
+					CastPersonRow(person: person)
 				}
 			}
-			.padding(.horizontal, 18)
+			.padding(.horizontal, 14)
+			.liquidCard(cornerRadius: 20)
+			.padding(18)
 		}
-		.scrollIndicators(.hidden)
-		.padding(.horizontal, -18)
+		.background(Color(red: 0.07, green: 0.08, blue: 0.1).ignoresSafeArea())
+		.navigationTitle("Cast")
+		.navigationBarTitleDisplayMode(.inline)
 	}
 }
 
@@ -154,15 +211,30 @@ struct PageVerdictCard: View {
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 10) {
-			HStack(spacing: 8) {
-				VerdictChip(rating: rating)
-				if let stars { StarsLabel(value: stars) }
-				if let dateLine {
-					Text(dateLine)
-						.font(.system(size: 12, weight: .medium))
-						.foregroundStyle(.white.opacity(0.6))
-						.lineLimit(1)
-						.minimumScaleFactor(0.85)
+			// The verdict as the headline (design A): its colour as a tile with
+			// its symbol, its name large in serif, the stars and when under it.
+			HStack(spacing: 12) {
+				Image(systemName: rating?.systemImage ?? "questionmark")
+					.font(.system(size: 17, weight: .bold))
+					.foregroundStyle(rating == nil ? .white : Glass.onTint)
+					.frame(width: 38, height: 38)
+					.background(rating.map { Glass.tint($0) } ?? .white.opacity(0.14),
+					            in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+					.accessibilityHidden(true)
+				VStack(alignment: .leading, spacing: 3) {
+					Text(rating?.rawValue ?? "Not rated")
+						.font(.system(size: 20, weight: .bold, design: .serif))
+						.foregroundStyle(.white)
+					HStack(spacing: 6) {
+						if let stars { StarsLabel(value: stars) }
+						if let dateLine {
+							Text(dateLine)
+								.font(.system(size: 12, weight: .medium))
+								.foregroundStyle(.white.opacity(0.6))
+								.lineLimit(1)
+								.minimumScaleFactor(0.85)
+						}
+					}
 				}
 				Spacer(minLength: 4)
 				Button("Edit", action: onEdit)

@@ -2,11 +2,12 @@
 //  RatingPopup.swift
 //  WatchList
 //
-//  The iPhone title pages' "How was it?" card, after the design: a verdict,
-//  half-star stars or both — each sets the other (StarRating) — and a private
-//  note where the title keeps one. It opens when a film or show is marked
-//  Watched, and from Edit. Nothing changes until Save rating; Not now leaves
-//  the title as it is.
+//  The iPhone title pages' "How was it?" sheet, after design B of the
+//  alternatives: the poster across its top, then a verdict, half-star stars
+//  or both — each sets the other (StarRating) — and, one at a time, what stood
+//  out or a private note, where the title keeps them. It opens when a film or
+//  show is marked Watched, and from Edit. Nothing changes until Save rating;
+//  Not now leaves the title as it is.
 //
 
 import SwiftUI
@@ -73,8 +74,14 @@ struct RatingPopup: View {
 	@State private var stars: Double?
 	@State private var note: String
 	@State private var aspects: AspectTaste
+	/// Which of the two extras is open: what stood out, or the note.
+	@State private var extra: Extra
 
-	private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+	enum Extra: String, CaseIterable, Identifiable {
+		case aspects = "What stood out"
+		case note = "Note"
+		var id: String { rawValue }
+	}
 
 	init(subject: RatingSubject, mode: Mode, tint: Color, onClose: @escaping () -> Void) {
 		self.subject = subject
@@ -85,6 +92,8 @@ struct RatingPopup: View {
 		_stars = State(initialValue: StarRating.explicit(subject.stars, afterChoosing: subject.rating))
 		_note = State(initialValue: subject.note ?? "")
 		_aspects = State(initialValue: subject.aspects ?? AspectTaste())
+		// A title with a note already opens on it; otherwise on what stood out.
+		_extra = State(initialValue: subject.aspects == nil || !(subject.note ?? "").isEmpty ? .note : .aspects)
 	}
 
 	init(film: Film, mode: Mode, tint: Color, onClose: @escaping () -> Void) {
@@ -102,87 +111,82 @@ struct RatingPopup: View {
 			card
 				// A phone's width, even on an iPad.
 				.frame(maxWidth: 460)
-				.padding(.horizontal, 24)
+				.frame(maxHeight: .infinity, alignment: .bottom)
 		}
+		.ignoresSafeArea(edges: .bottom)
+		.coversDock()
 	}
 
 	private var card: some View {
-		VStack(alignment: .leading, spacing: 14) {
-			HStack(spacing: 12) {
-				PosterImage(urlString: subject.posterURL, systemPlaceholder: subject.placeholder)
-					.frame(width: 40, height: 60)
-					.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-					.accessibilityHidden(true)
-				VStack(alignment: .leading, spacing: 2) {
-					Text(subject.title)
-						.font(.system(size: 17, weight: .bold))
-						.lineLimit(2)
-					Text(mode == .justMarked ? "Marked watched just now" : "Your rating")
-						.font(.system(size: 12, weight: .medium))
-						.foregroundStyle(.white.opacity(0.6))
-				}
-			}
-
-			Text("How was it?")
-				.font(.system(size: 15, weight: .semibold))
-
-			LazyVGrid(columns: columns, spacing: 10) {
-				ForEach(Rating.allCases) { option($0) }
-			}
-
-			VStack(alignment: .leading, spacing: 8) {
-				HStack {
-					Text("Stars, optional")
-						.font(.system(size: 13, weight: .medium))
-						.foregroundStyle(.white.opacity(0.6))
-					Spacer()
-					if let shownStars {
-						Text("\(StarRating.label(shownStars)) of 5")
-							.font(.system(size: 13, weight: .semibold))
-							.foregroundStyle(.white.opacity(0.85))
+		VStack(alignment: .leading, spacing: 0) {
+			// The poster across the top, the sheet's glass rising over its foot.
+			PosterImage(urlString: subject.posterURL, systemPlaceholder: subject.placeholder)
+				.frame(height: 130)
+				.frame(maxWidth: .infinity)
+				.clipped()
+				.accessibilityHidden(true)
+			VStack(alignment: .leading, spacing: 16) {
+				HStack(alignment: .firstTextBaseline) {
+					VStack(alignment: .leading, spacing: 2) {
+						Text(subject.title)
+							.font(.system(size: 22, weight: .bold, design: .serif))
+							.lineLimit(2)
+						Text(mode == .justMarked ? "Marked watched just now. How was it?" : "How was it?")
+							.font(.system(size: 13, weight: .medium))
+							.foregroundStyle(.white.opacity(0.65))
 					}
+					Spacer()
+					Button("Not now", action: onClose)
+						.font(.system(size: 14, weight: .semibold))
+						.foregroundStyle(.white.opacity(0.8))
 				}
-				StarRatingPicker(value: shownStars) { picked in
+
+				// The four verdicts as one segmented row; tapping the chosen one clears it.
+				HStack(spacing: 2) {
+					ForEach(Rating.allCases) { option($0) }
+				}
+				.padding(3)
+				.background(.white.opacity(0.08), in: Capsule())
+
+				StarRatingSlider(value: shownStars) { picked in
 					stars = picked
 					rating = StarRating.verdict(for: picked)
 				}
-			}
 
-			if subject.aspects != nil { aspectChips }
-
-			if subject.note != nil {
-				TextField("Add a private note…", text: $note, axis: .vertical)
-					.lineLimit(1...4)
-					.font(.system(size: 14))
-					.padding(12)
-					.background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-			}
-
-			HStack(spacing: 10) {
-				Button(action: onClose) {
-					Text("Not now")
-						.font(.system(size: 15, weight: .semibold))
-						.foregroundStyle(.white)
-						.frame(maxWidth: .infinity)
-						.padding(.vertical, 13)
-						.background(.white.opacity(0.1), in: Capsule())
+				if subject.aspects != nil && subject.note != nil {
+					Picker("Add", selection: $extra.animation(Glass.smooth)) {
+						ForEach(Extra.allCases) { Text($0.rawValue).tag($0) }
+					}
+					.pickerStyle(.segmented)
 				}
-				.buttonStyle(.pressable)
+				if subject.aspects != nil && (extra == .aspects || subject.note == nil) { aspectChips }
+				if subject.note != nil && (extra == .note || subject.aspects == nil) {
+					TextField("Add a private note…", text: $note, axis: .vertical)
+						.lineLimit(2...5)
+						.font(.system(size: 14))
+						.padding(12)
+						.background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+				}
+
 				Button(action: save) {
 					Text("Save rating")
-						.font(.system(size: 15, weight: .bold))
+						.font(.system(size: 16, weight: .bold))
 						.foregroundStyle(.black.opacity(0.85))
 						.frame(maxWidth: .infinity)
-						.padding(.vertical, 13)
-						.background(PhoneFilmDetailView.teal, in: Capsule())
+						.padding(.vertical, 14)
+						.background(.white, in: Capsule())
 				}
 				.buttonStyle(.pressable)
 			}
+			.padding(.horizontal, 20)
+			.padding(.top, 20)
+			.padding(.bottom, 34)
+			.glassEffect(.regular.tint(tint.opacity(0.55)),
+			             in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous))
+			.padding(.top, -28)
 		}
 		.foregroundStyle(.white)
-		.padding(18)
-		.glassEffect(.regular.tint(tint.opacity(0.55)),
-		             in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+		.clipShape(UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous))
 	}
 
 	/// "What stood out?": each tap moves an aspect from unmarked to liked to
@@ -190,7 +194,7 @@ struct RatingPopup: View {
 	private var aspectChips: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			HStack {
-				Text("What stood out, optional")
+				Text("Optional")
 					.font(.system(size: 13, weight: .medium))
 					.foregroundStyle(.white.opacity(0.6))
 				Spacer()
@@ -235,28 +239,25 @@ struct RatingPopup: View {
 	}
 
 	/// Tapping the chosen verdict again clears the rating. Hand-picked stars
-	/// stay only if they still fit the verdict chosen.
+	/// stay only if they still fit the verdict chosen. Chosen, it's solid in its
+	/// own colour.
 	private func option(_ option: Rating) -> some View {
 		let selected = rating == option
-		let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 		return Button {
 			Haptics.selection()
-			rating = selected ? nil : option
-			stars = StarRating.explicit(stars, afterChoosing: rating)
-		} label: {
-			HStack(spacing: 7) {
-				Circle()
-					.fill(Glass.tint(option))
-					.frame(width: 8, height: 8)
-				Text(option.rawValue)
-					.font(.system(size: 13, weight: .semibold))
-				Spacer(minLength: 0)
+			withAnimation(Glass.pop) {
+				rating = selected ? nil : option
+				stars = StarRating.explicit(stars, afterChoosing: rating)
 			}
-			.foregroundStyle(.white)
-			.padding(.horizontal, 12)
-			.padding(.vertical, 11)
-			.background(.white.opacity(selected ? 0.2 : 0.07), in: shape)
-			.overlay(shape.strokeBorder(.white.opacity(selected ? 0.55 : 0), lineWidth: 1))
+		} label: {
+			Text(option.rawValue)
+				.font(.system(size: 13, weight: .semibold))
+				.lineLimit(1)
+				.minimumScaleFactor(0.8)
+				.foregroundStyle(selected ? Glass.onTint : .white)
+				.frame(maxWidth: .infinity, minHeight: 36)
+				.background(selected ? Glass.tint(option) : .clear, in: Capsule())
+				.contentShape(Capsule())
 		}
 		.buttonStyle(.plain)
 		.accessibilityAddTraits(selected ? .isSelected : [])

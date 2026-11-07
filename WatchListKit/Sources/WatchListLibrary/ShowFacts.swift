@@ -20,6 +20,14 @@ public enum ShowFacts {
 		code(season: episode.seasonNumber, episode: episode.episodeNumber)
 	}
 
+	/// The episode's name, or nil when it adds nothing beside its code: some
+	/// listings name an episode just "S2E2", which would read "S2 E2 · S2E2".
+	public static func distinctName(_ episode: Episode) -> String? {
+		let squash = { (s: String) in s.lowercased().filter { !$0.isWhitespace } }
+		let name = episode.displayTitle
+		return squash(name) == squash(code(episode)) ? nil : name
+	}
+
 	/// "1 season", "4 seasons".
 	public static func seasons(_ count: Int) -> String {
 		"\(count) \(count == 1 ? "season" : "seasons")"

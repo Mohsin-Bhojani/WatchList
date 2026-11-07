@@ -31,6 +31,7 @@ struct PhoneFilmDetailView: View {
 	@Environment(\.dismiss) private var dismiss
 	@Query(sort: \TitleCollection.created) private var collections: [TitleCollection]
 
+	@State private var showingMoreDetails = false
 	@State private var compactBar = false
 	@State private var ratingPopup: RatingPopup.Mode?
 	@State private var showingArtwork = false
@@ -182,42 +183,81 @@ struct PhoneFilmDetailView: View {
 
 	// MARK: Details
 
+	/// After design B of the alternatives: the facts in one line, genre and
+	/// studio as chips, the rest — money, status, your rating, collections —
+	/// folded under More, and the ways out.
 	private var detailsCard: some View {
-		VStack(spacing: 0) {
-			if !film.genre.isEmpty {
-				PageDetailRow("Genre", icon: "theatermasks", text: FilmFacts.genres(film.genre))
-				PageRowDivider()
+		let specs = film.specs
+		let line = [FilmFacts.runtime(specs?.runtimeMinutes), FilmFacts.releaseDate(specs?.releaseDate),
+		            specs.map { $0.spokenLanguages.prefix(2).joined(separator: ", ") }]
+			.compactMap { $0 }.filter { !$0.isEmpty }
+		let chips = film.genre.components(separatedBy: ", ").filter { !$0.isEmpty }
+			+ (specs?.productionCompanies.prefix(1).map { $0 } ?? [])
+		return VStack(alignment: .leading, spacing: 12) {
+			if !line.isEmpty {
+				Text(line.joined(separator: " · "))
+					.font(.system(size: 15))
+					.foregroundStyle(.white)
 			}
-			if let runtime = FilmFacts.runtime(film.specs?.runtimeMinutes) {
-				PageDetailRow("Runtime", icon: "clock", text: runtime)
-				PageRowDivider()
-			}
-			if let released = FilmFacts.releaseDate(film.specs?.releaseDate) {
-				PageDetailRow("Release date", icon: "calendar", text: released)
-				PageRowDivider()
-			}
-			PageDetailRow(label: "Where to watch", icon: "tv") { PlaceholderTag() }
-			PageRowDivider()
-			PageDetailRow("Your rating", icon: "star", text: yourRatingSummary)
-			PageRowDivider()
-			PageDetailRow("Collections", icon: "rectangle.stack", text: collectionNames)
-
-			HStack(spacing: 10) {
-				if let id = film.imdbID, let url = IMDb.titleURL(id) {
-					Link(destination: url) {
-						HStack(spacing: 5) {
-							Text("View on IMDb")
-							Image(systemName: "arrow.up.right")
-						}
-						.titlePageCapsule()
+			if !chips.isEmpty {
+				TileFlowLayout(spacing: 6) {
+					ForEach(chips, id: \.self) { chip in
+						Text(chip)
+							.font(.system(size: 12, weight: .semibold))
+							.foregroundStyle(.white)
+							.padding(.horizontal, 10)
+							.padding(.vertical, 5)
+							.background(.white.opacity(0.12), in: Capsule())
 					}
+				}
+			}
+			DisclosureGroup(isExpanded: $showingMoreDetails) {
+				VStack(spacing: 0) {
+					if let budget = specs?.budget, budget > 0 {
+						PageDetailRow("Budget", icon: "banknote", text: Self.money(budget))
+						PageRowDivider()
+					}
+					if let revenue = specs?.revenue, revenue > 0 {
+						PageDetailRow("Box office", icon: "chart.line.uptrend.xyaxis", text: Self.money(revenue))
+						PageRowDivider()
+					}
+					if let status = specs?.status, !status.isEmpty {
+						PageDetailRow("Status", icon: "info.circle", text: status)
+						PageRowDivider()
+					}
+					PageDetailRow("Your rating", icon: "star", text: yourRatingSummary)
+					PageRowDivider()
+					PageDetailRow("Collections", icon: "rectangle.stack", text: collectionNames)
+				}
+				.padding(.top, 6)
+			} label: {
+				Text("More")
+					.font(.system(size: 14, weight: .semibold))
+					.foregroundStyle(.white)
+			}
+			.tint(.white)
+
+			HStack(spacing: 8) {
+				if let id = film.imdbID, let url = IMDb.titleURL(id) {
+					Link(destination: url) { Text("IMDb").titlePageCapsule() }
+				}
+				if let url = TitleLinks.tmdbMovie(film.tmdbID) {
+					Link(destination: url) { Text("TMDb").titlePageCapsule() }
 				}
 				shareLink { Label("Share", systemImage: "square.and.arrow.up").titlePageCapsule() }
 			}
-			.padding(.top, 12)
 		}
 		.padding(14)
 		.liquidCard(cornerRadius: 20)
+	}
+
+	/// "$30M", "$84.9M", "$900K".
+	static func money(_ amount: Int) -> String {
+		let value = Double(amount)
+		if value >= 1_000_000_000 { return "$" + (value / 1_000_000_000).formatted(.number.precision(.fractionLength(0...1))) + "B" }
+		if value >= 1_000_000 { return "$" + (value / 1_000_000).formatted(.number.precision(.fractionLength(0...1))) + "M" }
+		if value >= 1_000 { return "$" + (value / 1_000).formatted(.number.precision(.fractionLength(0))) + "K" }
+		return "$\(amount)"
 	}
 
 	/// Your collections this film is in, or "None yet".
@@ -238,7 +278,7 @@ struct PhoneFilmDetailView: View {
 
 	private func loadCast() async {
 		guard let tmdbID = film.tmdbID else { return }
-		cast = Array(await CreditsLoader.movieCast(movieID: tmdbID).people.prefix(15))
+		cast = await CreditsLoader.movieCast(movieID: tmdbID).people
 	}
 
 	// MARK: Menu

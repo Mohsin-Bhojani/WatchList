@@ -101,3 +101,57 @@ struct StarsLabel: View {
 		.accessibilityLabel("\(StarRating.label(value)) of 5 stars")
 	}
 }
+
+/// The half-star scale as a slider over the verdict bands, after design A of
+/// the alternatives: the number large with its verdict beside it, a slider in
+/// halves from 0 to 5, and under it where each verdict's stars run — so moving
+/// the stars shows the verdict they make.
+struct StarRatingSlider: View {
+	let value: Double?
+	let onChange: (Double) -> Void
+
+	/// Each verdict's share of the scale: Skip 0–1.5, Timepass 2–3, Go For It
+	/// 3.5–4.5, Perfection 5.
+	private static let bands: [(Rating, CGFloat)] = [(.skip, 1.5), (.timepass, 1.5), (.goForIt, 1.5), (.perfection, 0.5)]
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			HStack(alignment: .firstTextBaseline) {
+				Text(value.map(StarRating.label) ?? "–")
+					.font(.system(size: 30, weight: .bold, design: .serif))
+					.foregroundStyle(.white.opacity(value == nil ? 0.5 : 1))
+				Text("stars")
+					.font(.system(size: 13, weight: .medium))
+					.foregroundStyle(.white.opacity(0.6))
+				Spacer()
+				if let value { RatingBadge(rating: StarRating.verdict(for: value)) }
+			}
+			Slider(value: Binding(get: { value ?? 0 }, set: { picked in
+				let snapped = StarRating.snapped(picked)
+				guard snapped != value else { return }
+				Haptics.selection()
+				onChange(snapped)
+			}), in: 0...5, step: 0.5)
+			.tint(StarRatingPicker.gold)
+			.accessibilityLabel("Stars")
+			.accessibilityValue(value.map { "\(StarRating.label($0)) of 5" } ?? "Not rated")
+			GeometryReader { geometry in
+				HStack(spacing: 3) {
+					ForEach(Self.bands, id: \.0) { verdict, share in
+						VStack(alignment: .leading, spacing: 4) {
+							Capsule().fill(Glass.tint(verdict)).frame(height: 5)
+							Text(verdict.rawValue)
+								.font(.system(size: 9, weight: .semibold))
+								.foregroundStyle(.white.opacity(0.6))
+								.lineLimit(1)
+								.minimumScaleFactor(0.7)
+						}
+						.frame(width: (geometry.size.width - 9) * share / 5)
+					}
+				}
+			}
+			.frame(height: 22)
+			.accessibilityHidden(true)
+		}
+	}
+}

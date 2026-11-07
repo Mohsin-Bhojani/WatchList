@@ -2,10 +2,11 @@
 //  EpisodeRatingSheet.swift
 //  WatchList
 //
-//  What Home's Mark Watched opens for the episode a show is up to: its still,
-//  the season and episode, the show, the synopsis, and the three episode
-//  ratings. Picking one records it and marks the episode Watched in the same
-//  tap; swiping the sheet away changes nothing.
+//  What Home's Mark Watched opens for the episode a show is up to, after design
+//  B of the alternatives — mark first, rate if you like: the still at its own
+//  16:9 across the sheet, the episode and the show, Mark Watched, then an
+//  optional rating to go with it and the episode after this one. The sheet is
+//  as tall as it needs, never narrower. Swiping it away changes nothing.
 //
 
 import SwiftUI
@@ -28,31 +29,49 @@ struct EpisodeRatingSheet: View {
 		return show?.backdropURL ?? ""
 	}
 
+	/// The rating to record with the mark; starts as the episode's own.
+	@State private var picked: EpisodeTier?
+	@State private var pickedLoaded = false
+
+	/// The episode after this one still to watch, for the line at the foot.
+	private var upNext: Episode? {
+		guard let show else { return nil }
+		let order = HomeFeed.runningOrder(of: show)
+		guard let index = order.firstIndex(where: { $0.id == episode.id }) else { return nil }
+		return order[(index + 1)...].first { $0.status != .watched }
+	}
+
 	var body: some View {
 		ScrollView {
 			VStack(alignment: .leading, spacing: 18) {
+				// Its own shape, the full width: taller rather than cropped.
 				PosterImage(urlString: stillURL, systemPlaceholder: "film")
 					.aspectRatio(16 / 9, contentMode: .fit)
 					.frame(maxWidth: .infinity)
-					.clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+					.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+					.overlay(alignment: .bottomLeading) {
+						Text(ShowFacts.code(episode))
+							.font(.system(size: 12, weight: .bold))
+							.foregroundStyle(.white)
+							.padding(.horizontal, 10)
+							.padding(.vertical, 5)
+							.background(.black.opacity(0.5), in: Capsule())
+							.padding(10)
+					}
 					.accessibilityHidden(true)
 
-				// The same order as the hero: where you are, then whose it is.
 				VStack(alignment: .leading, spacing: 4) {
-					Text(HomeFeed.episodeLine(episode))
-						.font(.system(size: 14, weight: .semibold))
-						.foregroundStyle(Glass.accent)
 					if let show {
 						Text(show.title)
-							.font(.system(size: 24, weight: .bold))
-							.fixedSize(horizontal: false, vertical: true)
-					}
-					if !episode.title.isEmpty {
-						Text(episode.title)
-							.font(.system(size: 17, weight: .medium))
+							.font(.system(size: 15, weight: .semibold))
 							.foregroundStyle(.secondary)
-							.fixedSize(horizontal: false, vertical: true)
 					}
+					Text(episode.displayTitle)
+						.font(.system(size: 24, weight: .bold))
+						.fixedSize(horizontal: false, vertical: true)
+					Text(HomeFeed.episodeLine(episode))
+						.font(.system(size: 13, weight: .medium))
+						.foregroundStyle(.secondary)
 				}
 
 				if !episode.synopsis.isEmpty {
@@ -62,50 +81,75 @@ struct EpisodeRatingSheet: View {
 						.fixedSize(horizontal: false, vertical: true)
 				}
 
-				VStack(alignment: .leading, spacing: 10) {
-					Text("Rate this episode")
+				Button { rate(picked) } label: {
+					Label("Mark Watched", systemImage: "checkmark")
 						.font(.system(size: 17, weight: .semibold))
-					HStack(spacing: 10) {
+						.foregroundStyle(Color(.systemBackground))
+						.frame(maxWidth: .infinity, minHeight: 50)
+						.background(Glass.ink, in: Capsule())
+				}
+				.buttonStyle(.pressable)
+
+				HStack {
+					Text("Rate it, optional")
+						.font(.system(size: 14, weight: .medium))
+						.foregroundStyle(.secondary)
+					Spacer()
+					HStack(spacing: 2) {
 						ForEach(EpisodeTier.allCases) { tierButton($0) }
 					}
-					Button { rate(nil) } label: {
-						Text("Mark Watched Without Rating")
-							.font(.system(size: 14, weight: .medium))
-							.foregroundStyle(.secondary)
-							.frame(maxWidth: .infinity)
-							.padding(.vertical, 8)
-					}
-					.buttonStyle(.plain)
+					.padding(3)
+					.glassEffect(.regular, in: Capsule())
 				}
-				.padding(.top, 4)
+
+				if let upNext {
+					Divider()
+					HStack(spacing: 10) {
+						Text("Up next")
+							.font(.system(size: 13, weight: .medium))
+							.foregroundStyle(.secondary)
+						Text([ShowFacts.code(upNext), ShowFacts.distinctName(upNext)].compactMap { $0 }.joined(separator: " · "))
+							.font(.system(size: 15))
+							.lineLimit(1)
+						Spacer(minLength: 0)
+						if let minutes = upNext.runtimeMinutes ?? upNext.specs?.runtimeMinutes {
+							Text("\(minutes) min")
+								.font(.system(size: 13, weight: .medium))
+								.foregroundStyle(.secondary)
+						}
+					}
+				}
 			}
 			.padding(.horizontal, 20)
 			// Clear of the drag indicator, now there's no bar above.
 			.padding(.top, 28)
 			.padding(.bottom, 20)
 		}
-		.presentationDetents([.fraction(0.85), .large])
+		.presentationDetents([.large])
 		.presentationDragIndicator(.visible)
+		.onAppear {
+			guard !pickedLoaded else { return }
+			picked = episode.episodeTier
+			pickedLoaded = true
+		}
 	}
 
+	/// One of the three ratings in the optional row; tapped again, unpicked.
 	private func tierButton(_ tier: EpisodeTier) -> some View {
-		let current = episode.episodeTier == tier
-		let tint = Glass.tint(tier)
-		let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
-		return Button { rate(tier) } label: {
-			VStack(spacing: 5) {
-				Image(systemName: tier.systemImage)
-					.font(.system(size: 20, weight: .semibold))
-				Text(tier.rawValue)
-					.font(.system(size: 15, weight: .semibold))
-			}
-			.foregroundStyle(tint)
-			.frame(maxWidth: .infinity)
-			.padding(.vertical, 12)
-			.background(shape.fill(tint.opacity(current ? 0.26 : 0.13)))
-			.overlay(shape.strokeBorder(tint.opacity(current ? 0.9 : 0.3), lineWidth: current ? 2 : 1))
+		let current = picked == tier
+		return Button {
+			Haptics.selection()
+			withAnimation(Glass.pop) { picked = current ? nil : tier }
+		} label: {
+			Text(tier.rawValue)
+				.font(.system(size: 13, weight: .semibold))
+				.foregroundStyle(current ? Glass.onTint : Glass.ink)
+				.padding(.horizontal, 12)
+				.frame(minHeight: 32)
+				.background(current ? Glass.tint(tier) : .clear, in: Capsule())
+				.contentShape(Capsule())
 		}
-		.buttonStyle(.pressable)
+		.buttonStyle(.plain)
 		.accessibilityLabel(tier.rawValue)
 		.accessibilityAddTraits(current ? .isSelected : [])
 	}

@@ -108,6 +108,8 @@ struct PhoneDiscoverView: View {
 					DiscoverCard(suggestion: current,
 					             reason: describing ? describedReason(for: current)
 					                       : DiscoverFeed.reason(for: current, in: library),
+					             reasonPosterURL: describing ? nil
+					                       : library.first { $0.id == current.seeds.first }?.posterURL,
 					             // The height left over sets its size on a phone; on an
 					             // iPad this keeps it from filling the whole width.
 					             posterMaxWidth: width > 0 ? width * 0.7 : 250,

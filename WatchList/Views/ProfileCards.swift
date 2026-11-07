@@ -18,44 +18,52 @@ import WatchListLibrary
 struct VerdictSummaryCard: View {
 	let counts: [ProfileFeed.VerdictCount]
 
+	/// After design B of the alternatives: what your verdicts add up to, said
+	/// in a sentence; the counts in words under it; the split as a bar; and the
+	/// way into Stats.
 	var body: some View {
 		let total = counts.reduce(0) { $0 + $1.count }
 		VStack(alignment: .leading, spacing: 12) {
-			HStack(alignment: .firstTextBaseline) {
-				Text("Your verdicts")
-					.font(.system(size: 15, weight: .semibold))
-				Spacer()
-				HStack(spacing: 6) {
-					Text(total == 0 ? "None yet" : "\(total) rated")
-					// It opens Stats.
-					Image(systemName: "chevron.right")
-						.font(.system(size: 12, weight: .bold))
-				}
-				.font(.system(size: 13, weight: .medium))
-				.foregroundStyle(.white.opacity(0.6))
+			Text(Self.sentence(for: counts))
+				.font(.system(size: 22, weight: .bold, design: .serif))
+				.fixedSize(horizontal: false, vertical: true)
+			if total > 0 {
+				Text(Self.breakdown(for: counts))
+					.font(.system(size: 13, weight: .medium))
+					.foregroundStyle(.white.opacity(0.75))
+					.fixedSize(horizontal: false, vertical: true)
+				bar(total: total)
 			}
-			if total > 0 { bar(total: total) }
-			LazyVGrid(columns: [GridItem(.flexible(), spacing: 20), GridItem(.flexible())],
-			          alignment: .leading, spacing: 8) {
-				ForEach(counts) { item in
-					HStack(spacing: 8) {
-						Circle()
-							.fill(Glass.tint(item.rating))
-							.frame(width: 8, height: 8)
-						Text(item.rating.rawValue)
-							.font(.system(size: 13, weight: .medium))
-							.foregroundStyle(.white.opacity(0.85))
-						Spacer(minLength: 4)
-						Text("\(item.count)")
-							.font(.system(size: 13, weight: .bold))
-							.monospacedDigit()
-					}
-					.accessibilityElement(children: .combine)
-				}
+			HStack(spacing: 4) {
+				Text(total == 0 ? "Your verdicts" : "See your stats")
+				Image(systemName: "chevron.right")
+					.font(.system(size: 12, weight: .bold))
 			}
+			.font(.system(size: 13, weight: .semibold))
 		}
-		.padding(16)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.padding(18)
 		.liquidCard(cornerRadius: 20)
+	}
+
+	/// What the verdicts come to, in a sentence.
+	static func sentence(for counts: [ProfileFeed.VerdictCount]) -> String {
+		let total = counts.reduce(0) { $0 + $1.count }
+		guard total > 0, let top = counts.max(by: { $0.count < $1.count }) else {
+			return "Rate what you watch, and your verdicts add up here."
+		}
+		let liked = counts.filter { $0.rating == .perfection || $0.rating == .goForIt }.reduce(0) { $0 + $1.count }
+		if liked == total { return total == 1 ? "You loved the one title you've rated." : "You've loved everything you've rated so far." }
+		if top.rating == .skip { return "You're hard to please: most of what you rate, you'd skip." }
+		return "Most of what you rate, you call \(top.rating.rawValue)."
+	}
+
+	/// "1 Perfection and 1 Go For It, from 2 rated titles."
+	static func breakdown(for counts: [ProfileFeed.VerdictCount]) -> String {
+		let total = counts.reduce(0) { $0 + $1.count }
+		let parts = counts.filter { $0.count > 0 }.map { "\($0.count) \($0.rating.rawValue)" }
+		let list = parts.count > 1 ? parts.dropLast().joined(separator: ", ") + " and " + parts.last! : parts.first ?? ""
+		return "\(list), from \(total) rated title\(total == 1 ? "" : "s")."
 	}
 
 	/// A segment for each verdict given, as wide as its share, 2pt apart.

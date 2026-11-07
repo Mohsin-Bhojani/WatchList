@@ -58,7 +58,7 @@ struct PhoneEpisodeView: View {
 				}
 				PageSection(title: "Details") { detailsCard }
 				if !credits.people.isEmpty {
-					PageSection(title: "In this episode") { PageCastRow(cast: Array(credits.people.prefix(15))) }
+					PageSection(title: "In this episode") { PageCastRow(cast: credits.people) }
 				}
 			}
 		}
