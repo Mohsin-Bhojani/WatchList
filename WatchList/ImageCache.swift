@@ -74,7 +74,7 @@ actor ImageCache {
 		let cacheFile = directory.appendingPathComponent(fileName(for: url))
 		if let data = try? Data(contentsOf: cacheFile), let image = decoded(data) { return image }
 		if url.isFileURL {
-			return (try? Data(contentsOf: url)).flatMap(decoded)
+			return (try? Data(contentsOf: ManualPosterStore.resolve(url))).flatMap(decoded)
 		}
 		guard let download = try? await URLSession.shared.data(from: url),
 		      let image = decoded(download.0) else { return nil }
@@ -118,13 +118,34 @@ actor ImageCache {
 // user picks one from Photos, we save it permanently (NOT the purgeable
 // Caches directory ImageCache uses) and hand back a file:// URL that works
 // as a normal posterURL everywhere else in the app.
+//
+// The URL saved is absolute, but the app's container isn't fixed: iOS can move
+// it on a reinstall, a restore from backup or an update, leaving the saved path
+// pointing nowhere. So a poster is always found by its file name, in this
+// launch's ManualPosters folder — `resolve(_:)` — whatever path was saved.
 
 enum ManualPosterStore {
-	private static var directory: URL {
+	nonisolated static var directory: URL {
 		let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
 		let dir = docs.appendingPathComponent("ManualPosters", isDirectory: true)
 		try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 		return dir
+	}
+
+	/// Where `url`'s poster is now: a URL into a ManualPosters folder from any
+	/// earlier container becomes the same file in this one. Any other URL comes
+	/// back as it is.
+	nonisolated static func resolve(_ url: URL) -> URL {
+		guard url.isFileURL, url.deletingLastPathComponent().lastPathComponent == "ManualPosters" else { return url }
+		return directory.appendingPathComponent(url.lastPathComponent)
+	}
+
+	/// Deletes the poster saved for a title, when `posterURL` is one of ours.
+	/// Anything else — a TMDb URL, an empty string — is left alone.
+	nonisolated static func remove(_ posterURL: String) {
+		guard let url = URL(string: posterURL), url.isFileURL,
+		      url.deletingLastPathComponent().lastPathComponent == "ManualPosters" else { return }
+		try? FileManager.default.removeItem(at: resolve(url))
 	}
 
 	/// Saves picked image data permanently; returns a posterURL string, or nil on failure.

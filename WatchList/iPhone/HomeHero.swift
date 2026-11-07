@@ -151,16 +151,19 @@ struct HomeHeroPage: View {
 				.lineLimit(2)
 				.minimumScaleFactor(0.8)
 				.shadow(color: .black.opacity(0.25), radius: 6, y: 1)
-			Button(action: markWatched) {
-				Text("Mark Watched")
-					.font(.system(size: 16, weight: .medium))
-					.foregroundStyle(.white)
-					.padding(.horizontal, 6)
+			// Caught up, there's nothing out to mark until the next one airs.
+			if !caughtUp(next: next) {
+				Button(action: markWatched) {
+					Text("Mark Watched")
+						.font(.system(size: 16, weight: .medium))
+						.foregroundStyle(.white)
+						.padding(.horizontal, 6)
+				}
+				.buttonStyle(.glass)
+				.controlSize(.large)
+				.padding(.top, 10)
+				.accessibilityLabel(next == nil ? "Mark \(show.title) watched" : "Mark \(progress) watched")
 			}
-			.buttonStyle(.glass)
-			.controlSize(.large)
-			.padding(.top, 10)
-			.accessibilityLabel(next == nil ? "Mark \(show.title) watched" : "Mark \(progress) watched")
 		}
 		.padding(.horizontal, 24)
 	}
@@ -196,15 +199,17 @@ struct HomeHeroPage: View {
 					.padding(.top, 6)
 			}
 			HStack(spacing: 18) {
-				Button(action: markWatched) {
-					Text("Mark Watched")
-						.font(.system(size: 16, weight: .medium))
-						.foregroundStyle(.white)
-						.padding(.horizontal, 6)
+				if !caughtUp(next: next) {
+					Button(action: markWatched) {
+						Text("Mark Watched")
+							.font(.system(size: 16, weight: .medium))
+							.foregroundStyle(.white)
+							.padding(.horizontal, 6)
+					}
+					.buttonStyle(.glass)
+					.controlSize(.large)
+					.accessibilityLabel(next == nil ? "Mark \(show.title) watched" : "Mark \(progress) watched")
 				}
-				.buttonStyle(.glass)
-				.controlSize(.large)
-				.accessibilityLabel(next == nil ? "Mark \(show.title) watched" : "Mark \(progress) watched")
 				if total > 0 {
 					VStack(alignment: .leading, spacing: 6) {
 						Text(ShowFacts.progressLine(watched: watched, total: total))
@@ -247,6 +252,11 @@ struct HomeHeroPage: View {
 			art = image
 			if let sampled { onBand(sampled) }
 		}
+	}
+
+	/// Every episode that's out is Watched, with more still to air.
+	private func caughtUp(next: Episode?) -> Bool {
+		next == nil && HomeFeed.nextToAir(of: show) != nil
 	}
 
 	/// With an episode to go, opens the rating sheet — rating it is what marks

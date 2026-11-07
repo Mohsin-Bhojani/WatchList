@@ -76,9 +76,16 @@ struct UpNextShow: Codable, Equatable, Identifiable {
 	/// The first episodes not yet watched, in running order with specials last,
 	/// so the watch can move on by itself.
 	let upcoming: [UpNextEpisode]
-	/// How many episodes aren't watched — more than `upcoming` holds, at times.
+	/// How many episodes that are out aren't watched — more than `upcoming`
+	/// holds, at times.
 	let remaining: Int
 	let episodeCount: Int
+	/// How many episodes not yet watched are still to air. Optional, so a
+	/// snapshot from an iPhone that doesn't send it — the watch keeps the last
+	/// one it was sent — still reads.
+	var toAir: Int? = nil
+	/// The air date of the first of those, as TMDb writes it; nil without one.
+	var nextAirDate: String? = nil
 }
 
 struct UpNextEpisode: Codable, Equatable, Identifiable {

@@ -232,6 +232,7 @@ private struct ShowPage: View {
 		if let next = item.next { return next.line }
 		if item.show.episodeCount == 0 { return "No episodes tracked" }
 		if item.show.remaining > item.show.upcoming.count { return "More on your iPhone" }
+		if (item.show.toAir ?? 0) > 0 { return AirDate.caughtUpLine(nextAirDate: item.show.nextAirDate, short: true) }
 		return "All \(item.show.episodeCount) episodes watched"
 	}
 }

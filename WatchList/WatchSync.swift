@@ -349,18 +349,24 @@ enum WatchSnapshotBuilder {
 	}
 
 	/// The shows Home's hero pages through, in the order given, each with its
-	/// first `upcoming` episodes not yet watched, and the hero's artwork when
-	/// `artwork` has it.
+	/// first `upcoming` episodes out and not yet watched, and the hero's artwork
+	/// when `artwork` has it. Episodes still to air stay off the watch, so it
+	/// never moves on to one; it's told how many there are and when the next airs.
 	static func upNext(_ shows: [Show], artwork: [UUID: String] = [:],
-	                   upcoming limit: Int = WatchSync.upcomingCount) -> [UpNextShow] {
+	                   upcoming limit: Int = WatchSync.upcomingCount, asOf now: Date = .now) -> [UpNextShow] {
 		HomeFeed.watching(shows).map { show in
-			let unwatched = HomeFeed.runningOrder(of: show).filter { $0.status != .watched }
+			let order = HomeFeed.runningOrder(of: show)
+			let pairs = zip(order, HomeFeed.aired(order, asOf: now)).filter { $0.0.status != .watched }
+			let out = pairs.filter(\.1).map(\.0)
+			let toAir = pairs.filter { !$0.1 }.map(\.0)
 			return UpNextShow(id: show.id,
 			                  title: show.title,
 			                  artworkURL: artwork[show.id] ?? (show.backdropURL.isEmpty ? show.posterURL : show.backdropURL),
-			                  upcoming: unwatched.prefix(limit).map { episode($0) },
-			                  remaining: unwatched.count,
-			                  episodeCount: show.episodeCount)
+			                  upcoming: out.prefix(limit).map { episode($0) },
+			                  remaining: out.count,
+			                  episodeCount: show.episodeCount,
+			                  toAir: toAir.count,
+			                  nextAirDate: toAir.first.flatMap { AirDate.dayPart(of: $0.airDate) })
 		}
 	}
 

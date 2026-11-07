@@ -164,10 +164,43 @@ enum HomeFeed {
 		shows.filter { $0.status == .watching }
 	}
 
-	/// The episode to watch next: the first not yet Watched, running through
-	/// the seasons in order with specials (season 0) saved for last.
-	static func nextEpisode(of show: Show) -> Episode? {
-		runningOrder(of: show).first { $0.status != .watched }
+	/// The episode to watch next: the first not yet Watched that has aired,
+	/// running through the seasons in order with specials (season 0) saved for
+	/// last. Nil once you're caught up, even with episodes still to air.
+	static func nextEpisode(of show: Show, asOf now: Date = .now) -> Episode? {
+		zip(runningOrder(of: show), aired(runningOrder(of: show), asOf: now))
+			.first { $0.0.status != .watched && $0.1 }?.0
+	}
+
+	/// The first episode not yet Watched that hasn't aired — what a caught-up
+	/// show is waiting on. Nil when nothing is still to air.
+	static func nextToAir(of show: Show, asOf now: Date = .now) -> Episode? {
+		zip(runningOrder(of: show), aired(runningOrder(of: show), asOf: now))
+			.first { $0.0.status != .watched && !$0.1 }?.0
+	}
+
+	/// True when every episode that's out is Watched but some are still to air.
+	static func isCaughtUp(_ show: Show, asOf now: Date = .now) -> Bool {
+		nextEpisode(of: show, asOf: now) == nil && nextToAir(of: show, asOf: now) != nil
+	}
+
+	/// Which of `order` are out by `now`, one flag each.
+	///
+	/// A dated episode is out from its air date. TMDb leaves the date off
+	/// episodes it hasn't scheduled yet — and off the odd old one — so an
+	/// undated episode counts as out when it's one added by hand (no TMDb show),
+	/// a special, or comes before one in the main run that has aired.
+	static func aired(_ order: [Episode], asOf now: Date = .now) -> [Bool] {
+		let today = AirDate.day(now)
+		let lastAired = order.lastIndex {
+			$0.seasonNumber != 0 && AirDate.hasAired($0.airDate, today: today) == true
+		}
+		return order.indices.map { index in
+			let episode = order[index]
+			if let aired = AirDate.hasAired(episode.airDate, today: today) { return aired }
+			if episode.tmdbShowID == nil || episode.seasonNumber == 0 { return true }
+			return lastAired.map { index < $0 } ?? false
+		}
 	}
 
 	/// Every episode in the order it runs: season by season, specials last.
@@ -189,8 +222,11 @@ enum HomeFeed {
 
 	/// The episode line while there's an episode to go; after that, why Mark
 	/// Watched now finishes the show instead.
-	static func progressLine(for show: Show, next: Episode?) -> String {
+	static func progressLine(for show: Show, next: Episode?, asOf now: Date = .now) -> String {
 		if let next { return episodeLine(next) }
+		if let waiting = nextToAir(of: show, asOf: now) {
+			return AirDate.caughtUpLine(nextAirDate: waiting.airDate, now: now)
+		}
 		let count = show.episodeCount
 		return count == 0 ? "No episodes tracked" : "All \(count) episodes watched"
 	}
@@ -206,13 +242,15 @@ enum HomeFeed {
 	/// Home's Mark Watched. Marks the next episode when there is one. Once
 	/// every episode is Watched it marks the show itself — cascading down to
 	/// seasons and episodes the way the Show page does, when `cascade` (the
-	/// "Mark all episodes watched" setting) is on. Returns the episode marked.
+	/// "Mark all episodes watched" setting) is on. A show caught up with
+	/// episodes still to air is left as it is. Returns the episode marked.
 	@discardableResult
-	static func markNextWatched(in show: Show, cascade: Bool) -> Episode? {
-		if let episode = nextEpisode(of: show) {
+	static func markNextWatched(in show: Show, cascade: Bool, asOf now: Date = .now) -> Episode? {
+		if let episode = nextEpisode(of: show, asOf: now) {
 			episode.markWatched()
 			return episode
 		}
+		guard nextToAir(of: show, asOf: now) == nil else { return nil }
 		show.mark(.watched)
 		if cascade {
 			for season in show.seasons {

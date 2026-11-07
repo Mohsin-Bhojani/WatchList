@@ -254,6 +254,19 @@ struct PhoneShowDetailView: View {
 							.frame(height: GlassControl.height)
 							.glassEffect(.regular.tint(Self.watchingFill.opacity(0.25)), in: Capsule())
 					}
+				} else if let waiting = HomeFeed.nextToAir(of: show) {
+					// Caught up: nothing out to mark, and the show isn't finished.
+					VStack(alignment: .leading, spacing: 3) {
+						Text(AirDate.caughtUpLine(nextAirDate: waiting.airDate))
+							.font(.system(size: 14, weight: .semibold))
+							.foregroundStyle(.white)
+						Text("\(ShowFacts.code(waiting)) · \(waiting.displayTitle)")
+							.font(.system(size: 11, weight: .medium))
+							.foregroundStyle(.white.opacity(0.6))
+							.lineLimit(1)
+					}
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.accessibilityElement(children: .combine)
 				} else {
 					HStack {
 						Text(show.episodeCount == 0 ? "No episodes tracked yet"
@@ -410,6 +423,7 @@ struct PhoneShowDetailView: View {
 	}
 
 	private func remove() {
+		ManualPosterStore.remove(show.posterURL)
 		ctx.delete(show, afterLeaving: dismiss)
 	}
 }

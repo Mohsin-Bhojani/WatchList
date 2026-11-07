@@ -116,6 +116,7 @@ struct PhoneFilmDetailView: View {
 		.confirmationDialog("Remove \u{201C}\(film.title)\u{201D}?", isPresented: $confirmingRemove,
 		                    titleVisibility: .visible) {
 			Button("Remove from Library", role: .destructive) {
+				ManualPosterStore.remove(film.posterURL)
 				ctx.delete(film, afterLeaving: dismiss)
 			}
 		} message: {
