@@ -87,3 +87,28 @@ struct EpisodeNameTests {
 		#expect(ShowFacts.distinctName(episode("")) == "Episode 2")
 	}
 }
+
+@MainActor
+struct PersonCreditsTests {
+	@Test func oneCreditPerTitleBestKnownFirst() {
+		let credits = [
+			TMDbPersonCredit(id: 1, media_type: "movie", title: "Small", vote_count: 10),
+			TMDbPersonCredit(id: 2, media_type: "tv", name: "Big", first_air_date: "2022-02-18", vote_count: 900),
+			TMDbPersonCredit(id: 2, media_type: "tv", name: "Big", character: "Again", vote_count: 900),
+			TMDbPersonCredit(id: 3, media_type: "person", name: "Not a title", vote_count: 5000),
+		]
+		let titles = TMDbPersonCredit.titles(credits)
+		#expect(titles.map(\.displayTitle) == ["Big", "Small"])
+		#expect(titles.first?.kind == .show)
+		#expect(titles.first?.year == "2022")
+		#expect(titles.last?.year == nil)
+	}
+
+	@Test func aFilmAndAShowCanShareAnID() {
+		let credits = [
+			TMDbPersonCredit(id: 7, media_type: "movie", title: "Film"),
+			TMDbPersonCredit(id: 7, media_type: "tv", name: "Show"),
+		]
+		#expect(TMDbPersonCredit.titles(credits).count == 2)
+	}
+}

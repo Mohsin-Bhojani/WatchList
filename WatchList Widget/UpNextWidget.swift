@@ -15,8 +15,14 @@
 //             its own Mark Watched
 //
 //    small    one show
-//    medium   one show, wider; or a shelf of four posters
-//    large    a list of four shows; or a shelf of six posters
+//    medium   one show: small art beside the episode and a wide Mark Watched
+//             (Round 3, design B); or a shelf of four posters
+//    large    one show: the art up front and one big Mark Watched (Round 3,
+//             design E); a list of four shows; or a shelf of six posters
+//
+//  Set to All, the medium and large one-show layouts carry a shuffle button
+//  that jumps to another of your Watching shows. The art is drawn in the
+//  widget, not behind it, so it still shows on a tinted or clear Home Screen.
 //    Lock Screen  the chosen show's episode (rectangular, inline) or how far
 //                 through it is (circular); tapping opens the app
 //
@@ -62,11 +68,12 @@ enum WidgetArt: String, AppEnum {
 }
 
 enum WidgetLayout: String, AppEnum {
-	case single, shelf
+	case single, list, shelf
 
 	static let typeDisplayRepresentation: TypeDisplayRepresentation = "Layout"
 	static let caseDisplayRepresentations: [WidgetLayout: DisplayRepresentation] = [
 		.single: "One show",
+		.list: "List of shows (large)",
 		.shelf: "Poster shelf",
 	]
 }
@@ -115,6 +122,23 @@ struct TurnUpNextPageIntent: AppIntent {
 	func perform() async throws -> some IntentResult {
 		if let store = WidgetStore.shared {
 			store.turnPage(by: step, of: store.snapshot().shows.count)
+		}
+		return .result()
+	}
+}
+
+/// The shuffle button: another of your Watching shows, picked at random.
+struct ShuffleUpNextIntent: AppIntent {
+	static let title: LocalizedStringResource = "Shuffle Up Next"
+	static let isDiscoverable = false
+
+	init() {}
+
+	func perform() async throws -> some IntentResult {
+		if let store = WidgetStore.shared {
+			let count = store.snapshot().shows.count
+			// Never the one it's on: a step of 1 to count - 1 always moves.
+			if count > 1 { store.turnPage(by: Int.random(in: 1..<count), of: count) }
 		}
 		return .result()
 	}
@@ -172,7 +196,7 @@ struct UpNextWidget: Widget {
 			UpNextWidgetView(entry: entry)
 		}
 		.configurationDisplayName("Up Next")
-		.description("The episode a show you're watching is up to, with Mark Watched. Edit the widget to pick the show, poster art or a shelf of posters.")
+		.description("The episode a show you're watching is up to, with Mark Watched. Edit the widget to pick the show, poster art, a list or a shelf of posters; set to All, shuffle between your shows.")
 		.supportedFamilies([.systemSmall, .systemMedium, .systemLarge,
 		                    .accessoryRectangular, .accessoryInline, .accessoryCircular])
 		.contentMarginsDisabled()
@@ -191,9 +215,13 @@ struct UpNextWidgetView: View {
 		case .accessoryCircular: circular
 		case .accessoryRectangular: rectangular
 		case .systemLarge:
-			if entry.configuration.layout == .shelf { shelf(columns: 3, rows: 2) } else { list }
+			switch entry.configuration.layout {
+			case .shelf: shelf(columns: 3, rows: 2)
+			case .list: list
+			case .single: large
+			}
 		case .systemMedium:
-			if entry.configuration.layout == .shelf { shelf(columns: 4, rows: 1) } else { single }
+			if entry.configuration.layout == .shelf { shelf(columns: 4, rows: 1) } else { medium }
 		default:
 			single
 		}
@@ -227,6 +255,104 @@ struct UpNextWidgetView: View {
 			}
 		} else {
 			EmptyUpNext().containerBackground(.fill.tertiary, for: .widget)
+		}
+	}
+
+	// MARK: Medium, one show (design B)
+
+	@ViewBuilder private var medium: some View {
+		if let show = entry.show {
+			VStack(alignment: .leading, spacing: 0) {
+				HStack(alignment: .top, spacing: 12) {
+					Art(show: show, poster: poster)
+						.frame(width: poster ? 58 : 132, height: poster ? 87 : 74)
+						.clipShape(RoundedRectangle(cornerRadius: poster ? 10 : 12, style: .continuous))
+					VStack(alignment: .leading, spacing: 3) {
+						HStack {
+							Text("UP NEXT")
+								.font(.system(size: 10, weight: .heavy))
+								.foregroundStyle(.white.opacity(0.75))
+							Spacer(minLength: 0)
+							if entry.pages { ShuffleButton() }
+						}
+						Text(show.title)
+							.font(.system(size: 16, weight: .bold))
+							.foregroundStyle(.white)
+							.lineLimit(poster ? 2 : 1)
+						Text(show.next?.code ?? show.caughtUpLine ?? "All watched")
+							.font(.system(size: 12, weight: .semibold))
+							.foregroundStyle(.white.opacity(0.85))
+							.lineLimit(1)
+						ProgressView(value: show.fraction).tint(.white)
+					}
+				}
+				Spacer(minLength: 6)
+				WideMarkButton(show: show, height: 34)
+			}
+			.padding(12)
+			.containerBackground(for: .widget) { Backdrop(show: show) }
+		} else {
+			EmptyUpNext().containerBackground(.fill.tertiary, for: .widget)
+		}
+	}
+
+	// MARK: Large, one show (design E)
+
+	@ViewBuilder private var large: some View {
+		if let show = entry.show {
+			VStack(alignment: .leading, spacing: 10) {
+				if poster {
+					HStack(alignment: .bottom, spacing: 12) {
+						Art(show: show, poster: true)
+							.frame(width: 128, height: 192)
+							.clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+						largeDetails(show)
+					}
+				} else {
+					Art(show: show, poster: false)
+						.frame(maxWidth: .infinity)
+						.frame(height: 168)
+						.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+						.overlay(alignment: .topTrailing) {
+							if entry.pages { ShuffleButton().padding(8) }
+						}
+					largeDetails(show)
+				}
+				Spacer(minLength: 0)
+				WideMarkButton(show: show, height: 46)
+			}
+			.padding(14)
+			.containerBackground(for: .widget) { Backdrop(show: show) }
+		} else {
+			EmptyUpNext().containerBackground(.fill.tertiary, for: .widget)
+		}
+	}
+
+	private func largeDetails(_ show: WidgetShow) -> some View {
+		VStack(alignment: .leading, spacing: 4) {
+			HStack {
+				Text("UP NEXT")
+					.font(.system(size: 11, weight: .heavy))
+					.foregroundStyle(.white.opacity(0.75))
+				Spacer(minLength: 0)
+				// On the landscape art it rides on the picture instead.
+				if poster && entry.pages { ShuffleButton() }
+			}
+			Text(show.title)
+				.font(.system(size: 20, weight: .bold))
+				.foregroundStyle(.white)
+				.lineLimit(2)
+			if let next = show.next {
+				Text(next.title.isEmpty ? next.code : "\(next.code) · \(next.title)")
+					.font(.system(size: 13, weight: .semibold))
+					.foregroundStyle(.white.opacity(0.85))
+					.lineLimit(2)
+			} else {
+				Text(show.caughtUpLine ?? "All watched")
+					.font(.system(size: 13, weight: .semibold))
+					.foregroundStyle(.white.opacity(0.85))
+			}
+			Progress(show: show)
 		}
 	}
 
@@ -336,7 +462,10 @@ private struct Art: View {
 		ZStack {
 			Color.black
 			if let image = picture(poster ? (show.posterFile ?? show.artFile) : (show.artFile ?? show.posterFile)) {
-				Image(uiImage: image).resizable().scaledToFill()
+				Image(uiImage: image).resizable()
+					// In colour on a tinted or clear Home Screen too.
+					.widgetAccentedRenderingMode(.fullColor)
+					.scaledToFill()
 			} else {
 				Image(systemName: "tv").font(.title2).foregroundStyle(.white.opacity(0.4))
 			}
@@ -489,6 +618,51 @@ private struct PageArrows: View {
 		}
 		.buttonStyle(.plain)
 		.accessibilityLabel(label)
+	}
+}
+
+/// Shuffles to another of your Watching shows.
+private struct ShuffleButton: View {
+	var body: some View {
+		Button(intent: ShuffleUpNextIntent()) {
+			Image(systemName: "shuffle")
+				.font(.system(size: 11, weight: .bold))
+				.foregroundStyle(.white)
+				.frame(width: 26, height: 26)
+				.background(.black.opacity(0.4), in: Circle())
+				.overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+		}
+		.buttonStyle(.plain)
+		.accessibilityLabel("Shuffle to another show")
+	}
+}
+
+/// Mark Watched across the widget: "Mark S2 E2 watched". Caught up, it says
+/// so instead, as there's nothing out to mark.
+private struct WideMarkButton: View {
+	let show: WidgetShow
+	let height: CGFloat
+
+	var body: some View {
+		if let next = show.next {
+			Button(intent: MarkEpisodeWatchedIntent(episodeID: next.id)) {
+				Label("Mark \(next.code) watched", systemImage: "checkmark")
+					.font(.system(size: height > 40 ? 15 : 13, weight: .bold))
+					.foregroundStyle(.black)
+					.frame(maxWidth: .infinity)
+					.frame(height: height)
+					.background(.white, in: Capsule())
+			}
+			.buttonStyle(.plain)
+			.accessibilityLabel("Mark \(next.code) watched")
+		} else {
+			Text(show.caughtUpLine ?? "All watched")
+				.font(.system(size: 13, weight: .semibold))
+				.foregroundStyle(.white.opacity(0.85))
+				.frame(maxWidth: .infinity)
+				.frame(height: height)
+				.background(.white.opacity(0.12), in: Capsule())
+		}
 	}
 }
 

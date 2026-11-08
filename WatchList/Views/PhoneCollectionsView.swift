@@ -239,9 +239,9 @@ struct PhoneCollectionsView: View {
 
 // MARK: - Card
 
-/// A Collections card: dark, tinted from the leading edge, with the first four
-/// posters fanned across the trailing end and running off its bottom. Without a
-/// tint it takes its first poster's colour.
+/// A Collections card, after design E of the second round: up to five posters
+/// in a wide fan over the collection's colour, the middle one on top, with the
+/// name and count under it. Without a tint it takes its first poster's colour.
 private struct CollectionCard: View {
 	let title: String
 	let subtitle: String
@@ -264,33 +264,31 @@ private struct CollectionCard: View {
 
 	var body: some View {
 		let empty = posterURLs.isEmpty
-		let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
-		HStack(spacing: 8) {
-			VStack(alignment: .leading, spacing: 3) {
-				HStack(spacing: 6) {
-					Text(title)
-						.font(.system(size: 17, weight: .bold))
-						.foregroundStyle(.white)
-						.lineLimit(1)
-					if locked {
-						Image(systemName: "lock")
-							.font(.system(size: 11, weight: .semibold))
-							.foregroundStyle(.white.opacity(0.7))
-					}
+		let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+		VStack(spacing: 4) {
+			WideFan(urls: Array(posterURLs.prefix(5)))
+				.frame(height: 150)
+				.padding(.top, 6)
+			HStack(spacing: 6) {
+				Text(title)
+					.font(.system(size: 20, weight: .bold, design: .serif))
+					.foregroundStyle(.white)
+					.lineLimit(1)
+				if locked {
+					Image(systemName: "lock")
+						.font(.system(size: 11, weight: .semibold))
+						.foregroundStyle(.white.opacity(0.7))
 				}
-				Text(subtitle)
-					.font(.system(size: 12, weight: .medium))
-					.foregroundStyle(.white.opacity(0.6))
 			}
-			Spacer(minLength: 0)
-			FannedPosters(urls: Array(posterURLs.prefix(4)), posterWidth: 46)
-				.offset(y: 16)
-				.padding(.trailing, 12)
+			Text(subtitle)
+				.font(.system(size: 12, weight: .medium))
+				.foregroundStyle(.white.opacity(0.65))
 		}
-		.padding(.leading, 18)
-		.frame(height: 100)
-		.background(LinearGradient(colors: [color.opacity(empty ? 0.12 : 0.5), .clear],
-		                           startPoint: .leading, endPoint: .trailing))
+		.padding(.horizontal, 14)
+		.padding(.bottom, 14)
+		.frame(maxWidth: .infinity)
+		.background(LinearGradient(colors: [color.opacity(empty ? 0.15 : 0.55), color.opacity(0.06)],
+		                           startPoint: .top, endPoint: .bottom))
 		.background(Color(.collectionCardGround))
 		.clipShape(shape)
 		.overlay(shape.strokeBorder(color.opacity(empty ? 0.2 : 0.45), lineWidth: 1))
@@ -299,6 +297,45 @@ private struct CollectionCard: View {
 			guard tint == nil, let url = posterURLs.first,
 			      let tone = await PageTheme.load(url), !Task.isCancelled else { return }
 			withAnimation(.easeOut(duration: 0.3)) { sampled = tone }
+		}
+	}
+}
+
+/// Up to five posters fanned like a hand of cards: each tilted out from the
+/// middle and dropped a little, the middle one on top. With none, three
+/// dashed outlines hold the shape.
+private struct WideFan: View {
+	let urls: [String]
+
+	private static let width: CGFloat = 76
+	private static let height: CGFloat = 114
+
+	var body: some View {
+		let slots = urls.isEmpty ? 3 : urls.count
+		ZStack {
+			ForEach(0..<slots, id: \.self) { index in
+				let spread = Double(index) - Double(slots - 1) / 2
+				poster(urls.isEmpty ? nil : urls[index])
+					.rotationEffect(.degrees(spread * 9), anchor: .bottom)
+					.offset(x: spread * 52, y: abs(spread) * abs(spread) * 3 + abs(spread) * 4)
+					.zIndex(-abs(spread))
+			}
+		}
+		.frame(maxWidth: .infinity)
+		.accessibilityHidden(true)
+	}
+
+	@ViewBuilder private func poster(_ url: String?) -> some View {
+		let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+		if let url {
+			PosterImage(urlString: url, systemPlaceholder: "film")
+				.frame(width: Self.width, height: Self.height)
+				.clipShape(shape)
+				.overlay(shape.strokeBorder(.white.opacity(0.15), lineWidth: 0.5))
+				.shadow(color: .black.opacity(0.4), radius: 8, y: 5)
+		} else {
+			shape.strokeBorder(.white.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+				.frame(width: Self.width, height: Self.height)
 		}
 	}
 }

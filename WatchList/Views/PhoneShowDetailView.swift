@@ -71,9 +71,19 @@ struct PhoneShowDetailView: View {
 				statusSwitch
 				if show.status == .watched { verdictSection }
 				if show.status == .watching { upNextSection }
+				// On a wide iPad the trailer sits under the poster.
+				PageColumnsReader { twoColumns in
+					if twoColumns { trailer }
+				}
 			} rest: {
+				// On a phone: above the seasons, unless Up next is there to lead.
+				PageColumnsReader { twoColumns in
+					if !twoColumns && show.status != .watching { trailer }
+				}
 				seasonsSection
-				TitleTrailerSection(kind: .show, tmdbID: show.tmdbID, backdropURL: show.backdropURL)
+				PageColumnsReader { twoColumns in
+					if !twoColumns && show.status == .watching { trailer }
+				}
 				if !show.overview.isEmpty { PageSynopsisCard(text: show.overview) }
 				WhereToWatchSection(kind: .show, tmdbID: show.tmdbID)
 				if let tmdbID = show.tmdbID {
@@ -219,6 +229,10 @@ struct PhoneShowDetailView: View {
 		}
 	}
 
+	private var trailer: some View {
+		TitleTrailerSection(kind: .show, tmdbID: show.tmdbID, backdropURL: show.backdropURL)
+	}
+
 	// MARK: Up next
 
 	private var upNextSection: some View {
@@ -356,7 +370,7 @@ struct PhoneShowDetailView: View {
 					if let current {
 						VStack(spacing: 0) {
 							ForEach(Array(current.sortedEpisodes.enumerated()), id: \.element.id) { index, episode in
-								if index > 0 { PageRowDivider(inset: 54) }
+								if index > 0 { PageRowDivider(inset: 106) }
 								seasonEpisodeRow(episode)
 							}
 							PageRowDivider(inset: 0)
@@ -417,19 +431,9 @@ struct PhoneShowDetailView: View {
 		let watched = episode.status == .watched
 		let aired = AirDate.hasAired(episode.airDate, today: AirDate.day(.now)) ?? true
 		return HStack(spacing: 10) {
-			Menu {
-				Section("Rate this episode") {
-					ForEach(EpisodeTier.allCases) { tier in
-						Toggle(tier.rawValue, isOn: Binding(get: { episode.episodeTier == tier }, set: { isOn in
-							Haptics.selection()
-							withAnimation(Glass.smooth) { episode.episodeTier = isOn ? tier : nil }
-						}))
-					}
-				}
-			} label: {
-				EpisodeNumberDisc(number: episode.episodeNumber, tier: episode.episodeTier)
+			EpisodeStillLead(episode: episode) { tier in
+				withAnimation(Glass.smooth) { episode.episodeTier = tier }
 			}
-			.accessibilityLabel("Episode \(episode.episodeNumber), \(episode.episodeTier?.rawValue ?? "not rated"). Rate it")
 			NavigationLink { PhoneEpisodeView(episode: episode) } label: {
 				VStack(alignment: .leading, spacing: 2) {
 					Text(episode.displayTitle)

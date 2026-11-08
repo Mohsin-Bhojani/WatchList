@@ -45,6 +45,8 @@ struct HomeHeroPage: View {
 	let onOpen: () -> Void
 
 	@State private var art: UIImage?
+	/// The episode panel's height as laid out, so a phone's art runs down to it.
+	@State private var panelHeight: CGFloat = 170
 
 	/// Artwork already loaded this session, by page and size, so a page that's
 	/// created fresh — like the real page the loop swaps in at either end —
@@ -71,7 +73,16 @@ struct HomeHeroPage: View {
 	// lower edge 23pt above the band's, fading over its top quarter and its
 	// bottom 40%.
 	private var artTop: CGFloat { max(topInset, 20) + 28 }
-	private var artHeight: CGFloat { max(height - artTop - 23, 200) }
+	/// On a phone the episode panel sits under the art rather than over it, so
+	/// the art ends above the room kept for the panel.
+	private var artHeight: CGFloat {
+		wide ? max(height - artTop - 23, 200)
+		     : max(height - artTop - panelHeight - textBottom - 6, 200)
+	}
+
+	/// The height kept under a phone's art for the episode panel: Home adds it
+	/// to the hero, so the art keeps its size and the page grows instead.
+	static let panelRoom: CGFloat = 200
 	/// Sideways, the art keeps a backdrop's 16:9 where the page is wide enough,
 	/// leaving the leading third or more to the words.
 	private var artWidth: CGFloat { wide ? min(width * 0.7, artHeight * 16 / 9) : width }
@@ -96,6 +107,7 @@ struct HomeHeroPage: View {
 					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
 			} else {
 				details(progress: progress, next: next)
+					.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 }
 					.padding(.bottom, textBottom)
 					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 			}
@@ -125,7 +137,8 @@ struct HomeHeroPage: View {
 				LinearGradient(stops: [
 					.init(color: .clear, location: 0),
 					.init(color: .black, location: wide ? 0.2 : 0.24),
-					.init(color: .black, location: wide ? 0.72 : 0.6),
+					// The panel is under it now, so on a phone only its very foot fades.
+					.init(color: .black, location: wide ? 0.72 : 0.9),
 					.init(color: .clear, location: 1),
 				], startPoint: .top, endPoint: .bottom)
 			}
@@ -140,8 +153,8 @@ struct HomeHeroPage: View {
 			.allowsHitTesting(false)
 	}
 
-	/// The episode panel, after design A of the alternatives: Liquid Glass over
-	/// the art's lower edge — the episode and its length, the show and the
+	/// The episode panel, after design A of the alternatives: Liquid Glass under
+	/// the art — the episode and its length, the show and the
 	/// episode's name, how far through the show is, then Mark Watched and a way
 	/// into the show. Caught up, it says when the next one airs instead.
 	private func details(progress: String, next: Episode?) -> some View {

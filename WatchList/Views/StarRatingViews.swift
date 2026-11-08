@@ -132,7 +132,10 @@ struct StarRatingSlider: View {
 				Haptics.selection()
 				onChange(snapped)
 			}), in: 0...5, step: 0.5)
-			.tint(StarRatingPicker.gold)
+			// The fill takes the colour of the verdict the stars make, so it runs
+			// red, yellow, green, teal as it grows, like the bands under it.
+			.tint(value.map { Glass.tint(StarRating.verdict(for: $0)) } ?? StarRatingPicker.gold)
+			.animation(.easeInOut(duration: 0.2), value: value.map(StarRating.verdict))
 			.accessibilityLabel("Stars")
 			.accessibilityValue(value.map { "\(StarRating.label($0)) of 5" } ?? "Not rated")
 			GeometryReader { geometry in

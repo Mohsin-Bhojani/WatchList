@@ -74,6 +74,7 @@ struct TitlePageColumns<Lead: View, Rest: View>: View {
 				.padding(.bottom, 32)
 				.frame(maxWidth: 1240)
 				.frame(maxWidth: .infinity)
+				.environment(\.titlePageTwoColumns, true)
 			} else {
 				VStack(spacing: 16) {
 					lead
@@ -86,6 +87,20 @@ struct TitlePageColumns<Lead: View, Rest: View>: View {
 		}
 		.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
 	}
+}
+
+extension EnvironmentValues {
+	/// Inside TitlePageColumns' side-by-side layout, on a wide iPad.
+	@Entry var titlePageTwoColumns = false
+}
+
+/// Builds its content knowing whether the title page is in two columns, so a
+/// section can sit in the lead column there and in the flow on a phone.
+struct PageColumnsReader<Content: View>: View {
+	@Environment(\.titlePageTwoColumns) private var twoColumns
+	@ViewBuilder let content: (Bool) -> Content
+
+	var body: some View { content(twoColumns) }
 }
 
 extension View {

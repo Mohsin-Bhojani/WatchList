@@ -57,6 +57,10 @@ struct PhoneFilmDetailView: View {
 	private var pageDeep: Color { Color(uiColor: ArtworkBand.deeper(theme ?? PageTheme.fallback)) }
 	private var shownStars: Double? { film.shownStars }
 
+	private var trailer: some View {
+		TitleTrailerSection(kind: .film, tmdbID: film.tmdbID, backdropURL: film.backdropURL, titled: false)
+	}
+
 	var body: some View {
 		ScrollView {
 			TitlePageColumns {
@@ -69,8 +73,14 @@ struct PhoneFilmDetailView: View {
 						withAnimation(Glass.smooth) { ratingPopup = .edit }
 					}
 				}
+				// On a wide iPad the trailer sits under the poster.
+				PageColumnsReader { twoColumns in
+					if twoColumns { trailer }
+				}
 			} rest: {
-				TitleTrailerSection(kind: .film, tmdbID: film.tmdbID, backdropURL: film.backdropURL, titled: false)
+				PageColumnsReader { twoColumns in
+					if !twoColumns { trailer }
+				}
 				if !film.synopsis.isEmpty { PageSynopsisCard(text: film.synopsis) }
 				WhereToWatchSection(kind: .film, tmdbID: film.tmdbID)
 				if let tmdbID = film.tmdbID {

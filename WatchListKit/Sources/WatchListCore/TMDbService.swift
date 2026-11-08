@@ -543,6 +543,71 @@ public struct TMDbRegionProviders: Decodable, Equatable {
 /// The services a region has, from /watch/providers/movie or /tv.
 public struct TMDbWatchProviderList: Decodable { public let results: [TMDbWatchProvider]? }
 
+/// A person, for their page: who they are and what they're known for.
+public struct TMDbPerson: Decodable {
+	public let id: Int
+	public let name: String?
+	public let known_for_department: String?
+	public let profile_path: String?
+
+	public init(id: Int, name: String? = nil, known_for_department: String? = nil, profile_path: String? = nil) {
+		self.id = id
+		self.name = name
+		self.known_for_department = known_for_department
+		self.profile_path = profile_path
+	}
+}
+
+/// Everything a person has acted in, films and shows together.
+public struct TMDbPersonCredits: Decodable {
+	public let cast: [TMDbPersonCredit]?
+	public init(cast: [TMDbPersonCredit]?) { self.cast = cast }
+}
+
+public struct TMDbPersonCredit: Decodable, Hashable {
+	public let id: Int
+	/// "movie" or "tv".
+	public let media_type: String?
+	public let title: String?
+	public let name: String?
+	public let character: String?
+	public let poster_path: String?
+	public let release_date: String?
+	public let first_air_date: String?
+	public let vote_count: Int?
+
+	public init(id: Int, media_type: String?, title: String? = nil, name: String? = nil, character: String? = nil,
+	            poster_path: String? = nil, release_date: String? = nil, first_air_date: String? = nil, vote_count: Int? = nil) {
+		self.id = id
+		self.media_type = media_type
+		self.title = title
+		self.name = name
+		self.character = character
+		self.poster_path = poster_path
+		self.release_date = release_date
+		self.first_air_date = first_air_date
+		self.vote_count = vote_count
+	}
+
+	public var kind: MediaKind { media_type == "tv" ? .show : .film }
+	public var displayTitle: String { title ?? name ?? "Untitled" }
+	/// "2015", or nil when it hasn't a date.
+	public var year: String? {
+		let date = (media_type == "tv" ? first_air_date : release_date) ?? ""
+		return date.count >= 4 ? String(date.prefix(4)) : nil
+	}
+
+	/// One credit per title — a person can be credited twice on one — and
+	/// only the kinds the library holds, best-known first.
+	public static func titles(_ credits: [TMDbPersonCredit]) -> [TMDbPersonCredit] {
+		var seen = Set<String>()
+		return credits
+			.filter { $0.media_type == "movie" || $0.media_type == "tv" }
+			.sorted { ($0.vote_count ?? 0) > ($1.vote_count ?? 0) }
+			.filter { seen.insert("\($0.media_type ?? "")-\($0.id)").inserted }
+	}
+}
+
 /// Offers by country code ("GB", "US"). TMDb's data comes from JustWatch,
 /// which has to be credited wherever it's shown.
 public struct TMDbWatchProviders: Decodable { public let results: [String: TMDbRegionProviders]? }
@@ -641,6 +706,16 @@ public struct TMDbService {
 		return response.results
 	}
 
+	/// Titles for a mood on the Search page: TMDb's discover with the mood's own
+	/// filters laid over a popular, well-reviewed base.
+	public func discover(_ kind: MediaKind, filters: [String: String]) async throws -> [TMDbSuggestedTitle] {
+		var query = ["sort_by": "popularity.desc", "vote_count.gte": "300", "vote_average.gte": "6.5",
+		             "include_adult": "false"]
+		query.merge(filters) { _, mood in mood }
+		let response: TMDbSuggestedPage = try await get(kind == .show ? "/discover/tv" : "/discover/movie", query: query)
+		return response.results
+	}
+
 	/// The keywords TMDb files a show or film under, such as "heist" or "london".
 	public func keywords(_ kind: MediaKind, id: Int) async throws -> [TMDbKeywordSearch.Keyword] {
 		let response: TMDbTitleKeywords = try await get((kind == .show ? "/tv/" : "/movie/") + "\(id)/keywords")
@@ -695,6 +770,14 @@ public struct TMDbService {
 		let list: TMDbWatchProviderList = try await get(kind == .film ? "/watch/providers/movie" : "/watch/providers/tv",
 		                                                query: ["watch_region": region])
 		return list.results ?? []
+	}
+
+	public func person(_ id: Int) async throws -> TMDbPerson {
+		try await get("/person/\(id)")
+	}
+
+	public func personCredits(_ id: Int) async throws -> TMDbPersonCredits {
+		try await get("/person/\(id)/combined_credits")
 	}
 
 	public func watchProviders(_ kind: MediaKind, id: Int) async throws -> TMDbWatchProviders {

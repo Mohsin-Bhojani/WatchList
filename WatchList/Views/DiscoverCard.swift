@@ -116,7 +116,7 @@ struct DiscoverCard: View {
 			}
 		}
 		.padding(.horizontal, 24)
-		.padding(.top, 6)
+		.padding(.top, 2)
 		.contentShape(Rectangle())
 		.offset(offset)
 		.rotationEffect(.degrees(Double(offset.width) / 20), anchor: .bottom)

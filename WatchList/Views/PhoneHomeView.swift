@@ -62,9 +62,14 @@ struct PhoneHomeView: View {
 	/// Two-thirds of the screen, as drawn — never so short that the title and
 	/// button crowd the artwork. An iPad upright is taller than a backdrop needs
 	/// at its width, so there it stops at about the art's own shape.
-	private var heroHeight: CGFloat {
+	private var artHeroHeight: CGFloat {
 		let tall = max(screen.height * 0.65, 420)
 		return isPad ? min(tall, max(screen.width * 0.72, 420)) : tall
+	}
+
+	/// A phone's episode panel sits under the art, in room added here.
+	private var heroHeight: CGFloat {
+		isPad ? artHeroHeight : artHeroHeight + HomeHeroPage.panelRoom
 	}
 
 	/// Keyed on the device, like the app's shell.
@@ -267,7 +272,7 @@ struct PhoneHomeView: View {
 		// Clear of the header laid over the top — on an iPad it's in the bar.
 		.padding(.top, max(screen.topInset, 20) + (ScreenHeader.isInBar ? 0 : 56))
 		.frame(maxWidth: .infinity)
-		.frame(height: heroHeight * 0.85)
+		.frame(height: artHeroHeight * 0.85)
 	}
 
 	// MARK: To Watch

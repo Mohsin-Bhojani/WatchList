@@ -198,7 +198,7 @@ struct PhoneSeasonView: View {
 			} else {
 				VStack(spacing: 0) {
 					ForEach(Array(season.sortedEpisodes.enumerated()), id: \.element.id) { index, episode in
-						if index > 0 { PageRowDivider(inset: 54) }
+						if index > 0 { PageRowDivider(inset: 106) }
 						episodeRow(episode)
 					}
 				}
@@ -212,17 +212,11 @@ struct PhoneSeasonView: View {
 	private func episodeRow(_ episode: Episode) -> some View {
 		let watched = episode.status == .watched
 		return HStack(spacing: 10) {
-			// The number in a disc of its rating's colour (design B); tapped, it rates.
-			Menu {
-				Section("Rate this episode") {
-					ForEach(EpisodeTier.allCases) { tier in
-						Toggle(tier.rawValue, isOn: tierToggle(episode, tier))
-					}
-				}
-			} label: {
-				EpisodeNumberDisc(number: episode.episodeNumber, tier: episode.episodeTier)
+			// The still, with the number in a disc of its rating's colour on its
+			// corner (design B); the disc, tapped, rates.
+			EpisodeStillLead(episode: episode) { tier in
+				withAnimation(Glass.smooth) { episode.episodeTier = tier }
 			}
-			.accessibilityLabel("Episode \(episode.episodeNumber), \(episode.episodeTier?.rawValue ?? "not rated"). Rate it")
 			NavigationLink { PhoneEpisodeView(episode: episode) } label: {
 				HStack(spacing: 10) {
 					VStack(alignment: .leading, spacing: 3) {
@@ -314,19 +308,57 @@ struct PhoneSeasonView: View {
 struct EpisodeNumberDisc: View {
 	let number: Int
 	let tier: EpisodeTier?
+	var size: CGFloat = 34
+	/// On a still the unrated disc needs a dark fill to read.
+	var onArt = false
 
 	var body: some View {
 		Text("\(number)")
-			.font(.system(size: 15, weight: .bold, design: .rounded))
+			.font(.system(size: size * 0.44, weight: .bold, design: .rounded))
 			.foregroundStyle(tier == nil ? .white : Glass.onTint)
-			.frame(width: 34, height: 34)
+			.frame(width: size, height: size)
 			.background {
 				if let tier {
 					Circle().fill(Glass.tint(tier))
 				} else {
-					Circle().fill(.white.opacity(0.08))
-					Circle().strokeBorder(.white.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+					Circle().fill(onArt ? .black.opacity(0.6) : .white.opacity(0.08))
+					Circle().strokeBorder(.white.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
 				}
 			}
+	}
+}
+
+/// An episode row's lead: its still, which opens the episode, with its number
+/// disc on the corner, which rates it.
+struct EpisodeStillLead: View {
+	let episode: Episode
+	let rate: (EpisodeTier?) -> Void
+
+	var body: some View {
+		let watched = episode.status == .watched
+		ZStack(alignment: .bottomLeading) {
+			NavigationLink { PhoneEpisodeView(episode: episode) } label: {
+				PosterImage(urlString: episode.stillURL, systemPlaceholder: "film")
+					.frame(width: 96, height: 54)
+					.clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+					.opacity(watched ? 0.6 : 1)
+			}
+			.buttonStyle(.plain)
+			.accessibilityLabel("Open \(episode.displayTitle)")
+			Menu {
+				Section("Rate this episode") {
+					ForEach(EpisodeTier.allCases) { tier in
+						Toggle(tier.rawValue, isOn: Binding(get: { episode.episodeTier == tier }, set: { isOn in
+							Haptics.selection()
+							rate(isOn ? tier : nil)
+						}))
+					}
+				}
+			} label: {
+				EpisodeNumberDisc(number: episode.episodeNumber, tier: episode.episodeTier, size: 26, onArt: true)
+					.padding(4)
+			}
+			.accessibilityLabel("Episode \(episode.episodeNumber), \(episode.episodeTier?.rawValue ?? "not rated"). Rate it")
+		}
 	}
 }

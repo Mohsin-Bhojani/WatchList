@@ -51,6 +51,7 @@ struct PhoneAddSearchView: View {
 	@Query(sort: \Film.dateAdded, order: .reverse) private var libraryFilms: [Film]
 
 	@State private var query = ""
+	@FocusState private var fieldFocused: Bool
 	/// The trimmed query whose results are on screen. While it trails the
 	/// field, a lookup is pending and "no results" would be premature.
 	@State private var settledQuery = ""
@@ -65,6 +66,10 @@ struct PhoneAddSearchView: View {
 	@State private var importError: String?
 	@State private var confirmation: Confirmation?
 	@State private var manualDraft: ManualDraft?
+	/// The mood tile picked before typing, and the titles it found.
+	@State private var mood: SearchMood?
+	@State private var moodResults: [AddCandidate] = []
+	@State private var moodError: String?
 
 	/// "Added X" stays up until the search text changes.
 	private struct Confirmation {
@@ -97,6 +102,11 @@ struct PhoneAddSearchView: View {
 					VStack(alignment: .leading, spacing: 14) {
 						// Like the other tabs: the name on the left, the profile on the right.
 						ScreenHeader(title: "Search")
+						// On a phone the system tab bar, where the field would sit,
+						// is hidden under the dock: the field is on the page instead.
+						if !ScreenHeader.isInBar {
+							pageField.padding(.horizontal, 18)
+						}
 						VStack(alignment: .leading, spacing: 18) {
 							banners
 							content
@@ -111,14 +121,47 @@ struct PhoneAddSearchView: View {
 			.navigationTitle("Search")
 			// On an iPad the bar shows, and the search field is in it.
 			.screenBar("Search")
-			.searchable(text: $query, prompt: "Title, IMDb or TMDb link")
+			.modifier(BarSearchField(text: $query, prompt: "Title, IMDb or TMDb link"))
 			.task(id: trimmedQuery) { await refresh() }
+			.task(id: mood) { await loadMood() }
+			// The dock's search button pressed again while here: start typing.
+			.onReceive(NotificationCenter.default.publisher(for: .tabReselected)) { note in
+				if (note.object as? PhoneTab) == .search { fieldFocused = true }
+			}
 			.sheet(item: $manualDraft) { draft in
 				PhoneManualEntryView(title: draft.title, imdb: draft.imdb) { saved in
 					confirmation = Confirmation(title: saved, query: trimmedQuery)
 				}
 			}
 		}
+	}
+
+	/// The phone's search field, in glass under the page's name.
+	private var pageField: some View {
+		HStack(spacing: 8) {
+			Image(systemName: "magnifyingglass")
+				.font(.system(size: 16, weight: .semibold))
+				.foregroundStyle(.secondary)
+			TextField("Title, IMDb or TMDb link", text: $query)
+				.font(.system(size: 16))
+				.focused($fieldFocused)
+				.submitLabel(.search)
+				.autocorrectionDisabled()
+				.textInputAutocapitalization(.never)
+			if !query.isEmpty {
+				Button { query = "" } label: {
+					Image(systemName: "xmark.circle.fill")
+						.foregroundStyle(.secondary)
+				}
+				.buttonStyle(.plain)
+				.accessibilityLabel("Clear")
+			}
+		}
+		.padding(.horizontal, 16)
+		.frame(height: 48)
+		.glassEffect(.regular.interactive(), in: Capsule())
+		.contentShape(Capsule())
+		.onTapGesture { fieldFocused = true }
 	}
 
 	// MARK: - Content
@@ -147,24 +190,46 @@ struct PhoneAddSearchView: View {
 		}
 	}
 
-	/// Before anything is typed: the three ways in.
+	/// Before anything is typed, after design D of the second round: moods
+	/// and genres to browse, then pasting a link or adding by hand. A picked
+	/// mood shows its titles in place, ready to add.
 	private var startOptions: some View {
 		VStack(alignment: .leading, spacing: 10) {
-			SectionLabel(text: "Ways to add", systemImage: "plus")
-			optionRow(icon: "magnifyingglass", title: "Search TMDb",
-			          subtitle: "Type a film or show in the search field. A show brings every season and episode with it.") {
-				EmptyView()
-			}
-			optionRow(icon: "link", title: "Paste a link",
-			          subtitle: "An IMDb or TMDb title link adds that exact title.") {
-				PasteButton(payloadType: String.self) { strings in
-					guard let first = strings.first else { return }
-					Task { @MainActor in query = first }
+			if let mood {
+				HStack {
+					SectionLabel(text: mood.rawValue, systemImage: mood.symbol)
+					Spacer()
+					Button("All moods") { withAnimation(Glass.smooth) { self.mood = nil } }
+						.font(.system(size: 14, weight: .semibold))
+						.buttonStyle(.glass)
 				}
-				.labelStyle(.iconOnly)
-				.buttonBorderShape(.circle)
-				.tint(Glass.accent)
-			}
+				if let moodError {
+					statusRow(icon: "exclamationmark.triangle.fill", tint: .orange, text: moodError)
+				} else if moodResults.isEmpty {
+					ProgressView().frame(maxWidth: .infinity).padding(.vertical, 30)
+				} else {
+					let owned = libraryIDs
+					VStack(spacing: 10) {
+						ForEach(moodResults) { candidateRow($0, inLibrary: owned.contains($0.id)) }
+					}
+				}
+			} else {
+				if TMDbConfig.isConfigured {
+					SectionLabel(text: "Browse by mood", systemImage: "square.grid.2x2")
+					SearchMoodGrid { picked in withAnimation(Glass.smooth) { mood = picked } }
+						.padding(.bottom, 8)
+				}
+				SectionLabel(text: "Ways to add", systemImage: "plus")
+				optionRow(icon: "link", title: "Paste an IMDb link",
+				          subtitle: "Copied a link from IMDb or TMDb? Paste it to add that exact title.") {
+					PasteButton(payloadType: String.self) { strings in
+						guard let first = strings.first else { return }
+						Task { @MainActor in query = first }
+					}
+					.labelStyle(.iconOnly)
+					.buttonBorderShape(.circle)
+					.tint(Glass.accent)
+				}
 			Button { openManual() } label: {
 				optionRow(icon: "square.and.pencil", title: "Add manually",
 				          subtitle: "For anything TMDb doesn't have, or when you'd rather type it in.") {
@@ -183,6 +248,26 @@ struct PhoneAddSearchView: View {
 					.padding(14)
 					.glass(cornerRadius: 16)
 			}
+			}
+		}
+	}
+
+	/// The picked mood's titles, from TMDb.
+	private func loadMood() async {
+		moodResults = []
+		moodError = nil
+		guard let mood else { return }
+		do {
+			let found = try await TMDbService.shared.discover(mood.kind, filters: mood.filters)
+			guard self.mood == mood else { return }
+			moodResults = found.map { item in
+				AddCandidate(kind: mood.kind, tmdbID: item.id, title: item.title ?? item.name ?? "Untitled",
+				             year: String((item.release_date ?? item.first_air_date ?? "").prefix(4)),
+				             posterURL: TMDbConfig.poster(item.poster_path))
+			}
+			if moodResults.isEmpty { moodError = "Nothing found for this mood right now." }
+		} catch {
+			moodError = Self.message(for: error)
 		}
 	}
 
@@ -529,5 +614,20 @@ struct PhoneAddSearchView: View {
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(14)
 		.glass(cornerRadius: 16)
+	}
+}
+
+/// The system search field, where it has a bar to sit in: on an iPad. A phone
+/// draws its own on the page (PhoneAddSearchView.pageField).
+private struct BarSearchField: ViewModifier {
+	@Binding var text: String
+	let prompt: String
+
+	func body(content: Content) -> some View {
+		if ScreenHeader.isInBar {
+			content.searchable(text: $text, prompt: prompt)
+		} else {
+			content
+		}
 	}
 }

@@ -110,11 +110,18 @@ struct PageCastRow: View {
 }
 
 /// One person: their face, their name, "as" who they play, and why they're
-/// called out, if they are.
+/// called out, if they are. Opens their page.
 struct CastPersonRow: View {
 	let person: CastEntry
 
 	var body: some View {
+		NavigationLink {
+			PersonPage(personID: person.id, name: person.name, profileURL: person.profileURL)
+		} label: { row }
+			.buttonStyle(.plain)
+	}
+
+	private var row: some View {
 		HStack(spacing: 12) {
 			PersonAvatar(urlString: person.profileURL, name: person.name)
 				.frame(width: 38, height: 38)
@@ -132,8 +139,12 @@ struct CastPersonRow: View {
 				}
 			}
 			Spacer(minLength: 0)
+			Image(systemName: "chevron.right")
+				.font(.system(size: 12, weight: .bold))
+				.foregroundStyle(.white.opacity(0.4))
 		}
 		.padding(.vertical, 9)
+		.contentShape(Rectangle())
 		.accessibilityElement(children: .combine)
 	}
 }

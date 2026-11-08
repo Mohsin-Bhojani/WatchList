@@ -12,6 +12,7 @@
 //
 
 import SwiftUI
+import WebKit
 import WatchListCore
 import WatchListLibrary
 
@@ -116,8 +117,12 @@ enum TitleExtrasLoader {
 
 // MARK: - Views
 
-/// The Trailer section: the title's backdrop with a play button that opens the
-/// trailer on YouTube. Shows nothing until one's found, and nothing if none is.
+/// The Trailer section, after design C of the second round: the title's
+/// backdrop with a play button, and a tap turns the card itself into the
+/// player — YouTube's own embedded player, playing where it sits, so the page
+/// stays put. Scrolled away, the player goes and the backdrop comes back.
+/// Under it, the trailer's name and a way to open it in YouTube instead.
+/// Shows nothing until one's found, and nothing if none is.
 struct TitleTrailerSection: View {
 	let kind: MediaKind
 	let tmdbID: Int?
@@ -126,10 +131,13 @@ struct TitleTrailerSection: View {
 	var titled = true
 
 	@State private var trailer: TMDbVideo?
+	@State private var playing = false
 	@Environment(\.openURL) private var openURL
 
 	var body: some View {
-		Group {
+		// A stack rather than a Group: an empty Group draws nothing, and its
+		// task would never run to find the trailer.
+		VStack(spacing: 0) {
 			if let trailer, let url = TitleExtras.youtubeURL(trailer) {
 				if titled {
 					PageSection(title: "Trailer") { card(trailer, url) }
@@ -145,32 +153,92 @@ struct TitleTrailerSection: View {
 	}
 
 	private func card(_ trailer: TMDbVideo, _ url: URL) -> some View {
-		Button { openURL(url) } label: {
-			PosterImage(urlString: backdropURL, systemPlaceholder: "film")
-				.aspectRatio(16 / 9, contentMode: .fit)
-				.frame(maxWidth: .infinity)
-				.overlay { Color.black.opacity(0.25) }
-				.overlay {
-					Image(systemName: "play.fill")
-						.font(.system(size: 18, weight: .bold))
-						.foregroundStyle(.white)
-						.frame(width: 48, height: 48)
-						.glassEffect(.regular, in: Circle())
+		VStack(alignment: .leading, spacing: 10) {
+			ZStack {
+				if playing {
+					YouTubePlayer(videoKey: trailer.key)
+						.onDisappear { playing = false }
+				} else {
+					Button { withAnimation(Glass.smooth) { playing = true } } label: {
+						PosterImage(urlString: backdropURL, systemPlaceholder: "film")
+							.overlay { Color.black.opacity(0.25) }
+							.overlay {
+								Image(systemName: "play.fill")
+									.font(.system(size: 18, weight: .bold))
+									.foregroundStyle(.white)
+									.frame(width: 52, height: 52)
+									.glassEffect(.regular, in: Circle())
+							}
+					}
+					.buttonStyle(.plain)
+					.accessibilityLabel("Play trailer, \(trailer.name ?? "Trailer")")
 				}
-				.overlay(alignment: .bottomLeading) {
+			}
+			.aspectRatio(16 / 9, contentMode: .fit)
+			.frame(maxWidth: .infinity)
+			.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+			HStack(spacing: 10) {
+				VStack(alignment: .leading, spacing: 1) {
 					Text(trailer.name ?? "Trailer")
-						.font(.system(size: 12, weight: .semibold))
-						.foregroundStyle(.white)
+						.font(.system(size: 15, weight: .semibold))
 						.lineLimit(1)
-						.padding(.horizontal, 10)
-						.padding(.vertical, 5)
-						.background(.black.opacity(0.45), in: Capsule())
-						.padding(10)
+					Text(playing ? "Playing here · from YouTube" : "Plays here · from YouTube")
+						.font(.system(size: 12, weight: .medium))
+						.foregroundStyle(.secondary)
 				}
-				.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+				Spacer(minLength: 0)
+				Button { playing = false; openURL(url) } label: {
+					Image(systemName: "arrow.up.right.square")
+						.font(.system(size: 17, weight: .semibold))
+						.frame(width: 36, height: 36)
+						.contentShape(Circle())
+				}
+				.buttonStyle(.plain)
+				.accessibilityLabel("Open in YouTube")
+			}
+			.padding(.horizontal, 6)
+			.padding(.bottom, 4)
 		}
-		.buttonStyle(.plain)
-		.accessibilityLabel("Play trailer, \(trailer.name ?? "Trailer"), on YouTube")
+		.padding(8)
+		.glass(cornerRadius: 22)
+	}
+}
+
+/// YouTube's embedded player for one video, playing inline as soon as it's
+/// shown. Loaded through a small page of our own so YouTube sees where it's
+/// embedded, which it needs before it will play.
+struct YouTubePlayer: UIViewRepresentable {
+	let videoKey: String
+
+	func makeUIView(context: Context) -> WKWebView {
+		let configuration = WKWebViewConfiguration()
+		configuration.allowsInlineMediaPlayback = true
+		configuration.mediaTypesRequiringUserActionForPlayback = []
+		let view = WKWebView(frame: .zero, configuration: configuration)
+		view.isOpaque = false
+		view.backgroundColor = .black
+		view.scrollView.isScrollEnabled = false
+		view.loadHTMLString(Self.page(videoKey), baseURL: URL(string: "https://com.mohsin.watchlist"))
+		return view
+	}
+
+	func updateUIView(_ view: WKWebView, context: Context) {}
+
+	static func dismantleUIView(_ view: WKWebView, coordinator: ()) {
+		// Stops the sound with the player.
+		view.loadHTMLString("", baseURL: nil)
+	}
+
+	static func page(_ key: String) -> String {
+		let safe = key.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+		return """
+		<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+		<style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style>
+		</head><body><iframe src="https://www.youtube-nocookie.com/embed/\(safe)?playsinline=1&autoplay=1&rel=0&modestbranding=1"
+		allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen
+		referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>
+		"""
 	}
 }
 
@@ -234,7 +302,8 @@ struct WhereToWatchSection: View {
 	@Environment(\.openURL) private var openURL
 
 	var body: some View {
-		Group {
+		// A stack, not a Group, so its task runs while there's nothing to show.
+		VStack(spacing: 0) {
 			if let availability {
 				let yours = StreamingServices.saved.map(\.id)
 				let best = TitleExtras.best(availability, yours: yours)

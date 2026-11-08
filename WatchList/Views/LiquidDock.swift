@@ -2,11 +2,11 @@
 //  LiquidDock.swift
 //  WatchList
 //
-//  The iPhone's tab bar, after design B of the alternatives: the four tabs
-//  together in one glass capsule on the leading side — the one you're on in a
-//  bubble with its name under its icon, the others icon only — and beside
-//  them, filling the rest, a wide glass capsule that opens Search: "Add a
-//  title". iPad keeps the system's floating tab bar and sidebar.
+//  The iPhone's tab bar: the system's look — one glass capsule, each tab its
+//  icon over its name, the one you're on lit in a bubble — with Search moved
+//  to the middle as its own round button, lifted above the bar: a plus in a
+//  magnifying glass, for adding a title. iPad keeps the system's floating tab
+//  bar and sidebar.
 //
 //  Tapping the tab you're on again: at the top of its page, Shows, Discover
 //  and Collections open their filters (PhoneRootView); anywhere else, the page
@@ -38,6 +38,13 @@ struct LiquidDock: View {
 	let selection: PhoneTab
 	let onSelect: (PhoneTab) -> Void
 
+	/// One highlight that slides between the tabs, like the system bar's.
+	@Namespace private var highlight
+	/// The tab under a finger, swelling slightly before it's let go.
+	@GestureState private var pressed: PhoneTab?
+
+	private static let slide = Animation.spring(response: 0.38, dampingFraction: 0.78)
+
 	private struct Item: Identifiable {
 		let tab: PhoneTab
 		let title: String
@@ -45,74 +52,83 @@ struct LiquidDock: View {
 		var id: String { title }
 	}
 
-	/// How much a page's scroll content needs at its end to clear the dock.
-	static let clearance: CGFloat = 58 + 2 + 12
+	private static let barHeight: CGFloat = 62
+	private static let searchSize: CGFloat = 60
+	/// How far the search button rises above the bar's top edge.
+	private static let lift: CGFloat = 14
 
-	private let items = [
+	/// How much a page's scroll content needs at its end to clear the dock,
+	/// the lifted search button included.
+	static let clearance: CGFloat = barHeight + 2 + lift + 12
+
+	private let leading = [
 		Item(tab: .home, title: "Home", symbol: "house"),
 		Item(tab: .shows, title: "Shows", symbol: "popcorn"),
+	]
+	private let trailing = [
 		Item(tab: .discover, title: "Discover", symbol: "sparkles"),
 		Item(tab: .collections, title: "Collections", symbol: "square.grid.2x2"),
 	]
 
 	var body: some View {
-		GlassEffectContainer(spacing: 8) {
-			HStack(spacing: 8) {
-				HStack(spacing: 2) {
-					ForEach(items) { item in tabButton(item) }
-				}
-				.padding(.horizontal, 6)
-				.frame(height: 58)
-				.glassEffect(.regular.interactive(), in: Capsule())
-
-				Button { onSelect(.search) } label: {
-					HStack(spacing: 8) {
-						Image(systemName: "magnifyingglass")
-							.font(.system(size: 17, weight: .semibold))
-						Text("Add a title")
-							.font(.system(size: 15, weight: .medium))
-							.lineLimit(1)
-						Spacer(minLength: 0)
-					}
-					.foregroundStyle(selection == .search ? Glass.ink : Glass.ink.opacity(0.72))
-					.padding(.horizontal, 16)
-					.frame(maxWidth: .infinity, minHeight: 58)
-					.contentShape(Capsule())
-				}
-				.buttonStyle(.plain)
-				.glassEffect(selection == .search ? .regular.tint(Glass.ink.opacity(0.12)).interactive() : .regular.interactive(),
-				             in: Capsule())
-				.accessibilityLabel("Search, add a title")
-				.accessibilityAddTraits(selection == .search ? .isSelected : [])
-			}
+		HStack(spacing: 0) {
+			ForEach(leading) { tabButton($0) }
+			// Room in the middle for the search button standing over it.
+			Color.clear.frame(width: Self.searchSize + 8)
+			ForEach(trailing) { tabButton($0) }
 		}
+		.padding(.horizontal, 6)
+		.frame(height: Self.barHeight)
+		.animation(Self.slide, value: selection)
+		.glassEffect(.regular.interactive(), in: Capsule())
+		.overlay(alignment: .top) { searchButton.offset(y: -Self.lift) }
 		.padding(.horizontal, 16)
 		.padding(.bottom, 2)
+	}
+
+	private var searchButton: some View {
+		let chosen = selection == .search
+		return Button { onSelect(.search) } label: {
+			Image(systemName: "plus.magnifyingglass")
+				.font(.system(size: 24, weight: .semibold))
+				.foregroundStyle(.white)
+				.frame(width: Self.searchSize, height: Self.searchSize)
+				.contentShape(Circle())
+		}
+		.buttonStyle(.plain)
+		.glassEffect(.regular.tint(Glass.accent.opacity(chosen ? 1 : 0.85)).interactive(), in: Circle())
+		.shadow(color: Glass.accent.opacity(0.35), radius: 10, y: 4)
+		.accessibilityLabel("Search, add a title")
+		.accessibilityAddTraits(chosen ? .isSelected : [])
 	}
 
 	private func tabButton(_ item: Item) -> some View {
 		let chosen = selection == item.tab
 		return Button { onSelect(item.tab) } label: {
-			VStack(spacing: 1) {
+			VStack(spacing: 2) {
 				Image(systemName: item.symbol)
-					.font(.system(size: 18, weight: chosen ? .bold : .medium))
+					.font(.system(size: 19, weight: chosen ? .semibold : .regular))
 					.symbolVariant(chosen ? .fill : .none)
+					.frame(height: 24)
+				Text(item.title)
+					.font(.system(size: 10, weight: .semibold))
+					.lineLimit(1)
+					.minimumScaleFactor(0.75)
+			}
+			.foregroundStyle(chosen ? Glass.accent : Glass.ink.opacity(0.8))
+			.frame(maxWidth: .infinity, minHeight: 50)
+			.background {
 				if chosen {
-					Text(item.title)
-						.font(.system(size: 9, weight: .bold))
-						.lineLimit(1)
-						.minimumScaleFactor(0.8)
+					Capsule().fill(Glass.ink.opacity(0.12))
+						.matchedGeometryEffect(id: "highlight", in: highlight)
 				}
 			}
-			.foregroundStyle(chosen ? Glass.ink : Glass.ink.opacity(0.75))
-			.frame(width: chosen ? 58 : 46, height: 46)
-			.background {
-				if chosen { Capsule().fill(Glass.ink.opacity(0.14)) }
-			}
 			.contentShape(Capsule())
+			.scaleEffect(pressed == item.tab ? 1.08 : 1)
+			.animation(.spring(response: 0.25, dampingFraction: 0.6), value: pressed)
 		}
 		.buttonStyle(.plain)
-		.animation(Glass.pop, value: chosen)
+		.simultaneousGesture(DragGesture(minimumDistance: 0).updating($pressed) { _, state, _ in state = item.tab })
 		.accessibilityLabel(item.title)
 		.accessibilityAddTraits(chosen ? .isSelected : [])
 	}

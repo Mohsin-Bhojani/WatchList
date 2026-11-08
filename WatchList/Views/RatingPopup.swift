@@ -76,6 +76,8 @@ struct RatingPopup: View {
 	@State private var aspects: AspectTaste
 	/// Which of the two extras is open: what stood out, or the note.
 	@State private var extra: Extra
+	/// How far the sheet has been pulled down by its grabber or header.
+	@State private var pull: CGFloat = 0
 
 	enum Extra: String, CaseIterable, Identifiable {
 		case aspects = "What stood out"
@@ -109,6 +111,7 @@ struct RatingPopup: View {
 				.onTapGesture(perform: onClose)
 				.accessibilityHidden(true)
 			card
+				.offset(y: pull)
 				// A phone's width, even on an iPad.
 				.frame(maxWidth: 460)
 				.frame(maxHeight: .infinity, alignment: .bottom)
@@ -118,15 +121,22 @@ struct RatingPopup: View {
 	}
 
 	private var card: some View {
-		VStack(alignment: .leading, spacing: 0) {
-			// The poster across the top, the sheet's glass rising over its foot.
-			PosterImage(urlString: subject.posterURL, systemPlaceholder: subject.placeholder)
-				.frame(height: 130)
-				.frame(maxWidth: .infinity)
-				.clipped()
-				.accessibilityHidden(true)
-			VStack(alignment: .leading, spacing: 16) {
-				HStack(alignment: .firstTextBaseline) {
+		VStack(alignment: .leading, spacing: 16) {
+				// The grabber and header: pull them down to close the sheet.
+				VStack(alignment: .leading, spacing: 12) {
+				Capsule()
+					.fill(.white.opacity(0.35))
+					.frame(width: 36, height: 5)
+					.frame(maxWidth: .infinity)
+					.accessibilityHidden(true)
+				HStack(alignment: .center, spacing: 14) {
+					// The whole poster, so you can see what you're rating.
+					PosterImage(urlString: subject.posterURL, systemPlaceholder: subject.placeholder)
+						.frame(width: 64, height: 96)
+						.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+						.overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.15), lineWidth: 0.5))
+						.shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+						.accessibilityHidden(true)
 					VStack(alignment: .leading, spacing: 2) {
 						Text(subject.title)
 							.font(.system(size: 22, weight: .bold, design: .serif))
@@ -140,10 +150,14 @@ struct RatingPopup: View {
 						.font(.system(size: 14, weight: .semibold))
 						.foregroundStyle(.white.opacity(0.8))
 				}
+				}
+				.contentShape(Rectangle())
+				.gesture(pullToClose)
 
 				// The four verdicts as one segmented row; tapping the chosen one clears it.
 				HStack(spacing: 2) {
-					ForEach(Rating.allCases) { option($0) }
+					// Worst to best, left to right, the way the star slider grows.
+					ForEach(Rating.allCases.reversed()) { option($0) }
 				}
 				.padding(3)
 				.background(.white.opacity(0.08), in: Capsule())
@@ -179,14 +193,25 @@ struct RatingPopup: View {
 				.buttonStyle(.pressable)
 			}
 			.padding(.horizontal, 20)
-			.padding(.top, 20)
+			.padding(.top, 8)
 			.padding(.bottom, 34)
 			.glassEffect(.regular.tint(tint.opacity(0.55)),
 			             in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous))
-			.padding(.top, -28)
-		}
 		.foregroundStyle(.white)
-		.clipShape(UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous))
+	}
+
+	/// Pulling the header down follows the finger; let go far or fast enough
+	/// and the sheet closes, otherwise it springs back.
+	private var pullToClose: some Gesture {
+		DragGesture()
+			.onChanged { pull = max(0, $0.translation.height) }
+			.onEnded { drag in
+				if drag.translation.height > 120 || drag.predictedEndTranslation.height > 260 {
+					onClose()
+				} else {
+					withAnimation(Glass.smooth) { pull = 0 }
+				}
+			}
 	}
 
 	/// "What stood out?": each tap moves an aspect from unmarked to liked to

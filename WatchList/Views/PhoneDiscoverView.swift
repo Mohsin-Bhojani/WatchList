@@ -118,14 +118,17 @@ struct PhoneDiscoverView: View {
 						.transition(.asymmetric(insertion: .opacity.combined(with: .scale(scale: 0.96)),
 						                        removal: .opacity))
 					comparisonButton(current, library: library)
-						.padding(.top, 14)
-						.padding(.bottom, 12)
+						.padding(.top, 10)
+						.padding(.bottom, 6)
 				} else {
 					placeholder(seeds: deal.drawingSeeds)
 					Spacer(minLength: 0)
 				}
 			}
 			.readableColumn()
+			// The page doesn't scroll, so on a phone it ends above the dock and
+			// the poster takes only the height left between.
+			.padding(.bottom, ScreenHeader.isInBar ? 0 : LiquidDock.clearance - 12)
 			.frame(maxHeight: .infinity, alignment: .top)
 			.background { backdrop(tinted: current != nil) }
 			.environment(\.colorScheme, current == nil ? systemScheme : .dark)
