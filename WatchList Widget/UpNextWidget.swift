@@ -623,14 +623,18 @@ private struct PageArrows: View {
 
 /// Shuffles to another of your Watching shows.
 private struct ShuffleButton: View {
+	@Environment(\.widgetRenderingMode) private var renderingMode
+
 	var body: some View {
+		let fullColor = renderingMode == .fullColor
 		Button(intent: ShuffleUpNextIntent()) {
 			Image(systemName: "shuffle")
 				.font(.system(size: 11, weight: .bold))
 				.foregroundStyle(.white)
+				.widgetAccentable()
 				.frame(width: 26, height: 26)
-				.background(.black.opacity(0.4), in: Circle())
-				.overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+				.background(.black.opacity(fullColor ? 0.4 : 0.15), in: Circle())
+				.overlay(Circle().strokeBorder(.white.opacity(fullColor ? 0.3 : 0.6), lineWidth: fullColor ? 0.5 : 1))
 		}
 		.buttonStyle(.plain)
 		.accessibilityLabel("Shuffle to another show")
@@ -642,16 +646,12 @@ private struct ShuffleButton: View {
 private struct WideMarkButton: View {
 	let show: WidgetShow
 	let height: CGFloat
+	@Environment(\.widgetRenderingMode) private var renderingMode
 
 	var body: some View {
 		if let next = show.next {
 			Button(intent: MarkEpisodeWatchedIntent(episodeID: next.id)) {
-				Label("Mark \(next.code) watched", systemImage: "checkmark")
-					.font(.system(size: height > 40 ? 15 : 13, weight: .bold))
-					.foregroundStyle(.black)
-					.frame(maxWidth: .infinity)
-					.frame(height: height)
-					.background(.white, in: Capsule())
+				label(next)
 			}
 			.buttonStyle(.plain)
 			.accessibilityLabel("Mark \(next.code) watched")
@@ -662,6 +662,27 @@ private struct WideMarkButton: View {
 				.frame(maxWidth: .infinity)
 				.frame(height: height)
 				.background(.white.opacity(0.12), in: Capsule())
+		}
+	}
+
+	/// In full colour: black on a white capsule. Tinted or clear, the system
+	/// draws everything in one colour, which would lose black words on white,
+	/// so it's an outlined capsule with the words in the tint instead.
+	@ViewBuilder private func label(_ next: WidgetEpisode) -> some View {
+		let text = Label("Mark \(next.code) watched", systemImage: "checkmark")
+			.font(.system(size: height > 40 ? 15 : 13, weight: .bold))
+			.frame(maxWidth: .infinity)
+			.frame(height: height)
+		if renderingMode == .fullColor {
+			text
+				.foregroundStyle(.black)
+				.background(.white, in: Capsule())
+		} else {
+			text
+				.foregroundStyle(.white)
+				.widgetAccentable()
+				.background(.white.opacity(0.14), in: Capsule())
+				.overlay(Capsule().strokeBorder(.white.opacity(0.7), lineWidth: 1.5))
 		}
 	}
 }
