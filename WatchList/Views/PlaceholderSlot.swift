@@ -18,7 +18,7 @@ struct PlaceholderSlot: View {
 
 	var body: some View {
 		Text(label)
-			.font(.system(size: 13, weight: .semibold))
+			.font(.system(.footnote, weight: .semibold))
 			.foregroundStyle(.tertiary)
 			.frame(maxWidth: .infinity)
 			.frame(height: height)
@@ -34,7 +34,7 @@ struct PlaceholderTag: View {
 
 	var body: some View {
 		Text(label)
-			.font(.system(size: 11, weight: .semibold))
+			.font(.system(.caption2, weight: .semibold))
 			.foregroundStyle(.tertiary)
 			.lineLimit(1)
 			.padding(.horizontal, 9)

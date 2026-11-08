@@ -72,8 +72,9 @@ struct PhoneHomeView: View {
 		isPad ? artHeroHeight : artHeroHeight + HomeHeroPage.panelRoom
 	}
 
-	/// Keyed on the device, like the app's shell.
-	private var isPad: Bool { ScreenHeader.isInBar }
+	@Environment(\.horizontalSizeClass) private var sizeClass
+	/// An iPad at regular width; narrower, it lays out as a phone does.
+	private var isPad: Bool { WideLayout.applies(sizeClass) }
 
 	/// An iPad held sideways — or any page wider than it's tall — gets the
 	/// hero's sideways layout.
@@ -121,7 +122,7 @@ struct PhoneHomeView: View {
 			}
 			.scrollEdgeEffectHidden(isPad && !watching.isEmpty && !barScroll.moved, for: .top)
 			.background(GlassBackground())
-			.screenBar("Home", onBand: !watching.isEmpty && !barScroll.pastHero)
+			.screenBar("Home", onBand: !watching.isEmpty && !barScroll.pastHero, pageHeader: true)
 			// Nothing Watching: the palette lights the pages again.
 			.onChange(of: watching.first?.id, initial: true) { _, first in
 				if first == nil { BackdropLight.shared.tone = nil }
@@ -223,7 +224,7 @@ struct PhoneHomeView: View {
 				}
 			} else {
 				Text("\(current + 1) of \(count)")
-					.font(.system(size: 12, weight: .semibold))
+					.font(.system(.caption, weight: .semibold))
 					.foregroundStyle(.white.opacity(0.85))
 			}
 		}
@@ -245,7 +246,7 @@ struct PhoneHomeView: View {
 						.offset(x: 44 * side, y: 8)
 				}
 				Image(systemName: "play.fill")
-					.font(.system(size: 26))
+					.font(.title)
 					.foregroundStyle(Glass.accent)
 					.frame(width: 76, height: 114)
 					.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -253,10 +254,10 @@ struct PhoneHomeView: View {
 			.frame(height: 130)
 			.accessibilityHidden(true)
 			Text("Nothing on Up Next")
-				.font(.system(size: 24, weight: .bold))
+				.font(.system(.title2, weight: .bold))
 				.foregroundStyle(Glass.ink)
 			Text("Start a show and the next episode waits here, with Mark Watched one tap away.")
-				.font(.system(size: 15))
+				.font(.subheadline)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
 			HStack(spacing: 10) {
@@ -270,7 +271,7 @@ struct PhoneHomeView: View {
 		}
 		.padding(.horizontal, 30)
 		// Clear of the header laid over the top — on an iPad it's in the bar.
-		.padding(.top, max(screen.topInset, 20) + (ScreenHeader.isInBar ? 0 : 56))
+		.padding(.top, max(screen.topInset, 20) + (isPad ? 0 : 56))
 		.frame(maxWidth: .infinity)
 		.frame(height: artHeroHeight * 0.85)
 	}
@@ -315,7 +316,7 @@ struct PhoneHomeView: View {
 			if items.isEmpty {
 				HStack(spacing: 12) {
 					Text(empty)
-						.font(.system(size: 14, weight: .medium, design: .rounded))
+						.font(.system(.subheadline, design: .rounded, weight: .medium))
 						.foregroundStyle(.secondary)
 						.frame(maxWidth: .infinity, alignment: .leading)
 					Button(emptyAction.0) { openTab(emptyAction.1) }
@@ -346,14 +347,14 @@ struct PhoneHomeView: View {
 	private func heading(_ title: String, count: Int, chevron: Bool) -> some View {
 		HStack(alignment: .firstTextBaseline, spacing: 6) {
 			Text(title)
-				.font(.system(size: 22, weight: .bold))
+				.font(.system(.title2, weight: .bold))
 				.foregroundStyle(Glass.ink)
 			Text("\(count)")
-				.font(.system(size: 15, weight: .medium).monospacedDigit())
+				.font(.system(.subheadline, weight: .medium).monospacedDigit())
 				.foregroundStyle(.secondary)
 			if chevron {
 				Image(systemName: "chevron.right")
-					.font(.system(size: 14, weight: .bold))
+					.font(.system(.subheadline, weight: .bold))
 					.foregroundStyle(.secondary)
 			}
 			Spacer(minLength: 0)

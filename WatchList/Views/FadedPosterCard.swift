@@ -37,13 +37,13 @@ struct FadedPosterCard: View {
 
 			VStack(alignment: .leading, spacing: 3) {
 				Text(item.title)
-					.font(.system(size: 15, weight: .bold, design: .serif))
+					.font(.system(.subheadline, design: .serif, weight: .bold))
 					.foregroundStyle(Glass.ink)
 					.lineLimit(1)
 				HStack(spacing: 5) {
 					Circle().fill(Glass.tint(item.status)).frame(width: 7, height: 7)
 					Text([item.status.rawValue, detail].filter { !$0.isEmpty }.joined(separator: " · "))
-						.font(.system(size: 12, weight: .medium, design: .rounded))
+						.font(.system(.caption, design: .rounded, weight: .medium))
 						.foregroundStyle(Glass.ink.opacity(0.68))
 						.lineLimit(1)
 				}

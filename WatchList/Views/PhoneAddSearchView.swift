@@ -100,13 +100,6 @@ struct PhoneAddSearchView: View {
 				GlassBackground()
 				ScrollView {
 					VStack(alignment: .leading, spacing: 14) {
-						// Like the other tabs: the name on the left, the profile on the right.
-						ScreenHeader(title: "Search")
-						// On a phone the system tab bar, where the field would sit,
-						// is hidden under the dock: the field is on the page instead.
-						if !ScreenHeader.isInBar {
-							pageField.padding(.horizontal, 18)
-						}
 						VStack(alignment: .leading, spacing: 18) {
 							banners
 							content
@@ -117,14 +110,16 @@ struct PhoneAddSearchView: View {
 				}
 				.scrollDismissesKeyboard(.interactively)
 			}
-			// Not shown, but it names the back button on a title opened from here.
-			.navigationTitle("Search")
-			// On an iPad the bar shows, and the search field is in it.
+			// The system search field: in the tab bar on an iPhone, in the
+			// navigation bar on an iPad.
 			.screenBar("Search")
-			.modifier(BarSearchField(text: $query, prompt: "Title, IMDb or TMDb link"))
+			.searchable(text: $query, prompt: "Title, IMDb or TMDb link")
+			.searchFocused($fieldFocused)
+			.autocorrectionDisabled()
+			.textInputAutocapitalization(.never)
 			.task(id: trimmedQuery) { await refresh() }
 			.task(id: mood) { await loadMood() }
-			// The dock's search button pressed again while here: start typing.
+			// Search tapped again while here: start typing.
 			.onReceive(NotificationCenter.default.publisher(for: .tabReselected)) { note in
 				if (note.object as? PhoneTab) == .search { fieldFocused = true }
 			}
@@ -137,33 +132,6 @@ struct PhoneAddSearchView: View {
 	}
 
 	/// The phone's search field, in glass under the page's name.
-	private var pageField: some View {
-		HStack(spacing: 8) {
-			Image(systemName: "magnifyingglass")
-				.font(.system(size: 16, weight: .semibold))
-				.foregroundStyle(.secondary)
-			TextField("Title, IMDb or TMDb link", text: $query)
-				.font(.system(size: 16))
-				.focused($fieldFocused)
-				.submitLabel(.search)
-				.autocorrectionDisabled()
-				.textInputAutocapitalization(.never)
-			if !query.isEmpty {
-				Button { query = "" } label: {
-					Image(systemName: "xmark.circle.fill")
-						.foregroundStyle(.secondary)
-				}
-				.buttonStyle(.plain)
-				.accessibilityLabel("Clear")
-			}
-		}
-		.padding(.horizontal, 16)
-		.frame(height: 48)
-		.glassEffect(.regular.interactive(), in: Capsule())
-		.contentShape(Capsule())
-		.onTapGesture { fieldFocused = true }
-	}
-
 	// MARK: - Content
 
 	@ViewBuilder private var banners: some View {
@@ -200,7 +168,7 @@ struct PhoneAddSearchView: View {
 					SectionLabel(text: mood.rawValue, systemImage: mood.symbol)
 					Spacer()
 					Button("All moods") { withAnimation(Glass.smooth) { self.mood = nil } }
-						.font(.system(size: 14, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.buttonStyle(.glass)
 				}
 				if let moodError {
@@ -234,7 +202,7 @@ struct PhoneAddSearchView: View {
 				optionRow(icon: "square.and.pencil", title: "Add manually",
 				          subtitle: "For anything TMDb doesn't have, or when you'd rather type it in.") {
 					Image(systemName: "chevron.right")
-						.font(.system(size: 13, weight: .bold))
+						.font(.system(.footnote, weight: .bold))
 						.foregroundStyle(.tertiary)
 				}
 			}
@@ -243,7 +211,7 @@ struct PhoneAddSearchView: View {
 			if !TMDbConfig.isConfigured {
 				Label("No TMDb API key, so search and links are off — see README.md. Adding manually still works.",
 				      systemImage: "exclamationmark.triangle.fill")
-					.font(.system(size: 13, weight: .semibold, design: .rounded))
+					.font(.system(.footnote, design: .rounded, weight: .semibold))
 					.foregroundStyle(.orange)
 					.padding(14)
 					.glass(cornerRadius: 16)
@@ -348,18 +316,13 @@ struct PhoneAddSearchView: View {
 	}
 
 	private func noResults(for text: String) -> some View {
-		VStack(alignment: .leading, spacing: 12) {
-			Text("No results on TMDb for \u{201C}\(text)\u{201D}.")
-				.font(.system(size: 15, weight: .semibold, design: .rounded))
-				.foregroundStyle(.primary)
+		ContentUnavailableView {
+			Label("No Results for \u{201C}\(text)\u{201D}", systemImage: "magnifyingglass")
+		} description: {
 			Text("Check the spelling, or add it yourself — details and a poster can be filled in by hand.")
-				.font(.system(size: 13, weight: .medium, design: .rounded))
-				.foregroundStyle(.secondary)
+		} actions: {
 			manualCapsule(label: "Add \u{201C}\(text)\u{201D} manually", title: text, imdb: "")
 		}
-		.frame(maxWidth: .infinity, alignment: .leading)
-		.padding(16)
-		.glass(cornerRadius: 16)
 	}
 
 	// MARK: - Lookups
@@ -476,7 +439,6 @@ struct PhoneAddSearchView: View {
 	}
 
 	private func openManual(title: String = "", imdb: String = "") {
-		Haptics.tap()
 		manualDraft = ManualDraft(title: title, imdb: imdb)
 	}
 
@@ -497,11 +459,11 @@ struct PhoneAddSearchView: View {
 					.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 				VStack(alignment: .leading, spacing: 3) {
 					Text(candidate.title)
-						.font(.system(size: 15, weight: .bold, design: .serif))
+						.font(.system(.subheadline, design: .serif, weight: .bold))
 						.foregroundStyle(.primary)
 						.lineLimit(2)
 					Text(subtitle)
-						.font(.system(size: 12, weight: .medium, design: .rounded))
+						.font(.system(.caption, design: .rounded, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
 				Spacer(minLength: 0)
@@ -509,7 +471,7 @@ struct PhoneAddSearchView: View {
 					ProgressView()
 				} else {
 					Image(systemName: owned ? "checkmark.circle.fill" : "plus.circle.fill")
-						.font(.system(size: 22, weight: .semibold))
+						.font(.system(.title2, weight: .semibold))
 						.foregroundStyle(owned ? Glass.watched : Glass.accent)
 				}
 			}
@@ -525,16 +487,16 @@ struct PhoneAddSearchView: View {
 	                                       @ViewBuilder trailing: () -> Trailing) -> some View {
 		HStack(spacing: 12) {
 			Image(systemName: icon)
-				.font(.system(size: 16, weight: .semibold))
+				.font(.system(.callout, weight: .semibold))
 				.foregroundStyle(Glass.accent)
 				.frame(width: 34, height: 34)
 				.background(Glass.accent.opacity(0.12), in: Circle())
 			VStack(alignment: .leading, spacing: 3) {
 				Text(title)
-					.font(.system(size: 15, weight: .semibold, design: .rounded))
+					.font(.system(.subheadline, design: .rounded, weight: .semibold))
 					.foregroundStyle(.primary)
 				Text(subtitle)
-					.font(.system(size: 12, weight: .medium, design: .rounded))
+					.font(.system(.caption, design: .rounded, weight: .medium))
 					.foregroundStyle(.secondary)
 					.fixedSize(horizontal: false, vertical: true)
 			}
@@ -551,7 +513,7 @@ struct PhoneAddSearchView: View {
 				Image(systemName: "square.and.pencil")
 				Text(label).lineLimit(1)
 			}
-			.font(.system(size: 15, weight: .bold, design: .rounded))
+			.font(.system(.subheadline, design: .rounded, weight: .bold))
 			.foregroundStyle(.white)
 			.frame(maxWidth: .infinity)
 			.padding(.vertical, 14)
@@ -573,10 +535,10 @@ struct PhoneAddSearchView: View {
 					.lineLimit(1)
 				Spacer(minLength: 0)
 				Image(systemName: "chevron.right")
-					.font(.system(size: 12, weight: .bold))
+					.font(.system(.caption, weight: .bold))
 					.foregroundStyle(.tertiary)
 			}
-			.font(.system(size: 14, weight: .semibold, design: .rounded))
+			.font(.system(.subheadline, design: .rounded, weight: .semibold))
 			.foregroundStyle(Glass.accent)
 			.padding(14)
 			.glass(cornerRadius: 16)
@@ -596,7 +558,7 @@ struct PhoneAddSearchView: View {
 		HStack(spacing: 10) {
 			ProgressView()
 			Text(text)
-				.font(.system(size: 13, weight: .medium, design: .rounded))
+				.font(.system(.footnote, design: .rounded, weight: .medium))
 				.foregroundStyle(.secondary)
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
@@ -608,26 +570,11 @@ struct PhoneAddSearchView: View {
 		HStack(spacing: 8) {
 			Image(systemName: icon).foregroundStyle(tint)
 			Text(text)
-				.font(.system(size: 13, weight: .medium, design: .rounded))
+				.font(.system(.footnote, design: .rounded, weight: .medium))
 				.foregroundStyle(.secondary)
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(14)
 		.glass(cornerRadius: 16)
-	}
-}
-
-/// The system search field, where it has a bar to sit in: on an iPad. A phone
-/// draws its own on the page (PhoneAddSearchView.pageField).
-private struct BarSearchField: ViewModifier {
-	@Binding var text: String
-	let prompt: String
-
-	func body(content: Content) -> some View {
-		if ScreenHeader.isInBar {
-			content.searchable(text: $text, prompt: prompt)
-		} else {
-			content
-		}
 	}
 }

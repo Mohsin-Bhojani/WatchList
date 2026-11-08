@@ -164,7 +164,7 @@ struct TitleTrailerSection: View {
 							.overlay { Color.black.opacity(0.25) }
 							.overlay {
 								Image(systemName: "play.fill")
-									.font(.system(size: 18, weight: .bold))
+									.font(.system(.body, weight: .bold))
 									.foregroundStyle(.white)
 									.frame(width: 52, height: 52)
 									.glassEffect(.regular, in: Circle())
@@ -181,16 +181,16 @@ struct TitleTrailerSection: View {
 			HStack(spacing: 10) {
 				VStack(alignment: .leading, spacing: 1) {
 					Text(trailer.name ?? "Trailer")
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.lineLimit(1)
 					Text(playing ? "Playing here · from YouTube" : "Plays here · from YouTube")
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(.caption, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
 				Spacer(minLength: 0)
 				Button { playing = false; openURL(url) } label: {
 					Image(systemName: "arrow.up.right.square")
-						.font(.system(size: 17, weight: .semibold))
+						.font(.system(.body, weight: .semibold))
 						.frame(width: 36, height: 36)
 						.contentShape(Circle())
 				}
@@ -321,17 +321,17 @@ struct WhereToWatchSection: View {
 										.clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 									VStack(alignment: .leading, spacing: 1) {
 										Text("\(TitleExtras.verb(best.kind)) \(best.service.name)")
-											.font(.system(size: 16, weight: .bold))
+											.font(.system(.callout, weight: .bold))
 											.lineLimit(1)
 										if best.kind == .stream {
 											Text(yours.contains(best.service.id) ? "One of your services" : "With a subscription")
-												.font(.system(size: 12, weight: .medium))
+												.font(.system(.caption, weight: .medium))
 												.foregroundStyle(.black.opacity(0.6))
 										}
 									}
 									Spacer(minLength: 0)
 									Image(systemName: "arrow.up.right")
-										.font(.system(size: 14, weight: .bold))
+										.font(.system(.subheadline, weight: .bold))
 								}
 								.foregroundStyle(.black)
 								.padding(.horizontal, 14)
@@ -347,10 +347,10 @@ struct WhereToWatchSection: View {
 								} label: {
 									HStack {
 										Text("\(others.count) more way\(others.count == 1 ? "" : "s") to watch")
-											.font(.system(size: 14, weight: .semibold))
+											.font(.system(.subheadline, weight: .semibold))
 										Spacer()
 										Image(systemName: "chevron.down")
-											.font(.system(size: 12, weight: .bold))
+											.font(.system(.caption, weight: .bold))
 											.rotationEffect(.degrees(showingMore ? 180 : 0))
 									}
 									.foregroundStyle(.white)
@@ -364,11 +364,11 @@ struct WhereToWatchSection: View {
 												.frame(width: 28, height: 28)
 												.clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
 											Text(entry.1.name)
-												.font(.system(size: 14, weight: .medium))
+												.font(.system(.subheadline, weight: .medium))
 												.foregroundStyle(.white)
 											Spacer()
 											Text(entry.0.rawValue)
-												.font(.system(size: 12, weight: .medium))
+												.font(.system(.caption, weight: .medium))
 												.foregroundStyle(.white.opacity(0.6))
 										}
 										.accessibilityElement(children: .combine)
@@ -379,7 +379,7 @@ struct WhereToWatchSection: View {
 							.liquidCard(cornerRadius: 18)
 						}
 						Text("Data from JustWatch")
-							.font(.system(size: 11, weight: .medium))
+							.font(.system(.caption2, weight: .medium))
 							.foregroundStyle(.white.opacity(0.5))
 					}
 				}

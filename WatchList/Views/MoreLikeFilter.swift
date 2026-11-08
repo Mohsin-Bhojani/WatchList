@@ -30,7 +30,7 @@ struct MoreLikeFilter: View {
 				Spacer(minLength: 8)
 				NavigationLink { MoreLikePicker(seeds: seeds, picked: $picked) } label: {
 					Text("See all")
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(Glass.accent)
 				}
 			}
@@ -54,7 +54,7 @@ struct MoreLikeFilter: View {
 				}
 			}
 			Text(DiscoverFeed.moreLikeCaption(for: seed))
-				.font(.system(size: 13, weight: .medium))
+				.font(.system(.footnote, weight: .medium))
 				.foregroundStyle(.secondary)
 				.fixedSize(horizontal: false, vertical: true)
 				.animation(nil, value: picked)
@@ -76,7 +76,7 @@ struct MoreLikeFilter: View {
 					.frame(width: 72, height: 108)
 					.overlay {
 						Image(systemName: "sparkles")
-							.font(.system(size: 24, weight: .medium))
+							.font(.system(.title2, weight: .medium))
 							.foregroundStyle(Glass.accent)
 					}
 					.overlay { SeedRing(chosen: chosen) }
@@ -115,7 +115,7 @@ struct MoreLikeFilter: View {
 	private func caption(_ title: String, _ detail: String, rating: Rating?) -> some View {
 		VStack(alignment: .leading, spacing: 1) {
 			Text(title)
-				.font(.system(size: 12, weight: .semibold))
+				.font(.system(.caption, weight: .semibold))
 				.foregroundStyle(Color.primary)
 				.lineLimit(1)
 			HStack(spacing: 4) {
@@ -127,7 +127,7 @@ struct MoreLikeFilter: View {
 				Text(detail)
 					.lineLimit(1)
 			}
-			.font(.system(size: 11, weight: .medium))
+			.font(.system(.caption2, weight: .medium))
 			.foregroundStyle(.secondary)
 		}
 	}
@@ -145,7 +145,7 @@ private struct SeedRing: View {
 				.padding(-5)
 				.overlay(alignment: .topTrailing) {
 					Image(systemName: "checkmark")
-						.font(.system(size: 10, weight: .heavy))
+						.font(.system(.caption2, weight: .heavy))
 						.foregroundStyle(.white)
 						.frame(width: 22, height: 22)
 						.background(Circle().fill(Glass.accent))
@@ -173,7 +173,7 @@ struct MoreLikePicker: View {
 				}
 			} else if groups.isEmpty {
 				Text("No titles match \u{201C}\(search)\u{201D}.")
-					.font(.system(size: 14, weight: .medium))
+					.font(.system(.subheadline, weight: .medium))
 					.foregroundStyle(.secondary)
 			}
 			ForEach(groups) { group in
@@ -214,15 +214,15 @@ struct MoreLikePicker: View {
 					.frame(width: 36, height: 54)
 					.overlay {
 						Image(systemName: "sparkles")
-							.font(.system(size: 15, weight: .medium))
+							.font(.system(.subheadline, weight: .medium))
 							.foregroundStyle(Glass.accent)
 					}
 				VStack(alignment: .leading, spacing: 2) {
 					Text("Any title")
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(Color.primary)
 					Text("Your whole library, best rated first")
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(.caption, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
 				Spacer(minLength: 8)
@@ -243,11 +243,11 @@ struct MoreLikePicker: View {
 					.clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 				VStack(alignment: .leading, spacing: 2) {
 					Text(item.title)
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(Color.primary)
 						.lineLimit(2)
 					Text(CollectionsFeed.kindLine(item))
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(.caption, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
 				Spacer(minLength: 8)
@@ -261,7 +261,7 @@ struct MoreLikePicker: View {
 
 	private func tick(_ chosen: Bool) -> some View {
 		Image(systemName: chosen ? "checkmark.circle.fill" : "circle")
-			.font(.system(size: 22, weight: .semibold))
+			.font(.system(.title2, weight: .semibold))
 			.foregroundStyle(chosen ? Glass.accent : Color.secondary)
 			.accessibilityHidden(true)
 	}

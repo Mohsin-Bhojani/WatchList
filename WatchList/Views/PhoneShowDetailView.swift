@@ -96,14 +96,8 @@ struct PhoneShowDetailView: View {
 		} action: { _, pastTitle in
 			withAnimation(.easeInOut(duration: 0.2)) { compactBar = pastTitle }
 		}
-		.blur(radius: ratingPopup == nil ? 0 : 10)
-		.overlay {
-			if let mode = ratingPopup {
-				RatingPopup(subject: RatingSubject(show: show), mode: mode, tint: pageColor) {
-					withAnimation(Glass.smooth) { ratingPopup = nil }
-				}
-				.transition(.opacity.combined(with: .scale(scale: 0.96)))
-			}
+		.sheet(item: $ratingPopup) { mode in
+			RatingPopup(subject: RatingSubject(show: show), mode: mode, tint: pageColor) { ratingPopup = nil }
 		}
 		.titlePage(color: theme, compactBar: compactBar)
 		.toolbar {
@@ -255,10 +249,10 @@ struct PhoneShowDetailView: View {
 									Text(["UP NEXT", ShowFacts.code(next),
 									      (next.runtimeMinutes ?? next.specs?.runtimeMinutes).map { "\($0) min" }]
 										.compactMap { $0 }.joined(separator: " · "))
-										.font(.system(size: 11, weight: .bold))
+										.font(.system(.caption2, weight: .bold))
 										.foregroundStyle(.white.opacity(0.85))
 									Text(next.displayTitle)
-										.font(.system(size: 20, weight: .bold))
+										.font(.system(.title3, weight: .bold))
 										.foregroundStyle(.white)
 										.lineLimit(2)
 								}
@@ -270,7 +264,7 @@ struct PhoneShowDetailView: View {
 					HStack(spacing: 8) {
 						Button { ratingEpisode = next } label: {
 							Label("Mark Watched", systemImage: "checkmark")
-								.font(.system(size: 15, weight: .semibold))
+								.font(.system(.subheadline, weight: .semibold))
 								.foregroundStyle(.black)
 								.frame(maxWidth: .infinity, minHeight: GlassControl.height)
 								.background(.white, in: Capsule())
@@ -279,7 +273,7 @@ struct PhoneShowDetailView: View {
 						if let season = next.season {
 							NavigationLink { PhoneSeasonView(season: season) } label: {
 								Text("Episodes")
-									.font(.system(size: 15, weight: .semibold))
+									.font(.system(.subheadline, weight: .semibold))
 									.foregroundStyle(.white)
 									.padding(.horizontal, 18)
 									.frame(minHeight: GlassControl.height)
@@ -292,10 +286,10 @@ struct PhoneShowDetailView: View {
 					// Caught up: nothing out to mark, and the show isn't finished.
 					VStack(alignment: .leading, spacing: 3) {
 						Text(AirDate.caughtUpLine(nextAirDate: waiting.airDate))
-							.font(.system(size: 14, weight: .semibold))
+							.font(.system(.subheadline, weight: .semibold))
 							.foregroundStyle(.white)
 						Text("\(ShowFacts.code(waiting)) · \(waiting.displayTitle)")
-							.font(.system(size: 11, weight: .medium))
+							.font(.system(.caption2, weight: .medium))
 							.foregroundStyle(.white.opacity(0.6))
 							.lineLimit(1)
 					}
@@ -305,11 +299,11 @@ struct PhoneShowDetailView: View {
 					HStack {
 						Text(show.episodeCount == 0 ? "No episodes tracked yet"
 						                            : "All \(ShowFacts.episodes(show.episodeCount)) watched")
-							.font(.system(size: 14, weight: .semibold))
+							.font(.system(.subheadline, weight: .semibold))
 							.foregroundStyle(.white)
 						Spacer()
 						Button("Mark show watched", action: markWatched)
-							.font(.system(size: 12, weight: .semibold))
+							.font(.system(.caption, weight: .semibold))
 							.foregroundStyle(.white)
 							.padding(.horizontal, 14)
 							.frame(height: GlassControl.height)
@@ -351,7 +345,7 @@ struct PhoneShowDetailView: View {
 			if show.seasons.isEmpty {
 				Text(show.tmdbID == nil ? "No seasons yet."
 				                        : "No seasons yet. Refresh metadata from the menu to look again.")
-					.font(.system(size: 14, weight: .medium))
+					.font(.system(.subheadline, weight: .medium))
 					.foregroundStyle(.white.opacity(0.7))
 					.frame(maxWidth: .infinity, alignment: .leading)
 					.padding(14)
@@ -377,11 +371,11 @@ struct PhoneShowDetailView: View {
 							NavigationLink { PhoneSeasonView(season: current) } label: {
 								HStack {
 									Text("\(current.displayName) page")
-										.font(.system(size: 14, weight: .semibold))
+										.font(.system(.subheadline, weight: .semibold))
 									Spacer()
 									VerdictChip(rating: current.rating, emptyLabel: "Rate")
 									Image(systemName: "chevron.right")
-										.font(.system(size: 12, weight: .bold))
+										.font(.system(.caption, weight: .bold))
 										.foregroundStyle(.white.opacity(0.5))
 								}
 								.foregroundStyle(.white)
@@ -417,7 +411,7 @@ struct PhoneShowDetailView: View {
 			withAnimation(Glass.smooth) { pickedSeason = season.id }
 		} label: {
 			Text(label + progress)
-				.font(.system(size: 13, weight: .semibold))
+				.font(.system(.footnote, weight: .semibold))
 				.foregroundStyle(chosen ? Color.black : .white)
 				.padding(.horizontal, 14)
 				.frame(minHeight: 36)
@@ -437,13 +431,13 @@ struct PhoneShowDetailView: View {
 			NavigationLink { PhoneEpisodeView(episode: episode) } label: {
 				VStack(alignment: .leading, spacing: 2) {
 					Text(episode.displayTitle)
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(.white.opacity(aired ? 1 : 0.7))
 						.lineLimit(1)
 					Text(watched ? episode.watchedAt.map { "Watched \(FilmFacts.shortDate($0))" } ?? "Watched"
 					     : aired ? (FilmFacts.runtime(episode.runtimeMinutes) ?? "Not watched")
 					     : AirDate.phrase(episode.airDate).map { "Airs \($0)" } ?? "Coming")
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(.caption, weight: .medium))
 						.foregroundStyle(.white.opacity(0.6))
 				}
 				.frame(maxWidth: .infinity, alignment: .leading)
@@ -456,7 +450,7 @@ struct PhoneShowDetailView: View {
 					withAnimation(Glass.smooth) { watched ? episode.mark(.toWatch) : episode.markWatched() }
 				} label: {
 					Image(systemName: watched ? "checkmark.circle.fill" : "circle")
-						.font(.system(size: 22, weight: .semibold))
+						.font(.system(.title2, weight: .semibold))
 						.foregroundStyle(watched ? PhoneFilmDetailView.teal : .white.opacity(0.5))
 				}
 				.buttonStyle(.plain)

@@ -46,14 +46,14 @@ struct CommunitySection: View {
 		HStack(alignment: .firstTextBaseline) {
 			if let leading = opinion.leading {
 				Text(leading.option)
-					.font(.system(size: 22, weight: .bold, design: .serif))
+					.font(.system(.title2, design: .serif, weight: .bold))
 					.foregroundStyle(scale.tint(leading.option))
 					.lineLimit(1)
 					.minimumScaleFactor(0.7)
 			}
 			Spacer()
 			Text("\(opinion.total) rating\(opinion.total == 1 ? "" : "s")")
-				.font(.system(size: 12, weight: .medium))
+				.font(.system(.caption, weight: .medium))
 				.foregroundStyle(.white.opacity(0.6))
 		}
 		.accessibilityElement(children: .combine)
@@ -87,9 +87,9 @@ struct CommunitySection: View {
 						let middle = (width - gaps) * (before + shares[index] / 2)
 						HStack(spacing: 3) {
 							Image(systemName: "arrowtriangle.up.fill")
-								.font(.system(size: 8))
+								.font(.caption2)
 							Text("You")
-								.font(.system(size: 11, weight: .bold))
+								.font(.system(.caption2, weight: .bold))
 						}
 						.foregroundStyle(scale.tint(yours))
 						.fixedSize()
@@ -106,7 +106,7 @@ struct CommunitySection: View {
 					HStack(spacing: 4) {
 						RoundedRectangle(cornerRadius: 2).fill(scale.tint(option)).frame(width: 8, height: 8)
 						Text(option)
-							.font(.system(size: 11, weight: .medium))
+							.font(.system(.caption2, weight: .medium))
 							.foregroundStyle(.white.opacity(0.75))
 					}
 				}
@@ -120,7 +120,7 @@ struct CommunitySection: View {
 		Text(opinion.total == 1 && opinion.yours != nil
 		     ? "1 rating — yours. Others appear here when WatchList can reach them."
 		     : "\(opinion.total) ratings")
-			.font(.system(size: 12, weight: .medium))
+			.font(.system(.caption, weight: .medium))
 			.foregroundStyle(.white.opacity(0.6))
 			.fixedSize(horizontal: false, vertical: true)
 	}
@@ -128,10 +128,10 @@ struct CommunitySection: View {
 	private var waiting: some View {
 		HStack(spacing: 10) {
 			Image(systemName: "person.2")
-				.font(.system(size: 18, weight: .light))
+				.font(.system(.body, weight: .light))
 				.foregroundStyle(.white.opacity(0.6))
 			Text("No ratings yet. Rate it and yours shows here.")
-				.font(.system(size: 14, weight: .medium))
+				.font(.system(.subheadline, weight: .medium))
 				.foregroundStyle(.white.opacity(0.75))
 				.fixedSize(horizontal: false, vertical: true)
 		}

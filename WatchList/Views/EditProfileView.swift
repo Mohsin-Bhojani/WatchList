@@ -34,9 +34,9 @@ struct EditProfileView: View {
 				VStack(alignment: .leading, spacing: 32) {
 					VStack(alignment: .leading, spacing: 6) {
 						Text("Customise Your Profile")
-							.font(.system(size: 26, weight: .bold))
+							.font(.system(.title, weight: .bold))
 						Text("Set your identity with an avatar and a nickname.")
-							.font(.system(size: 16))
+							.font(.callout)
 							.foregroundStyle(.secondary)
 					}
 
@@ -55,7 +55,7 @@ struct EditProfileView: View {
 							.autocorrectionDisabled()
 							.submitLabel(.done)
 					}
-					.font(.system(size: 17, weight: .medium))
+					.font(.system(.body, weight: .medium))
 					.padding(.horizontal, 20)
 					.padding(.vertical, 15)
 					.glass(cornerRadius: 26)
@@ -108,7 +108,7 @@ struct EditProfileView: View {
 			}
 		} label: {
 			Image(systemName: "pencil")
-				.font(.system(size: 18, weight: .semibold))
+				.font(.system(.body, weight: .semibold))
 				.foregroundStyle(.white)
 				.frame(width: 44, height: 44)
 				.background(Circle().fill(Glass.accent))

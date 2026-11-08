@@ -27,6 +27,12 @@ nonisolated enum ArtworkBand {
 	/// large-text minimum), so brighter samples are dimmed down to it.
 	static let maxLuminance: CGFloat = 0.3
 
+	/// The same for body text: 4.5:1, or 7:1 with Increase Contrast on. The
+	/// title pages carry small white text over their colour.
+	static var maxBodyTextLuminance: CGFloat {
+		UIAccessibility.isDarkerSystemColorsEnabled ? 0.1 : 0.18
+	}
+
 	/// The band colour for `image` drawn scaled-to-fill in `box`, or nil when
 	/// the image can't be read. Dimmed for white text unless told otherwise —
 	/// the Recently watched cards sample their poster tops as they are.
@@ -86,12 +92,12 @@ nonisolated enum ArtworkBand {
 
 	/// Darkens a colour just enough to bring it down to `maxLuminance`, keeping
 	/// its hue. The design's blue is already under it and comes back unchanged.
-	static func dimmedForWhiteText(_ color: UIColor) -> UIColor {
+	static func dimmedForWhiteText(_ color: UIColor, limit: CGFloat = maxLuminance) -> UIColor {
 		let luminance = relativeLuminance(color)
-		guard luminance > maxLuminance else { return color }
+		guard luminance > limit else { return color }
 		var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
 		color.getRed(&r, green: &g, blue: &b, alpha: &a)
-		let k = pow(maxLuminance / luminance, 1 / 2.2)
+		let k = pow(limit / luminance, 1 / 2.2)
 		return UIColor(red: r * k, green: g * k, blue: b * k, alpha: 1)
 	}
 

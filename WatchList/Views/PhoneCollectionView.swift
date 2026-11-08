@@ -38,6 +38,7 @@ struct PhoneCollectionView: View {
 	let source: CollectionSource
 
 	@Environment(\.dismiss) private var dismiss
+	@Environment(\.dynamicTypeSize) private var typeSize
 	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
 	@Query(sort: \Film.dateAdded, order: .reverse) private var films: [Film]
 	@Query(sort: \TitleCollection.created) private var collections: [TitleCollection]
@@ -53,13 +54,13 @@ struct PhoneCollectionView: View {
 	@State private var renaming = false
 	@State private var draftName = ""
 	@State private var confirmingDelete = false
-	@Namespace private var modeThumb
 
-	private enum Mode { case list, carousel }
+	private enum Mode: Hashable { case list, carousel }
 
 	/// Keyed on the device, like the app's shell: an iPad's bar has the floating
 	/// tab bar in the middle of it.
-	private let isPad = UIDevice.current.userInterfaceIdiom == .pad
+	@Environment(\.horizontalSizeClass) private var sizeClass
+	private var isPad: Bool { WideLayout.applies(sizeClass) }
 
 	/// An iPad's page runs wider than a title page's column: wide enough for
 	/// rows two across, and for the carousel's words beside its posters.
@@ -210,17 +211,17 @@ struct PhoneCollectionView: View {
 	@ViewBuilder private func titleLabel(_ items: [WatchedTitle], inBar: Bool) -> some View {
 		let label = VStack(alignment: .leading, spacing: inBar ? 1 : 2) {
 			Text(name)
-				.font(.system(size: inBar ? 17 : 26, weight: .bold))
+				.font(.system(inBar ? .body : .title, weight: .bold))
 				.foregroundStyle(.white)
 				.lineLimit(inBar ? 1 : 2)
 			HStack(spacing: 4) {
 				if isMine {
 					Image(systemName: "lock.fill")
-						.font(.system(size: inBar ? 9 : 10, weight: .semibold))
+						.font(.system(.caption2, weight: .semibold))
 				}
 				Text(countLine(items))
 			}
-			.font(.system(size: inBar ? 11 : 13, weight: .medium))
+			.font(.system(inBar ? .caption2 : .footnote, weight: .medium))
 			.foregroundStyle(.white.opacity(0.65))
 			.lineLimit(1)
 		}
@@ -241,45 +242,22 @@ struct PhoneCollectionView: View {
 		func width(_ text: String, _ font: UIFont) -> CGFloat {
 			(text as NSString).size(withAttributes: [.font: font]).width
 		}
-		let nameWidth = width(name, .systemFont(ofSize: 17, weight: .bold))
-		let countWidth = width(countLine(items), .systemFont(ofSize: 11, weight: .medium)) + (isMine ? 13 : 0)
+		let nameWidth = width(name, .preferred(.body, weight: .bold, typeSize: typeSize))
+		let countWidth = width(countLine(items), .preferred(.caption2, weight: .medium, typeSize: typeSize))
+			+ (isMine ? 13 : 0)
 		return min(ceil(max(nameWidth, countWidth)) + 2, max(pageWidth / 2 - 70, 90))
 	}
 
-	/// List and carousel together, drawn as a switch, and all of it one button: a
-	/// tap anywhere on it swaps to the other.
+	/// List or carousel, as a segmented control.
 	private var modeSwitch: some View {
-		Button {
-			Haptics.selection()
-			withAnimation(Glass.smooth) { mode = mode == .list ? .carousel : .list }
-		} label: {
-			HStack(spacing: 2) {
-				modeIcon(.list, systemImage: "list.bullet")
-				modeIcon(.carousel, systemImage: "rectangle.split.3x1")
-			}
-			.padding(4)
-			.contentShape(Capsule())
+		Picker("View", selection: $mode.animation(Glass.smooth)) {
+			Label("List", systemImage: "list.bullet").tag(Mode.list)
+			Label("Carousel", systemImage: "rectangle.split.3x1").tag(Mode.carousel)
 		}
-		.buttonStyle(.plain)
-		.glassEffect(.regular.tint(.white.opacity(0.06)).interactive(), in: Capsule())
-		.accessibilityLabel("View")
-		.accessibilityValue(mode == .list ? "List" : "Carousel")
-		.accessibilityHint("Switches between list and carousel")
-	}
-
-	private func modeIcon(_ option: Mode, systemImage: String) -> some View {
-		let selected = mode == option
-		return Image(systemName: systemImage)
-			.font(.system(size: 14, weight: .semibold))
-			.foregroundStyle(selected ? Color.black.opacity(0.8) : .white.opacity(0.8))
-			.frame(width: 40, height: 32)
-			.background {
-				if selected {
-					Capsule()
-						.fill(.white.opacity(0.9))
-						.matchedGeometryEffect(id: "thumb", in: modeThumb)
-				}
-			}
+		.pickerStyle(.segmented)
+		.labelStyle(.iconOnly)
+		.fixedSize()
+		.sensoryFeedback(.selection, trigger: mode)
 	}
 
 	private func moreMenu(_ items: [WatchedTitle]) -> some View {
@@ -329,12 +307,12 @@ struct PhoneCollectionView: View {
 	private var emptyState: some View {
 		VStack(alignment: .leading, spacing: 12) {
 			Text(isMine ? "Nothing in this collection yet." : "Nothing here yet.")
-				.font(.system(size: 14, weight: .medium))
+				.font(.system(.subheadline, weight: .medium))
 				.foregroundStyle(.white.opacity(0.75))
 			if isMine {
 				Button { addingTitles = true } label: {
 					Label("Add titles", systemImage: "plus")
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(.white)
 						.padding(.horizontal, 18)
 						.frame(height: GlassControl.height)
@@ -376,11 +354,11 @@ struct PhoneCollectionView: View {
 					.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 				VStack(alignment: .leading, spacing: 4) {
 					Text(item.title)
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(.white)
 						.lineLimit(2)
 					Text(CollectionsFeed.kindLine(item))
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(.caption, weight: .medium))
 						.foregroundStyle(.white.opacity(0.6))
 						.lineLimit(1)
 					verdictLine(item)
@@ -424,7 +402,7 @@ struct PhoneCollectionView: View {
 
 	private func capsLabel(_ text: String, tint: Color) -> some View {
 		Text(text.uppercased())
-			.font(.system(size: 10, weight: .bold))
+			.font(.system(.caption2, weight: .bold))
 			.kerning(1)
 			.foregroundStyle(.white)
 			.padding(.horizontal, 8)
@@ -515,21 +493,21 @@ struct PhoneCollectionView: View {
 		let textAlignment: TextAlignment = alignment == .leading ? .leading : .center
 		return VStack(alignment: alignment, spacing: 6) {
 			Text("\(index + 1) of \(count)")
-				.font(.system(size: 13, weight: .semibold))
+				.font(.system(.footnote, weight: .semibold))
 				.foregroundStyle(.white.opacity(0.6))
 			Text(item.title)
-				.font(.system(size: alignment == .leading ? 32 : 26, weight: .bold))
+				.font(.system(alignment == .leading ? .largeTitle : .title, weight: .bold))
 				.foregroundStyle(.white)
 				.multilineTextAlignment(textAlignment)
 				.lineLimit(2)
 			Text(CollectionsFeed.kindLine(item))
-				.font(.system(size: 14, weight: .medium))
+				.font(.system(.subheadline, weight: .medium))
 				.foregroundStyle(.white.opacity(0.7))
 			verdictLine(item)
 				.padding(.top, 4)
 			if !item.synopsis.isEmpty {
 				Text(item.synopsis)
-					.font(.system(size: 15))
+					.font(.subheadline)
 					.foregroundStyle(.white.opacity(0.8))
 					.multilineTextAlignment(textAlignment)
 					.lineLimit(alignment == .leading ? 9 : 6)

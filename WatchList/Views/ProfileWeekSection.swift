@@ -41,19 +41,19 @@ struct ProfileWeekSection: View {
 		VStack(alignment: .leading, spacing: 10) {
 			HStack(alignment: .firstTextBaseline) {
 				Text("This week")
-					.font(.system(size: 20, weight: .bold))
+					.font(.system(.title3, weight: .bold))
 					.accessibilityAddTraits(.isHeader)
 				Spacer(minLength: 8)
 				if week.minutes > 0 {
 					Text("\(ProfileFeed.duration(week.minutes)) · \(ProfileFeed.duration(week.dailyAverage)) a day")
-						.font(.system(size: 13, weight: .medium))
+						.font(.system(.footnote, weight: .medium))
 						.foregroundStyle(.white.opacity(0.6))
 				}
 			}
 			VStack(alignment: .leading, spacing: 14) {
 				if week.minutes == 0 {
 					Text("Nothing watched in the last seven days. Episodes and films you mark Watched show up here, with how long they ran.")
-						.font(.system(size: 14, weight: .medium))
+						.font(.system(.subheadline, weight: .medium))
 						.foregroundStyle(.white.opacity(0.75))
 						.fixedSize(horizontal: false, vertical: true)
 				} else {
@@ -118,7 +118,7 @@ struct ProfileWeekSection: View {
 						Text("\(minutes / 60)h")
 					}
 				}
-				.font(.system(size: 10, weight: .semibold))
+				.font(.system(.caption2, weight: .semibold))
 				.foregroundStyle(.white.opacity(0.7))
 			}
 		}
@@ -133,7 +133,7 @@ struct ProfileWeekSection: View {
 							.foregroundStyle(.white.opacity(label == lit ? 1 : 0.6))
 					}
 				}
-				.font(.system(size: 11))
+				.font(.caption2)
 			}
 		}
 		.chartOverlay { proxy in
@@ -167,13 +167,13 @@ struct ProfileWeekSection: View {
 		VStack(alignment: .leading, spacing: 10) {
 			HStack(alignment: .firstTextBaseline) {
 				Text(day.map { ProfileFeed.name(for: $0, now: now) } ?? "Most watched")
-					.font(.system(size: 15, weight: .semibold))
+					.font(.system(.subheadline, weight: .semibold))
 					.accessibilityAddTraits(.isHeader)
 				Spacer(minLength: 8)
 				if let day {
 					if day.minutes > 0 {
 						Text(ProfileFeed.duration(day.minutes))
-							.font(.system(size: 13, weight: .medium))
+							.font(.system(.footnote, weight: .medium))
 							.foregroundStyle(.white.opacity(0.6))
 					}
 					Button {
@@ -181,7 +181,7 @@ struct ProfileWeekSection: View {
 						withAnimation(Glass.smooth) { picked = nil }
 					} label: {
 						Image(systemName: "xmark")
-							.font(.system(size: 11, weight: .bold))
+							.font(.system(.caption2, weight: .bold))
 							.frame(width: 26, height: 26)
 							.contentShape(Circle())
 					}
@@ -190,13 +190,13 @@ struct ProfileWeekSection: View {
 					.accessibilityLabel("Show the week")
 				} else {
 					Text("Tap a day")
-						.font(.system(size: 13, weight: .medium))
+						.font(.system(.footnote, weight: .medium))
 						.foregroundStyle(.white.opacity(0.6))
 				}
 			}
 			if titles.isEmpty {
 				Text("Nothing watched this day.")
-					.font(.system(size: 14, weight: .medium))
+					.font(.system(.subheadline, weight: .medium))
 					.foregroundStyle(.white.opacity(0.75))
 			} else {
 				ForEach(day == nil ? Array(titles.prefix(3)) : titles) { title in
@@ -219,11 +219,11 @@ struct ProfileWeekSection: View {
 			VStack(alignment: .leading, spacing: 6) {
 				HStack(alignment: .firstTextBaseline, spacing: 8) {
 					Text(title.title)
-						.font(.system(size: 13, weight: .semibold))
+						.font(.system(.footnote, weight: .semibold))
 						.lineLimit(1)
 					Spacer(minLength: 4)
 					Text(title.isFilm ? "Film" : ShowFacts.episodes(title.episodes))
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(.caption, weight: .medium))
 						.foregroundStyle(.white.opacity(0.6))
 				}
 				GeometryReader { proxy in
@@ -238,7 +238,7 @@ struct ProfileWeekSection: View {
 				.frame(height: 4)
 			}
 			Text(ProfileFeed.duration(title.minutes))
-				.font(.system(size: 14, weight: .bold))
+				.font(.system(.subheadline, weight: .bold))
 				.frame(minWidth: 62, alignment: .trailing)
 		}
 		.accessibilityElement(children: .ignore)

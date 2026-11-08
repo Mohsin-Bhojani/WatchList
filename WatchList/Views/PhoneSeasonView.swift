@@ -64,14 +64,8 @@ struct PhoneSeasonView: View {
 		} action: { _, pastTitle in
 			withAnimation(.easeInOut(duration: 0.2)) { compactBar = pastTitle }
 		}
-		.blur(radius: ratingPopup == nil ? 0 : 10)
-		.overlay {
-			if let mode = ratingPopup {
-				RatingPopup(subject: RatingSubject(season: season), mode: mode, tint: pageColor) {
-					withAnimation(Glass.smooth) { ratingPopup = nil }
-				}
-				.transition(.opacity.combined(with: .scale(scale: 0.96)))
-			}
+		.sheet(item: $ratingPopup) { mode in
+			RatingPopup(subject: RatingSubject(season: season), mode: mode, tint: pageColor) { ratingPopup = nil }
 		}
 		.titlePage(color: theme, compactBar: compactBar)
 		.toolbar {
@@ -177,7 +171,7 @@ struct PhoneSeasonView: View {
 			Button(season.rating == nil ? "Rate" : "Edit") {
 				withAnimation(Glass.smooth) { ratingPopup = .edit }
 			}
-			.font(.system(size: 13, weight: .semibold))
+			.font(.system(.footnote, weight: .semibold))
 			.foregroundStyle(.white)
 		}
 		.padding(14)
@@ -190,7 +184,7 @@ struct PhoneSeasonView: View {
 		PageSection(title: "Episodes") {
 			if season.episodes.isEmpty {
 				Text("No episodes yet.")
-					.font(.system(size: 14, weight: .medium))
+					.font(.system(.subheadline, weight: .medium))
 					.foregroundStyle(.white.opacity(0.7))
 					.frame(maxWidth: .infinity, alignment: .leading)
 					.padding(14)
@@ -200,6 +194,19 @@ struct PhoneSeasonView: View {
 					ForEach(Array(season.sortedEpisodes.enumerated()), id: \.element.id) { index, episode in
 						if index > 0 { PageRowDivider(inset: 106) }
 						episodeRow(episode)
+							.contextMenu {
+								Button(episode.status == .watched ? "Mark Unwatched" : "Mark Watched",
+								       systemImage: episode.status == .watched ? "circle" : "checkmark.circle") {
+									withAnimation(Glass.smooth) {
+										episode.status == .watched ? episode.mark(.toWatch) : episode.markWatched()
+									}
+								}
+								Section("Rate") {
+									ForEach(EpisodeTier.allCases) { tier in
+										Toggle(tier.rawValue, isOn: tierToggle(episode, tier))
+									}
+								}
+							}
 					}
 				}
 				.padding(.vertical, 4)
@@ -221,7 +228,7 @@ struct PhoneSeasonView: View {
 				HStack(spacing: 10) {
 					VStack(alignment: .leading, spacing: 3) {
 						Text(episode.displayTitle)
-							.font(.system(size: 14, weight: .bold))
+							.font(.system(.subheadline, weight: .bold))
 							.foregroundStyle(.white.opacity(watched ? 0.75 : 1))
 							.lineLimit(2)
 						let meta = [FilmFacts.releaseDate(episode.airDate), FilmFacts.runtime(episode.runtimeMinutes)]
@@ -233,7 +240,7 @@ struct PhoneSeasonView: View {
 							}
 							Text(meta.joined(separator: " · "))
 						}
-						.font(.system(size: 11, weight: .medium))
+						.font(.system(.caption2, weight: .medium))
 						.foregroundStyle(.white.opacity(0.6))
 						.lineLimit(1)
 					}
@@ -249,7 +256,7 @@ struct PhoneSeasonView: View {
 					withAnimation(Glass.smooth) { watched ? episode.mark(.toWatch) : episode.markWatched() }
 				} label: {
 					Image(systemName: watched ? "checkmark.circle.fill" : "circle")
-						.font(.system(size: 22, weight: .semibold))
+						.font(.system(.title2, weight: .semibold))
 						.foregroundStyle(watched ? PhoneFilmDetailView.teal : .white.opacity(0.5))
 				}
 				.buttonStyle(.plain)

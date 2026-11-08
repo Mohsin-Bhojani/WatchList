@@ -75,8 +75,8 @@ struct PhoneManualEntryView: View {
 							Haptics.selection(); withAnimation(Glass.pop) { kind = k }
 						} label: {
 							HStack(spacing: 6) {
-								Image(systemName: k.systemImage).font(.system(size: 13, weight: .bold))
-								Text(k.rawValue).font(.system(size: 14, weight: .semibold, design: .rounded))
+								Image(systemName: k.systemImage).font(.system(.footnote, weight: .bold))
+								Text(k.rawValue).font(.system(.subheadline, design: .rounded, weight: .semibold))
 							}
 							.foregroundStyle(selected ? .white : Color.primary)
 							.frame(maxWidth: .infinity)
@@ -101,7 +101,7 @@ struct PhoneManualEntryView: View {
 			field("Synopsis (optional)") {
 				TextField("What's it about?", text: $synopsis, axis: .vertical)
 					.lineLimit(3...6)
-					.font(.system(size: 15, weight: .medium, design: .rounded))
+					.font(.system(.subheadline, design: .rounded, weight: .medium))
 					.padding(15).glass(cornerRadius: 16)
 			}
 			field("Status") { StatusPicker(status: $status) }
@@ -109,13 +109,13 @@ struct PhoneManualEntryView: View {
 			field("Notes (optional)") {
 				TextField("Any thoughts…", text: $notes, axis: .vertical)
 					.lineLimit(2...4)
-					.font(.system(size: 15, weight: .medium, design: .rounded))
+					.font(.system(.subheadline, design: .rounded, weight: .medium))
 					.padding(15).glass(cornerRadius: 16)
 			}
 
 			if kind == .show {
 				Text("Tip: after saving, open the show to add seasons and episodes by hand.")
-					.font(.system(size: 12, weight: .medium, design: .rounded))
+					.font(.system(.caption, design: .rounded, weight: .medium))
 					.foregroundStyle(.secondary)
 			}
 
@@ -123,7 +123,7 @@ struct PhoneManualEntryView: View {
 				save()
 			} label: {
 				Text("Add \(kind.rawValue)")
-					.font(.system(size: 16, weight: .bold, design: .rounded))
+					.font(.system(.callout, design: .rounded, weight: .bold))
 					.foregroundStyle(.white)
 					.frame(maxWidth: .infinity)
 					.padding(.vertical, 15)
@@ -166,7 +166,7 @@ struct PhoneManualEntryView: View {
 
 	private func textField(_ placeholder: String, _ text: Binding<String>) -> some View {
 		TextField(placeholder, text: text)
-			.font(.system(size: 15, weight: .medium, design: .rounded))
+			.font(.system(.subheadline, design: .rounded, weight: .medium))
 			.padding(15)
 			.glass(cornerRadius: 16)
 	}
@@ -179,10 +179,10 @@ struct PhoneManualEntryView: View {
 				posterThumbnail
 				VStack(alignment: .leading, spacing: 2) {
 					Text(posterData == nil ? "Choose a poster" : "Poster selected")
-						.font(.system(size: 15, weight: .semibold, design: .rounded))
+						.font(.system(.subheadline, design: .rounded, weight: .semibold))
 						.foregroundStyle(.primary)
 					Text(posterData == nil ? "Optional — pick a photo from your library" : "Tap to change")
-						.font(.system(size: 12, weight: .medium, design: .rounded))
+						.font(.system(.caption, design: .rounded, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
 				Spacer(minLength: 0)
@@ -223,7 +223,7 @@ struct PhoneManualEntryView: View {
 				.frame(width: 44, height: 66)
 				.overlay(
 					Image(systemName: "photo")
-						.font(.system(size: 16, weight: .medium))
+						.font(.system(.callout, weight: .medium))
 						.foregroundStyle(.secondary)
 				)
 		}

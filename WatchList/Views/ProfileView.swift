@@ -28,6 +28,7 @@ struct ProfileView: View {
 	@Query(sort: \Film.dateAdded, order: .reverse) private var films: [Film]
 	@Query(sort: \TitleCollection.created) private var collections: [TitleCollection]
 
+	@Environment(\.dismiss) private var dismiss
 	@State private var editing = false
 	@State private var destination: Destination?
 	@State private var addingTitles = false
@@ -44,7 +45,6 @@ struct ProfileView: View {
 	/// a title page does with a poster's colour.
 	private var ground: LinearGradient { PageGround.accent.gradient }
 
-	/// No Done button: like Settings and Stats, the sheet closes with a swipe down.
 	var body: some View {
 		NavigationStack {
 			ScrollView {
@@ -68,7 +68,19 @@ struct ProfileView: View {
 			// keep the system's.
 			.environment(\.colorScheme, .dark)
 			.background(ground.ignoresSafeArea())
-			.toolbar(.hidden, for: .navigationBar)
+			.toolbarColorScheme(.dark, for: .navigationBar)
+			.toolbar {
+				ToolbarItem(placement: .topBarLeading) {
+					Button("Edit Profile", systemImage: "pencil") { editing = true }
+						.tint(.white)
+				}
+				ToolbarItemGroup(placement: .topBarTrailing) {
+					Button("Settings", systemImage: "gearshape") { destination = .settings }
+						.tint(.white)
+					Button(role: .close) { dismiss() }
+						.tint(.white)
+				}
+			}
 		}
 		.presentationBackground(ground)
 		.sheet(isPresented: $editing) { EditProfileView() }
@@ -83,40 +95,17 @@ struct ProfileView: View {
 		}
 	}
 
-	/// Your avatar and nickname, with Edit in the top left corner and Settings
-	/// in the top right.
+	/// Your avatar and nickname; Edit and Settings are in the toolbar.
 	private var header: some View {
 		VStack(spacing: 12) {
 			ProfileAvatar(nickname: profile.nickname, image: profile.avatar, size: 96)
 			Text(profile.nickname.isEmpty ? "Your Profile" : profile.nickname)
-				.font(.system(size: 30, weight: .bold))
+				.font(.system(.title, weight: .bold))
 				.lineLimit(1)
 				.minimumScaleFactor(0.6)
 				.accessibilityAddTraits(.isHeader)
 		}
 		.frame(maxWidth: .infinity)
-		.padding(.top, 40)
-		.overlay(alignment: .top) {
-			HStack {
-				iconButton("Edit Profile", systemImage: "pencil") { editing = true }
-				Spacer()
-				iconButton("Settings", systemImage: "gearshape") { destination = .settings }
-			}
-			.padding(.top, 16)
-		}
-	}
-
-	/// A round glass button with just its icon, like the tabs' profile button.
-	private func iconButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
-		Button(action: action) {
-			Image(systemName: systemImage)
-				.font(.system(size: 18, weight: .semibold))
-				.frame(width: GlassControl.height, height: GlassControl.height)
-				.contentShape(Circle())
-		}
-		.buttonStyle(.plain)
-		.glassEffect(.regular.interactive(), in: Circle())
-		.accessibilityLabel(title)
 	}
 
 	// MARK: Top 4
@@ -131,7 +120,7 @@ struct ProfileView: View {
 		return VStack(alignment: .leading, spacing: 12) {
 			HStack(spacing: 6) {
 				Text(pinned?.name ?? TitleCollection.topFourName)
-					.font(.system(size: 20, weight: .bold))
+					.font(.system(.title3, weight: .bold))
 					.accessibilityAddTraits(.isHeader)
 				Spacer(minLength: 8)
 				if !items.isEmpty {
@@ -139,9 +128,9 @@ struct ProfileView: View {
 						HStack(spacing: 4) {
 							Text(CollectionsFeed.countLabel(items.count, in: pinned))
 							Image(systemName: "chevron.right")
-								.font(.system(size: 12, weight: .bold))
+								.font(.system(.caption, weight: .bold))
 						}
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(.white.opacity(0.75))
 					}
 				}
@@ -168,12 +157,12 @@ struct ProfileView: View {
 	private var emptyShelf: some View {
 		VStack(alignment: .leading, spacing: 12) {
 			Text("Pick the four titles you love most and they lead your profile.")
-				.font(.system(size: 14, weight: .medium))
+				.font(.system(.subheadline, weight: .medium))
 				.foregroundStyle(.white.opacity(0.75))
 				.fixedSize(horizontal: false, vertical: true)
 			Button { addingTitles = true } label: {
 				Label("Add titles", systemImage: "plus")
-					.font(.system(size: 15, weight: .semibold))
+					.font(.system(.subheadline, weight: .semibold))
 					.padding(.horizontal, 18)
 					.frame(height: GlassControl.height)
 					.contentShape(Capsule())

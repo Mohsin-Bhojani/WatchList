@@ -119,7 +119,7 @@ struct ArtworkSheet: View {
 							.overlay(RoundedRectangle(cornerRadius: Glass.cornerSmall, style: .continuous)
 								.strokeBorder(Glass.hairline.opacity(0.16), lineWidth: 1))
 						Text(picked == slot ? "\(slot.title) · Updated" : slot.title)
-							.font(.system(size: 12, weight: .semibold, design: .rounded))
+							.font(.system(.caption, design: .rounded, weight: .semibold))
 							.foregroundStyle(picked == slot ? Glass.accent : .secondary)
 							.lineLimit(1)
 					}
@@ -128,7 +128,7 @@ struct ArtworkSheet: View {
 				}
 			}
 			Text("Hold an image below, or open it, to use it.")
-				.font(.system(size: 12, weight: .medium, design: .rounded))
+				.font(.system(.caption, design: .rounded, weight: .medium))
 				.foregroundStyle(.tertiary)
 		}
 	}

@@ -18,8 +18,7 @@ import WatchListLibrary
 
 struct PhoneShowsView: View {
 	/// Whether the grid is on screen at its top, for the tab bar to read.
-	@Binding var atTop: Bool
-	@Binding var showingFilters: Bool
+	@State private var showingFilters = false
 
 	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
@@ -30,8 +29,12 @@ struct PhoneShowsView: View {
 	@State private var pickedGenres: Set<String> = []
 	@State private var order = BrowseOrder()
 
-	/// Two columns, or as many poster-sized ones as fit in a landscape Plus/Max.
+	@Environment(\.dynamicTypeSize) private var typeSize
+
+	/// Two columns, or as many poster-sized ones as fit in a landscape Plus/Max;
+	/// one at the accessibility text sizes, so titles aren't cut to a word.
 	private var columns: [GridItem] {
+		if typeSize.isAccessibilitySize { return [GridItem(.flexible())] }
 		if horizontalSizeClass == .regular {
 			return [GridItem(.adaptive(minimum: 180, maximum: 240), spacing: 16)]
 		}
@@ -85,7 +88,6 @@ struct PhoneShowsView: View {
 				GlassBackground()
 				ScrollView {
 					VStack(alignment: .leading, spacing: 14) {
-						ScreenHeader(title: kind.title, subtitle: headerLine)
 						if let filterSummary {
 							FilterSummaryButton(summary: filterSummary) { showingFilters = true }
 								.padding(.horizontal, 20)
@@ -96,10 +98,9 @@ struct PhoneShowsView: View {
 					}
 					.padding(.bottom, 18)
 				}
-				.reportsListAtTop($atTop)
 				.scrollsToTopOnReselect(.shows)
 			}
-			.screenBar(kind.title)
+			.screenBar(kind.title, subtitle: headerLine) { showingFilters = true }
 			// Genres the new type doesn't have would hide everything.
 			.onChange(of: kind) { pickedGenres.formIntersection(availableGenres) }
 			.sheet(isPresented: $showingFilters) { filterSheet }
@@ -145,6 +146,7 @@ struct PhoneShowsView: View {
 						FadedPosterCard(item: item)
 					}
 					.buttonStyle(.pressable)
+					.titleQuickActions(item)
 				}
 			}
 		}

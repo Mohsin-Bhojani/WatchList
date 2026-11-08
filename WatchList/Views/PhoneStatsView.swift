@@ -62,12 +62,12 @@ struct PhoneStatsView: View {
 		films.filter { $0.status == .watched && $0.rating == nil }.count
 	}
 
+	@Environment(\.dismiss) private var dismissStats
+
 	var body: some View {
 		NavigationStack {
 			ScrollView {
 				VStack(spacing: 12) {
-					SheetTitle("Stats")
-						.padding(.bottom, 10)
 					// How far through, as rings (design B of the alternatives).
 					HStack(spacing: 12) {
 						ring("Shows finished", done: shows.filter { $0.status == .watched }.count, of: shows.count,
@@ -87,7 +87,12 @@ struct PhoneStatsView: View {
 				.padding(18)
 			}
 			.background(GlassBackground())
-			.toolbar(.hidden, for: .navigationBar)
+			.navigationTitle("Stats")
+			.toolbar {
+				ToolbarItem(placement: .topBarTrailing) {
+					Button(role: .close) { dismissStats() }
+				}
+			}
 			.sheet(item: $filter) { PhoneStatItemsSheet(filter: $0) }
 		}
 	}
@@ -109,16 +114,16 @@ struct PhoneStatsView: View {
 					.stroke(tint, style: StrokeStyle(lineWidth: 8, lineCap: .round))
 					.rotationEffect(.degrees(-90))
 				Text(total == 0 ? "–" : "\(Int((fraction * 100).rounded()))%")
-					.font(.system(size: 18, weight: .bold, design: .serif))
+					.font(.system(.body, design: .serif, weight: .bold))
 					.foregroundStyle(Glass.ink)
 			}
 			.frame(width: 78, height: 78)
 			VStack(spacing: 2) {
 				Text(label)
-					.font(.system(size: 14, weight: .semibold))
+					.font(.system(.subheadline, weight: .semibold))
 					.foregroundStyle(Glass.ink)
 				Text("\(done) of \(total)")
-					.font(.system(size: 12, weight: .medium))
+					.font(.system(.caption, weight: .medium))
 					.foregroundStyle(.secondary)
 			}
 			.multilineTextAlignment(.center)
@@ -134,14 +139,14 @@ struct PhoneStatsView: View {
 		VStack(alignment: .leading, spacing: 8) {
 			HStack(spacing: 6) {
 				Image(systemName: systemImage)
-					.font(.system(size: 13, weight: .bold))
+					.font(.system(.footnote, weight: .bold))
 					.foregroundStyle(Glass.accent)
 				Text(label)
-					.font(.system(size: 13, weight: .semibold))
+					.font(.system(.footnote, weight: .semibold))
 					.foregroundStyle(.secondary)
 			}
 			Text("\(value)")
-				.font(.system(size: 30, weight: .bold, design: .rounded))
+				.font(.system(.title, design: .rounded, weight: .bold))
 				.foregroundStyle(Glass.ink)
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
@@ -199,9 +204,9 @@ struct PhoneStatsView: View {
 	private var unratedBadge: some View {
 		HStack(spacing: 5) {
 			Image(systemName: "minus.circle")
-				.font(.system(size: 12, weight: .bold))
+				.font(.system(.caption, weight: .bold))
 			Text("Unrated")
-				.font(.system(size: 12, weight: .semibold))
+				.font(.system(.caption, weight: .semibold))
 		}
 		.foregroundStyle(.secondary)
 		.padding(.horizontal, 11)
@@ -213,17 +218,16 @@ struct PhoneStatsView: View {
 	private func drillRow<Badge: View>(value: Int, filter: StatFilter,
 	                                   @ViewBuilder badge: () -> Badge) -> some View {
 		Button {
-			Haptics.tap()
 			self.filter = filter
 		} label: {
 			HStack(spacing: 10) {
 				badge()
 				Spacer()
 				Text("\(value)")
-					.font(.system(size: 18, weight: .bold, design: .rounded))
+					.font(.system(.body, design: .rounded, weight: .bold))
 					.foregroundStyle(Glass.ink)
 				Image(systemName: "chevron.right")
-					.font(.system(size: 12, weight: .bold))
+					.font(.system(.caption, weight: .bold))
 					.foregroundStyle(.tertiary)
 			}
 			.padding(.vertical, 13)
@@ -257,33 +261,34 @@ struct PhoneStatItemsSheet: View {
 
 	var body: some View {
 		NavigationStack {
-			ScrollView {
-				LazyVStack(spacing: 10) {
-					if matchingShows.isEmpty && matchingFilms.isEmpty {
-						EmptyState(icon: "tray", title: "Nothing here",
-						           subtitle: "No titles match \u{201C}\(filter.title)\u{201D} yet.")
-							.padding(.top, 44)
-					} else {
-						ForEach(matchingShows) { show in
-							NavigationLink { PhoneShowDetailView(show: show) } label: {
-								row(title: show.title, subtitle: show.subtitle, posterURL: show.posterURL,
-								    placeholder: "tv", status: show.status, rating: show.rating)
-							}
-							.buttonStyle(.pressable)
+			List {
+				if matchingShows.isEmpty && matchingFilms.isEmpty {
+					EmptyState(icon: "tray", title: "Nothing here",
+					           subtitle: "No titles match \u{201C}\(filter.title)\u{201D} yet.")
+						.padding(.top, 44)
+						.listRowBackground(Color.clear)
+						.listRowSeparator(.hidden)
+				} else {
+					ForEach(matchingShows) { show in
+						NavigationLink { PhoneShowDetailView(show: show) } label: {
+							row(title: show.title, subtitle: show.subtitle, posterURL: show.posterURL,
+							    placeholder: "tv", status: show.status, rating: show.rating)
 						}
-						ForEach(matchingFilms) { film in
-							NavigationLink { PhoneFilmDetailView(film: film) } label: {
-								row(title: film.title,
-								    subtitle: [film.year, film.genre].filter { !$0.isEmpty }.joined(separator: " · "),
-								    posterURL: film.posterURL, placeholder: "film",
-								    status: film.status, rating: film.rating)
-							}
-							.buttonStyle(.pressable)
+						.titleRow(.show(show))
+					}
+					ForEach(matchingFilms) { film in
+						NavigationLink { PhoneFilmDetailView(film: film) } label: {
+							row(title: film.title,
+							    subtitle: [film.year, film.genre].filter { !$0.isEmpty }.joined(separator: " · "),
+							    posterURL: film.posterURL, placeholder: "film",
+							    status: film.status, rating: film.rating)
 						}
+						.titleRow(.film(film))
 					}
 				}
-				.padding(18)
 			}
+			.listStyle(.plain)
+			.scrollContentBackground(.hidden)
 			.background(GlassBackground())
 			.navigationTitle(filter.title)
 			.navigationBarTitleDisplayMode(.inline)
@@ -307,12 +312,12 @@ struct PhoneStatItemsSheet: View {
 			}
 			VStack(alignment: .leading, spacing: 3) {
 				Text(title)
-					.font(.system(size: 16, weight: .semibold))
+					.font(.system(.callout, weight: .semibold))
 					.foregroundStyle(Glass.ink)
 					.lineLimit(2)
 				if !subtitle.isEmpty {
 					Text(subtitle)
-						.font(.system(size: 13, weight: .medium))
+						.font(.system(.footnote, weight: .medium))
 						.foregroundStyle(.secondary)
 						.lineLimit(2)
 				}
@@ -321,11 +326,23 @@ struct PhoneStatItemsSheet: View {
 			if let rating { RatingBadge(rating: rating, compact: true) }
 			StatusBadge(status: status, compact: true)
 			Image(systemName: "chevron.right")
-				.font(.system(size: 13, weight: .bold))
+				.font(.system(.footnote, weight: .bold))
 				.foregroundStyle(.tertiary)
 		}
 		.padding(.vertical, 11)
 		.padding(.horizontal, 14)
 		.glass(cornerRadius: 20)
+	}
+}
+
+private extension View {
+	/// A glass card as a plain List row, with swipe and long-press actions.
+	func titleRow(_ item: WatchedTitle) -> some View {
+		navigationLinkIndicatorVisibility(.hidden)
+			.listRowBackground(Color.clear)
+			.listRowSeparator(.hidden)
+			.listRowInsets(EdgeInsets(top: 5, leading: 18, bottom: 5, trailing: 18))
+			.titleSwipeActions(item)
+			.titleQuickActions(item)
 	}
 }

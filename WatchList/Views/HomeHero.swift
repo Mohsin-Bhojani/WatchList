@@ -97,8 +97,15 @@ struct HomeHeroPage: View {
 		let next = HomeFeed.nextEpisode(of: show)
 		let progress = HomeFeed.progressLine(for: show, next: next)
 		ZStack(alignment: .top) {
-			artwork
-				.padding(.top, artTop)
+			// The artwork opens the show; the panel over it has its own buttons.
+			Button(action: onOpen) {
+				artwork
+					.padding(.top, artTop)
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+					.contentShape(Rectangle())
+			}
+			.buttonStyle(.plain)
+			.accessibilityLabel("Open \(show.title)")
 
 			if wide {
 				wideDetails(progress: progress, next: next)
@@ -114,9 +121,6 @@ struct HomeHeroPage: View {
 		}
 		.frame(height: height)
 		.clipped()
-		.contentShape(Rectangle())
-		.onTapGesture(perform: onOpen)
-		.accessibilityAction(named: "Open \(show.title)", onOpen)
 		.task(id: loadKey) { await loadArt() }
 	}
 
@@ -164,11 +168,11 @@ struct HomeHeroPage: View {
 		return VStack(alignment: .leading, spacing: 10) {
 			Text([next.map(ShowFacts.code), runtime.map { "\($0) min" }].compactMap { $0 }.joined(separator: " · ")
 			     .ifEmpty(progress))
-				.font(.system(size: 12, weight: .semibold))
+				.font(.system(.caption, weight: .semibold))
 				.foregroundStyle(.white.opacity(0.78))
 			VStack(alignment: .leading, spacing: 2) {
 				Text(show.title)
-					.font(.system(size: 22, weight: .bold))
+					.font(.system(.title2, weight: .bold))
 					.foregroundStyle(.white)
 					.lineLimit(2)
 					.minimumScaleFactor(0.8)
@@ -176,7 +180,7 @@ struct HomeHeroPage: View {
 				// repeat the line above, so it is left out.
 				if let name = next.map(ShowFacts.distinctName) ?? progress {
 					Text(name)
-						.font(.system(size: 15, weight: .regular))
+						.font(.system(.subheadline, weight: .regular))
 						.foregroundStyle(.white.opacity(0.88))
 						.lineLimit(1)
 				}
@@ -193,7 +197,7 @@ struct HomeHeroPage: View {
 							}
 						}
 					Text("\(watched) of \(total)")
-						.font(.system(size: 12, weight: .medium).monospacedDigit())
+						.font(.system(.caption, weight: .medium).monospacedDigit())
 						.foregroundStyle(.white.opacity(0.78))
 				}
 				.accessibilityElement(children: .ignore)
@@ -204,7 +208,7 @@ struct HomeHeroPage: View {
 				if !caughtUp(next: next) {
 					Button(action: markWatched) {
 						Label("Mark Watched", systemImage: "checkmark")
-							.font(.system(size: 16, weight: .semibold))
+							.font(.system(.callout, weight: .semibold))
 							.foregroundStyle(.black)
 							.frame(maxWidth: .infinity, minHeight: GlassControl.height)
 							.background(.white, in: Capsule())
@@ -217,7 +221,7 @@ struct HomeHeroPage: View {
 				}
 				Button(action: onOpen) {
 					Image(systemName: "chevron.right")
-						.font(.system(size: 16, weight: .semibold))
+						.font(.system(.callout, weight: .semibold))
 						.foregroundStyle(.white)
 						.frame(width: GlassControl.height, height: GlassControl.height)
 						.contentShape(Circle())
@@ -242,23 +246,23 @@ struct HomeHeroPage: View {
 		let synopsis = [next?.synopsis ?? "", show.overview].first { !$0.isEmpty }
 		return VStack(alignment: .leading, spacing: 4) {
 			Text(progress.uppercased())
-				.font(.system(size: 13, weight: .bold))
+				.font(.system(.footnote, weight: .bold))
 				.kerning(1)
 				.foregroundStyle(.white.opacity(0.8))
 			Text(show.title)
-				.font(.system(size: 40, weight: .bold))
+				.font(.system(.largeTitle, weight: .bold))
 				.foregroundStyle(.white)
 				.lineLimit(2)
 				.minimumScaleFactor(0.7)
 			if let next {
 				Text(next.displayTitle)
-					.font(.system(size: 18, weight: .semibold))
+					.font(.system(.body, weight: .semibold))
 					.foregroundStyle(.white.opacity(0.92))
 					.lineLimit(1)
 			}
 			if let synopsis {
 				Text(synopsis)
-					.font(.system(size: 15))
+					.font(.subheadline)
 					.foregroundStyle(.white.opacity(0.78))
 					.lineLimit(3)
 					.padding(.top, 6)
@@ -267,7 +271,7 @@ struct HomeHeroPage: View {
 				if !caughtUp(next: next) {
 					Button(action: markWatched) {
 						Text("Mark Watched")
-							.font(.system(size: 16, weight: .medium))
+							.font(.system(.callout, weight: .medium))
 							.foregroundStyle(.white)
 							.padding(.horizontal, 6)
 					}
@@ -278,7 +282,7 @@ struct HomeHeroPage: View {
 				if total > 0 {
 					VStack(alignment: .leading, spacing: 6) {
 						Text(ShowFacts.progressLine(watched: watched, total: total))
-							.font(.system(size: 13, weight: .medium))
+							.font(.system(.footnote, weight: .medium))
 							.foregroundStyle(.white.opacity(0.8))
 						Capsule()
 							.fill(.white.opacity(0.22))
@@ -328,7 +332,6 @@ struct HomeHeroPage: View {
 	/// it Watched. With none left, finishes the show straight away.
 	private func markWatched() {
 		if let next = HomeFeed.nextEpisode(of: show) {
-			Haptics.tap()
 			onRateEpisode(next)
 			return
 		}
@@ -470,9 +473,9 @@ struct RecentlyWatchedCard: View {
 				} else if posterMissing {
 					VStack(spacing: 8) {
 						Image(systemName: item.placeholder)
-							.font(.system(size: 26, weight: .light))
+							.font(.system(.title, weight: .light))
 						Text(item.title)
-							.font(.system(size: 14, weight: .semibold))
+							.font(.system(.subheadline, weight: .semibold))
 							.multilineTextAlignment(.center)
 							.lineLimit(3)
 					}
@@ -498,9 +501,9 @@ struct RecentlyWatchedCard: View {
 		if let rating = item.rating {
 			HStack(spacing: 4) {
 				Image(systemName: rating.systemImage)
-					.font(.system(size: 10, weight: .bold))
+					.font(.system(.caption2, weight: .bold))
 				Text(rating.rawValue)
-					.font(.system(size: 12, weight: .semibold))
+					.font(.system(.caption, weight: .semibold))
 			}
 			.foregroundStyle(.white)
 			.padding(.horizontal, 10)
@@ -509,7 +512,7 @@ struct RecentlyWatchedCard: View {
 			.overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 1))
 		} else {
 			Text("Unrated")
-				.font(.system(size: 12, weight: .semibold))
+				.font(.system(.caption, weight: .semibold))
 				.foregroundStyle(.white.opacity(0.85))
 				.padding(.horizontal, 10)
 				.padding(.vertical, 5)

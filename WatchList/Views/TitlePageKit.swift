@@ -35,7 +35,9 @@ enum PageTheme {
 		if let hit = sampled[url] { return hit }
 		guard !url.isEmpty, let link = URL(string: url),
 		      let image = await ImageCache.shared.image(for: link),
-		      let color = await ArtworkBand.sampledThemeColor(for: image) else { return nil }
+		      let sampledColor = await ArtworkBand.sampledThemeColor(for: image) else { return nil }
+		// Dark enough for the page's small white text, not just its title.
+		let color = ArtworkBand.dimmedForWhiteText(sampledColor, limit: ArtworkBand.maxBodyTextLuminance)
 		sampled[url] = color
 		return color
 	}
@@ -58,12 +60,9 @@ struct TitlePageColumns<Lead: View, Rest: View>: View {
 
 	@State private var width: CGFloat = 0
 
-	/// Keyed on the device, like the app's shell.
-	private static var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
-
 	var body: some View {
 		Group {
-			if Self.isPad && width >= 960 {
+			if width >= 960 {
 				HStack(alignment: .top, spacing: 28) {
 					VStack(spacing: 16) { lead }
 						.frame(width: min(width * 0.38, 420))
@@ -126,7 +125,7 @@ extension View {
 
 	/// The page's glass capsule buttons: View on IMDb, Share.
 	func titlePageCapsule() -> some View {
-		font(.system(size: 13, weight: .semibold))
+		font(.system(.footnote, weight: .semibold))
 			.foregroundStyle(.white)
 			.frame(maxWidth: .infinity, minHeight: GlassControl.height)
 			.glassEffect(.regular, in: Capsule())

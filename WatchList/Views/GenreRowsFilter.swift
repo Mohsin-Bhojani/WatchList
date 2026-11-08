@@ -33,7 +33,8 @@ struct GenreRowsFilter: View {
 		}
 	}
 
-	private static let font = UIFont.systemFont(ofSize: 13, weight: .medium)
+	@Environment(\.dynamicTypeSize) private var typeSize
+	private var font: UIFont { .preferred(.footnote, weight: .medium, typeSize: typeSize) }
 	private static let padding: CGFloat = 12
 	private static let spacing: CGFloat = 6
 
@@ -50,7 +51,7 @@ struct GenreRowsFilter: View {
 		let chips = [Chip.all] + options.map(Chip.genre)
 		// Dealt by name, never by what's picked, so tiles stay put as they're tapped.
 		let rows = ChipRows.deal(chips, into: ChipRows.rowCount(for: chips.count), spacing: Self.spacing) { chip in
-			(chip.name as NSString).size(withAttributes: [.font: Self.font]).width + 2 * Self.padding
+			(chip.name as NSString).size(withAttributes: [.font: font]).width + 2 * Self.padding
 		}
 		VStack(alignment: .leading, spacing: 10) {
 			Button {
@@ -62,7 +63,7 @@ struct GenreRowsFilter: View {
 						.lineLimit(1)
 					Spacer(minLength: 8)
 					Image(systemName: "chevron.down")
-						.font(.system(size: 12, weight: .bold))
+						.font(.system(.caption, weight: .bold))
 						.foregroundStyle(.secondary)
 						.rotationEffect(.degrees(open ? 180 : 0))
 				}
@@ -115,12 +116,12 @@ struct GenreRowsFilter: View {
 		} label: {
 			// The same weight picked or not, so a tile never changes width.
 			Text(chip.name)
-				.font(Font(Self.font))
+				.font(.system(.footnote, weight: .medium))
 				.lineLimit(1)
 				.fixedSize()
 				.foregroundStyle(chosen ? Color.white : Color.primary)
 				.padding(.horizontal, Self.padding)
-				.frame(height: 30)
+				.frame(minHeight: 30)
 				.background(chosen ? AnyShapeStyle(Glass.accent) : AnyShapeStyle(Color.primary.opacity(0.06)),
 				            in: Capsule())
 				.contentShape(Capsule())

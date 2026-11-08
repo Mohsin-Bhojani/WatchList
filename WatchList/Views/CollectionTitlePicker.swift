@@ -58,7 +58,7 @@ struct CollectionTitlePicker: View {
 					if let capacity = collection?.capacity {
 						Text(full ? "That's all \(capacity). Take one out to put another in."
 						          : "Pick up to \(capacity) — the titles you'd put above all the rest.")
-							.font(.system(size: 13, weight: .medium))
+							.font(.system(.footnote, weight: .medium))
 							.foregroundStyle(.white.opacity(0.75))
 							.frame(maxWidth: .infinity, alignment: .leading)
 							.padding(.horizontal, 4)
@@ -67,7 +67,7 @@ struct CollectionTitlePicker: View {
 					}
 					if titles.isEmpty {
 						Text(search.isEmpty ? "Nothing in your library yet." : "No titles match \u{201C}\(search)\u{201D}.")
-							.font(.system(size: 14, weight: .medium))
+							.font(.system(.subheadline, weight: .medium))
 							.foregroundStyle(.white.opacity(0.75))
 							.frame(maxWidth: .infinity, alignment: .leading)
 							.padding(16)
@@ -97,9 +97,9 @@ struct CollectionTitlePicker: View {
 				ToolbarItem(placement: .principal) {
 					VStack(spacing: 1) {
 						Text(name)
-							.font(.system(size: 17, weight: .semibold))
+							.font(.system(.body, weight: .semibold))
 						Text(CollectionsFeed.countLabel(inCount, in: collection))
-							.font(.system(size: 12, weight: .medium))
+							.font(.system(.caption, weight: .medium))
 							.foregroundStyle(.white.opacity(0.65))
 							.contentTransition(.numericText())
 					}
@@ -146,11 +146,11 @@ struct CollectionTitlePicker: View {
 					.shadow(color: .black.opacity(0.3), radius: 6, y: 4)
 				VStack(alignment: .leading, spacing: 3) {
 					Text(item.title)
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.multilineTextAlignment(.leading)
 						.lineLimit(2)
 					Text(CollectionsFeed.kindLine(item))
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(.caption, weight: .medium))
 						.foregroundStyle(.white.opacity(0.65))
 				}
 				Spacer(minLength: 8)
@@ -170,7 +170,7 @@ struct CollectionTitlePicker: View {
 	/// A plus in a ring to put a title in; once it's in, a tick on white.
 	private func tick(_ included: Bool) -> some View {
 		Image(systemName: included ? "checkmark" : "plus")
-			.font(.system(size: 13, weight: .bold))
+			.font(.system(.footnote, weight: .bold))
 			.foregroundStyle(included ? ground.deep : .white)
 			.contentTransition(.symbolEffect(.replace))
 			.frame(width: 30, height: 30)

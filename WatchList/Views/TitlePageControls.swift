@@ -40,10 +40,10 @@ struct PageSwitch: View {
 					HStack(spacing: 5) {
 						if let systemImage = option.systemImage {
 							Image(systemName: systemImage)
-								.font(.system(size: 11, weight: .bold))
+								.font(.system(.caption2, weight: .bold))
 						}
 						Text(option.title)
-							.font(.system(size: 14, weight: .semibold))
+							.font(.system(.subheadline, weight: .semibold))
 							.lineLimit(1)
 					}
 					.foregroundStyle(option.selected ? selectedText : .white.opacity(0.75))
@@ -75,10 +75,10 @@ struct VerdictChip: View {
 		HStack(spacing: 5) {
 			if let rating {
 				Image(systemName: rating.systemImage)
-					.font(.system(size: 10, weight: .bold))
+					.font(.system(.caption2, weight: .bold))
 			}
 			Text(rating?.rawValue ?? emptyLabel)
-				.font(.system(size: 12, weight: .bold))
+				.font(.system(.caption, weight: .bold))
 				.lineLimit(1)
 		}
 		// Rated: solid in the verdict's colour (design A); unrated, faint glass.
@@ -97,11 +97,11 @@ struct TierChip: View {
 		HStack(spacing: 4) {
 			if let tier {
 				Image(systemName: tier.systemImage)
-					.font(.system(size: 9, weight: .bold))
+					.font(.system(.caption2, weight: .bold))
 					.foregroundStyle(Glass.tint(tier))
 			}
 			Text(tier?.rawValue ?? "Rate")
-				.font(.system(size: 11, weight: .semibold))
+				.font(.system(.caption2, weight: .semibold))
 		}
 		.foregroundStyle(.white.opacity(tier == nil ? 0.7 : 1))
 		.padding(.horizontal, 8)
@@ -125,13 +125,13 @@ struct PageStatusLabel: View {
 				Text(rating.rawValue)
 			} else {
 				Image(systemName: status.systemImage)
-					.font(.system(size: 12, weight: .semibold))
+					.font(.system(.caption, weight: .semibold))
 				Text(status.rawValue)
 			}
 			Image(systemName: "chevron.down")
-				.font(.system(size: 11, weight: .bold))
+				.font(.system(.caption2, weight: .bold))
 		}
-		.font(.system(size: 14, weight: .semibold))
+		.font(.system(.subheadline, weight: .semibold))
 		.foregroundStyle(.white)
 	}
 }
@@ -150,10 +150,10 @@ struct PageCompactTitle: View {
 				.clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
 			VStack(alignment: .leading, spacing: 0) {
 				Text(title)
-					.font(.system(size: 14, weight: .bold))
+					.font(.system(.subheadline, weight: .bold))
 					.lineLimit(1)
 				Text(subtitle)
-					.font(.system(size: 11, weight: .medium))
+					.font(.system(.caption2, weight: .medium))
 					.foregroundStyle(.white.opacity(0.65))
 					.lineLimit(1)
 			}
@@ -176,7 +176,7 @@ struct PageMetaLine: View {
 						Image(systemName: StarRatingPicker.symbol(star))
 					}
 				}
-				.font(.system(size: 10))
+				.font(.caption2)
 				.accessibilityElement(children: .ignore)
 				.accessibilityLabel(String(format: "TMDb rating %.1f out of 10", average))
 			}
@@ -184,7 +184,7 @@ struct PageMetaLine: View {
 				Text(parts.joined(separator: " · "))
 			}
 		}
-		.font(.system(size: 13, weight: .medium))
+		.font(.system(.footnote, weight: .medium))
 		.foregroundStyle(.white.opacity(0.75))
 		.multilineTextAlignment(.center)
 	}

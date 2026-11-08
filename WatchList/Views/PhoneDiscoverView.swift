@@ -31,8 +31,7 @@ import WatchListLibrary
 struct PhoneDiscoverView: View {
 	/// Whether the page is on screen, for the tab bar to read. It never scrolls,
 	/// so a second tap on Discover always opens the filter.
-	@Binding var atTop: Bool
-	@Binding var showingFilters: Bool
+	@State private var showingFilters = false
 
 	@Environment(\.modelContext) private var ctx
 	@Environment(\.colorScheme) private var systemScheme
@@ -96,7 +95,7 @@ struct PhoneDiscoverView: View {
 
 		NavigationStack {
 			VStack(spacing: 0) {
-				ScreenHeader(title: "Discover", onBand: current != nil)
+				ScreenHeader(title: "Discover", onBand: current != nil) { showingFilters = true }
 				if let filterSummary = filter.summary(seedTitle: deal.picked?.title) {
 					FilterSummaryButton(summary: filterSummary) { showingFilters = true }
 						.frame(maxWidth: .infinity, alignment: .leading)
@@ -126,15 +125,10 @@ struct PhoneDiscoverView: View {
 				}
 			}
 			.readableColumn()
-			// The page doesn't scroll, so on a phone it ends above the dock and
-			// the poster takes only the height left between.
-			.padding(.bottom, ScreenHeader.isInBar ? 0 : LiquidDock.clearance - 12)
 			.frame(maxHeight: .infinity, alignment: .top)
 			.background { backdrop(tinted: current != nil) }
 			.environment(\.colorScheme, current == nil ? systemScheme : .dark)
-			.screenBar("Discover", onBand: current != nil)
-			.onAppear { atTop = true }
-			.onDisappear { atTop = false }
+			.screenBar("Discover", onBand: current != nil, pageHeader: true) { showingFilters = true }
 			.task { await loader.loadGenres() }
 			.task(id: current?.largePosterURL) { await loadTone(current?.largePosterURL) }
 			// The next cards' artwork, so each comes in with its poster and colour.
@@ -296,30 +290,29 @@ struct PhoneDiscoverView: View {
 	private func comparisonButton(_ suggestion: Suggestion, library: [WatchedTitle]) -> some View {
 		let closest = Similarity.closest(to: suggestion, in: library)
 		return Button {
-			Haptics.tap()
 			comparing = suggestion
 		} label: {
 			HStack(spacing: 12) {
 				Image(systemName: "chart.bar.xaxis")
-					.font(.system(size: 16, weight: .semibold))
+					.font(.system(.callout, weight: .semibold))
 				VStack(alignment: .leading, spacing: 1) {
 					Text("Compared with your library")
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 					if let closest {
 						Text("Closest: \(closest.title.title) · \(closest.percent)%")
-							.font(.system(size: 12, weight: .medium))
+							.font(.system(.caption, weight: .medium))
 							.foregroundStyle(.white.opacity(0.65))
 							.lineLimit(1)
 					}
 				}
 				Spacer(minLength: 0)
 				Image(systemName: "chevron.up")
-					.font(.system(size: 13, weight: .bold))
+					.font(.system(.footnote, weight: .bold))
 					.foregroundStyle(.white.opacity(0.7))
 			}
 			.foregroundStyle(.white)
 			.padding(.horizontal, 18)
-			.frame(height: 56)
+			.frame(minHeight: 56)
 			.contentShape(Capsule())
 		}
 		.buttonStyle(.plain)
@@ -333,7 +326,7 @@ struct PhoneDiscoverView: View {
 			ScrollView {
 				VStack(alignment: .leading, spacing: 12) {
 					Text("How alike \(suggestion.title) is to each title you have, from shared genres, the title it was suggested from, TV or film, and the year.")
-						.font(.system(size: 13, weight: .medium))
+						.font(.system(.footnote, weight: .medium))
 						.foregroundStyle(.white.opacity(0.65))
 						.fixedSize(horizontal: false, vertical: true)
 					LazyVStack(spacing: 8) {
@@ -369,17 +362,17 @@ struct PhoneDiscoverView: View {
 				.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 			VStack(alignment: .leading, spacing: 6) {
 				Text(item.title)
-					.font(.system(size: 15, weight: .semibold))
+					.font(.system(.subheadline, weight: .semibold))
 					.foregroundStyle(.white)
 					.lineLimit(1)
 				ProgressView(value: Double(row.percent), total: 100)
 					.tint(.white)
 				Text("\(item.kindLabel) · \(item.rating?.rawValue ?? "Unrated")")
-					.font(.system(size: 12, weight: .medium))
+					.font(.system(.caption, weight: .medium))
 					.foregroundStyle(.white.opacity(0.6))
 			}
 			Text("\(row.percent)%")
-				.font(.system(size: 18, weight: .bold, design: .rounded))
+				.font(.system(.body, design: .rounded, weight: .bold))
 				.monospacedDigit()
 				.foregroundStyle(.white)
 				.frame(minWidth: 52, alignment: .trailing)
@@ -408,7 +401,7 @@ struct PhoneDiscoverView: View {
 					ProgressView()
 						.controlSize(.large)
 					Text("Finding titles like yours\u{2026}")
-						.font(.system(size: 15, weight: .medium))
+						.font(.system(.subheadline, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
 				.frame(maxWidth: .infinity)
@@ -452,7 +445,7 @@ struct PhoneDiscoverView: View {
 				ProgressView()
 					.controlSize(.large)
 				Text("Finding titles that fit\u{2026}")
-					.font(.system(size: 15, weight: .medium))
+					.font(.system(.subheadline, weight: .medium))
 					.foregroundStyle(.secondary)
 			}
 			.frame(maxWidth: .infinity)
@@ -465,7 +458,7 @@ struct PhoneDiscoverView: View {
 			withAnimation(Glass.smooth) { addError = nil }
 		} label: {
 			Label(message, systemImage: "exclamationmark.triangle.fill")
-				.font(.system(size: 13, weight: .semibold))
+				.font(.system(.footnote, weight: .semibold))
 				.foregroundStyle(.white)
 				.lineLimit(2)
 				.padding(.horizontal, 14)

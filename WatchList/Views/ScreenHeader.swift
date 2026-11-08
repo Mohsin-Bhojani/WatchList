@@ -15,10 +15,18 @@ import SwiftUI
 import WatchListCore
 import WatchListLibrary
 
+/// Whether a screen gets the wide layout: an iPad at regular width, where the
+/// tab bar floats at the top with room either side of it. An iPad in a narrow
+/// Split View or Slide Over gets the phone's layout, as its tab bar does.
+enum WideLayout {
+	static func applies(_ sizeClass: UserInterfaceSizeClass?) -> Bool {
+		UIDevice.current.userInterfaceIdiom == .pad && sizeClass == .regular
+	}
+}
+
 struct ScreenHeader: View {
-	/// Keyed on the device, like the app's shell: an iPad's tab bar floats at
-	/// the top, with room either side of it.
-	static let isInBar = UIDevice.current.userInterfaceIdiom == .pad
+	@Environment(\.horizontalSizeClass) private var sizeClass
+	private var isInBar: Bool { WideLayout.applies(sizeClass) }
 
 	let title: String
 	/// White with a soft shadow over a colour band (Home's hero); ink on paper.
@@ -29,6 +37,8 @@ struct ScreenHeader: View {
 	/// A live line under the name — "568 titles · 4 watching" — when the screen
 	/// has one.
 	var subtitle: String? = nil
+	/// When given, a Filter & Sort button beside the profile.
+	var onFilter: (() -> Void)? = nil
 
 	@State private var showingProfile = false
 	@ObservedObject private var profile = ProfileStore.shared
@@ -36,19 +46,19 @@ struct ScreenHeader: View {
 	private var ink: Color { onBand ? .white : Glass.ink }
 
 	var body: some View {
-		if !Self.isInBar { header }
+		if !isInBar { header }
 	}
 
 	private var header: some View {
 		HStack(alignment: .top) {
 			VStack(alignment: .leading, spacing: 2) {
 				Text(title)
-					.font(.system(size: 34, weight: .bold))
+					.font(.system(.largeTitle, weight: .bold))
 					.foregroundStyle(ink)
 					.accessibilityAddTraits(.isHeader)
 				if let subtitle {
 					Text(subtitle)
-						.font(.system(size: 13, weight: .medium))
+						.font(.system(.footnote, weight: .medium))
 						.foregroundStyle(ink.opacity(0.7))
 						.lineLimit(1)
 				}
@@ -56,6 +66,15 @@ struct ScreenHeader: View {
 			.shadow(color: .black.opacity(onBand ? 0.25 : 0), radius: 6, y: 1)
 			.allowsHitTesting(false)
 			Spacer()
+			if let onFilter {
+				Button("Filter & Sort", systemImage: "line.3.horizontal.decrease", action: onFilter)
+					.labelStyle(.iconOnly)
+					.font(.system(.body, weight: .semibold))
+					.foregroundStyle(ink)
+					.frame(width: GlassControl.height, height: GlassControl.height)
+					.glassEffect(.regular.interactive(), in: Circle())
+					.padding(.top, 2)
+			}
 			// Your picture, or your initial, ringed so it reads on any ground.
 			Button { showingProfile = true } label: {
 				ProfileAvatar(nickname: profile.nickname, image: profile.avatar, size: 40)
@@ -73,37 +92,49 @@ struct ScreenHeader: View {
 }
 
 extension View {
-	/// A tab's name and profile button in the navigation bar on an iPad, beside
-	/// the floating tab bar; on an iPhone the bar stays hidden and ScreenHeader
-	/// shows them on the page. `onBand` as ScreenHeader's.
-	func screenBar(_ title: String, onBand: Bool = false) -> some View {
-		modifier(ScreenBar(title: title, onBand: onBand))
+	/// A tab's name, subtitle, filter button and profile button.
+	///   - iPhone: a system large title and toolbar. Pages that draw their own
+	///     header over artwork (Home, Discover) pass `pageHeader` and keep the
+	///     bar hidden, with ScreenHeader on the page.
+	///   - iPad: the name and buttons either side of the floating tab bar.
+	/// `onFilter`, when given, puts a Filter & Sort button in the toolbar.
+	func screenBar(_ title: String, subtitle: String? = nil, onBand: Bool = false,
+	               pageHeader: Bool = false, onFilter: (() -> Void)? = nil) -> some View {
+		modifier(ScreenBar(title: title, subtitle: subtitle, onBand: onBand,
+		                   pageHeader: pageHeader, onFilter: onFilter))
 	}
 }
 
 private struct ScreenBar: ViewModifier {
 	let title: String
+	let subtitle: String?
 	let onBand: Bool
+	let pageHeader: Bool
+	let onFilter: (() -> Void)?
 
 	@State private var showingProfile = false
+	@ObservedObject private var profile = ProfileStore.shared
+	@Environment(\.dynamicTypeSize) private var typeSize
+	@Environment(\.horizontalSizeClass) private var sizeClass
 
-	private static let titleFont = UIFont.systemFont(ofSize: 28, weight: .bold)
+	private var titleFont: UIFont { .preferred(.title1, weight: .bold, typeSize: typeSize) }
 	/// About what's left beside the floating tab bar on an 11-inch iPad upright.
 	private static let maxTitleWidth: CGFloat = 116
 
 	private var ink: Color { onBand ? .white : Glass.ink }
 
 	private var titleWidth: CGFloat {
-		let width = (title as NSString).size(withAttributes: [.font: Self.titleFont]).width
+		let width = (title as NSString).size(withAttributes: [.font: titleFont]).width
 		return min(ceil(width) + 2, Self.maxTitleWidth)
 	}
 
 	func body(content: Content) -> some View {
-		if ScreenHeader.isInBar {
+		if WideLayout.applies(sizeClass) {
 			content
 				// The name has its own place on the leading side; the title stays
 				// set only to name the back button on pages pushed from here, and
 				// is never drawn large under the bar either.
+				.navigationTitle(title)
 				.navigationBarTitleDisplayMode(.inline)
 				.toolbar(removing: .title)
 				.toolbar {
@@ -112,7 +143,7 @@ private struct ScreenBar: ViewModifier {
 						// to a few letters, or moves a long name like Collections into its
 						// overflow menu. Past the room beside the tab bar, it shrinks.
 						Text(title)
-							.font(Font(Self.titleFont))
+							.font(.system(.title, weight: .bold))
 							.foregroundStyle(ink)
 							.shadow(color: .black.opacity(onBand ? 0.25 : 0), radius: 6, y: 1)
 							.lineLimit(1)
@@ -121,36 +152,35 @@ private struct ScreenBar: ViewModifier {
 							.accessibilityAddTraits(.isHeader)
 					}
 					.sharedBackgroundVisibility(.hidden)
-					ToolbarItem(placement: .topBarTrailing) {
-						Button { showingProfile = true } label: {
-							Image(systemName: "person.crop.circle")
-								.font(.system(size: 20, weight: .medium))
-						}
-						.tint(ink)
-						.accessibilityLabel("Profile")
-					}
+					trailingItems
 				}
 				.sheet(isPresented: $showingProfile) { ProfileView() }
-		} else {
+		} else if pageHeader {
 			content.toolbar(.hidden, for: .navigationBar)
+		} else {
+			content
+				.navigationTitle(title)
+				.navigationSubtitle(subtitle ?? "")
+				.navigationBarTitleDisplayMode(.large)
+				.toolbar { trailingItems }
+				.sheet(isPresented: $showingProfile) { ProfileView() }
 		}
 	}
-}
 
-/// A sheet's name — Settings, Stats — set the way the tabs set theirs: large
-/// and bold on the leading edge at the top, scrolling with the page.
-struct SheetTitle: View {
-	let text: String
-
-	init(_ text: String) { self.text = text }
-
-	var body: some View {
-		Text(text)
-			.font(.system(size: 34, weight: .bold))
-			.foregroundStyle(Glass.ink)
-			.frame(maxWidth: .infinity, alignment: .leading)
-			// With the sheets' 18pt margin, this lands on the tabs' 20.
-			.padding(.leading, 2)
-			.accessibilityAddTraits(.isHeader)
+	@ToolbarContentBuilder private var trailingItems: some ToolbarContent {
+		if let onFilter {
+			ToolbarItem(placement: .topBarTrailing) {
+				Button("Filter & Sort", systemImage: "line.3.horizontal.decrease", action: onFilter)
+					.tint(ink)
+			}
+		}
+		ToolbarSpacer(.fixed, placement: .topBarTrailing)
+		ToolbarItem(placement: .topBarTrailing) {
+			Button { showingProfile = true } label: {
+				ProfileAvatar(nickname: profile.nickname, image: profile.avatar, size: 34)
+			}
+			.accessibilityLabel(profile.nickname.isEmpty ? "Profile" : "Profile, \(profile.nickname)")
+		}
+		.sharedBackgroundVisibility(.hidden)
 	}
 }

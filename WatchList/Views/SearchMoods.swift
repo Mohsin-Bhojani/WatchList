@@ -66,18 +66,20 @@ enum SearchMood: String, CaseIterable, Identifiable {
 /// The six moods as a two-column grid of colour tiles.
 struct SearchMoodGrid: View {
 	let onPick: (SearchMood) -> Void
+	@Environment(\.dynamicTypeSize) private var typeSize
 
 	var body: some View {
-		LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+		let count = typeSize.isAccessibilitySize ? 1 : 2
+		LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: count), spacing: 10) {
 			ForEach(SearchMood.allCases) { mood in
 				Button { onPick(mood) } label: {
 					VStack(alignment: .leading) {
 						Image(systemName: mood.symbol)
-							.font(.system(size: 18, weight: .semibold))
+							.font(.system(.body, weight: .semibold))
 							.foregroundStyle(.white.opacity(0.85))
 						Spacer(minLength: 0)
 						Text(mood.rawValue)
-							.font(.system(size: 15, weight: .bold))
+							.font(.system(.subheadline, weight: .bold))
 							.foregroundStyle(.white)
 							.multilineTextAlignment(.leading)
 							.lineLimit(2)

@@ -20,7 +20,7 @@ struct PageSection<Content: View>: View {
 	var body: some View {
 		VStack(alignment: .leading, spacing: 10) {
 			Text(title)
-				.font(.system(size: 20, weight: .bold))
+				.font(.system(.title3, weight: .bold))
 				.foregroundStyle(.white)
 				.accessibilityAddTraits(.isHeader)
 			content
@@ -35,7 +35,7 @@ struct PageSmallCaps: View {
 
 	var body: some View {
 		Text(text.uppercased())
-			.font(.system(size: 10, weight: .semibold, design: .monospaced))
+			.font(.system(.caption2, design: .monospaced, weight: .semibold))
 			.kerning(1.2)
 			.foregroundStyle(.white.opacity(0.55))
 	}
@@ -50,7 +50,7 @@ struct PageSynopsisCard: View {
 		VStack(alignment: .leading, spacing: 8) {
 			PageSmallCaps(text: "Synopsis")
 			Text(text)
-				.font(.system(size: 14))
+				.font(.subheadline)
 				.foregroundStyle(.white.opacity(0.9))
 				.lineLimit(expanded ? nil : 4)
 				.fixedSize(horizontal: false, vertical: true)
@@ -58,7 +58,7 @@ struct PageSynopsisCard: View {
 				Button(expanded ? "less" : "more") {
 					withAnimation(Glass.smooth) { expanded.toggle() }
 				}
-				.font(.system(size: 13, weight: .semibold))
+				.font(.system(.footnote, weight: .semibold))
 				.foregroundStyle(.white)
 			}
 		}
@@ -87,13 +87,13 @@ struct PageCastRow: View {
 				NavigationLink { FullCastView(cast: cast) } label: {
 					HStack {
 						Text("Full cast")
-							.font(.system(size: 14, weight: .semibold))
+							.font(.system(.subheadline, weight: .semibold))
 						Spacer()
 						Text("\(cast.count)")
-							.font(.system(size: 13, weight: .medium))
+							.font(.system(.footnote, weight: .medium))
 							.foregroundStyle(.white.opacity(0.6))
 						Image(systemName: "chevron.right")
-							.font(.system(size: 12, weight: .bold))
+							.font(.system(.caption, weight: .bold))
 							.foregroundStyle(.white.opacity(0.5))
 					}
 					.foregroundStyle(.white)
@@ -129,18 +129,18 @@ struct CastPersonRow: View {
 			VStack(alignment: .leading, spacing: 1) {
 				(Text(person.name).fontWeight(.semibold)
 					+ Text(person.character.isEmpty ? "" : " as \(person.character)").foregroundColor(.white.opacity(0.6)))
-					.font(.system(size: 14))
+					.font(.subheadline)
 					.foregroundStyle(.white)
 					.lineLimit(2)
 				if let flag = person.flag.label {
 					Text(flag)
-						.font(.system(size: 11, weight: .semibold))
+						.font(.system(.caption2, weight: .semibold))
 						.foregroundStyle(Glass.toWatch)
 				}
 			}
 			Spacer(minLength: 0)
 			Image(systemName: "chevron.right")
-				.font(.system(size: 12, weight: .bold))
+				.font(.system(.caption, weight: .bold))
 				.foregroundStyle(.white.opacity(0.4))
 		}
 		.padding(.vertical, 9)
@@ -193,13 +193,13 @@ struct PagePosterHeader: View {
 				.accessibilityHidden(true)
 			VStack(spacing: 2) {
 				Text(title)
-					.font(.system(size: 30, weight: .bold))
+					.font(.system(.title, weight: .bold))
 					.foregroundStyle(.white)
 					.multilineTextAlignment(.center)
 					.accessibilityAddTraits(.isHeader)
 				if let subtitle {
 					Text(subtitle)
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(.white.opacity(0.8))
 				}
 			}
@@ -226,7 +226,7 @@ struct PageVerdictCard: View {
 			// its symbol, its name large in serif, the stars and when under it.
 			HStack(spacing: 12) {
 				Image(systemName: rating?.systemImage ?? "questionmark")
-					.font(.system(size: 17, weight: .bold))
+					.font(.system(.body, weight: .bold))
 					.foregroundStyle(rating == nil ? .white : Glass.onTint)
 					.frame(width: 38, height: 38)
 					.background(rating.map { Glass.tint($0) } ?? .white.opacity(0.14),
@@ -234,13 +234,13 @@ struct PageVerdictCard: View {
 					.accessibilityHidden(true)
 				VStack(alignment: .leading, spacing: 3) {
 					Text(rating?.rawValue ?? "Not rated")
-						.font(.system(size: 20, weight: .bold, design: .serif))
+						.font(.system(.title3, design: .serif, weight: .bold))
 						.foregroundStyle(.white)
 					HStack(spacing: 6) {
 						if let stars { StarsLabel(value: stars) }
 						if let dateLine {
 							Text(dateLine)
-								.font(.system(size: 12, weight: .medium))
+								.font(.system(.caption, weight: .medium))
 								.foregroundStyle(.white.opacity(0.6))
 								.lineLimit(1)
 								.minimumScaleFactor(0.85)
@@ -249,18 +249,18 @@ struct PageVerdictCard: View {
 				}
 				Spacer(minLength: 4)
 				Button("Edit", action: onEdit)
-					.font(.system(size: 13, weight: .semibold))
+					.font(.system(.footnote, weight: .semibold))
 					.foregroundStyle(.white)
 			}
 			if !note.isEmpty {
 				Text(note)
-					.font(.system(size: 14))
+					.font(.subheadline)
 					.foregroundStyle(.white.opacity(0.9))
 					.fixedSize(horizontal: false, vertical: true)
 			}
 			HStack {
 				Label(noteLabel, systemImage: "lock.fill")
-					.font(.system(size: 11, weight: .medium))
+					.font(.system(.caption2, weight: .medium))
 					.foregroundStyle(.white.opacity(0.55))
 				Spacer()
 				PlaceholderTag(label: "Share with friends")
@@ -282,7 +282,7 @@ struct PageDetailRow<Value: View>: View {
 	var body: some View {
 		HStack(spacing: 12) {
 			Image(systemName: icon)
-				.font(.system(size: 13, weight: .semibold))
+				.font(.system(.footnote, weight: .semibold))
 				.foregroundStyle(.white.opacity(0.7))
 				.frame(width: 32, height: 32)
 				.background(.white.opacity(0.08), in: Circle())
@@ -307,7 +307,7 @@ struct PageDetailValue: View {
 
 	var body: some View {
 		Text(text)
-			.font(.system(size: 14, weight: .semibold))
+			.font(.system(.subheadline, weight: .semibold))
 			.foregroundStyle(.white)
 	}
 }

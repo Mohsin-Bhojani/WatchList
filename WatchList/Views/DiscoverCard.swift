@@ -47,7 +47,7 @@ struct DiscoverCard: View {
 									.clipShape(Circle())
 							}
 							Text(reason)
-								.font(.system(size: 12, weight: .semibold))
+								.font(.system(.caption, weight: .semibold))
 								.foregroundStyle(.white)
 								.lineLimit(1)
 								.minimumScaleFactor(0.8)
@@ -63,7 +63,7 @@ struct DiscoverCard: View {
 					HStack(spacing: 6) {
 						ForEach(suggestion.genres.prefix(2), id: \.self) { genre in
 							Text(genre)
-								.font(.system(size: 12, weight: .semibold))
+								.font(.system(.caption, weight: .semibold))
 								.foregroundStyle(.white)
 								.padding(.horizontal, 10)
 								.padding(.vertical, 5)
@@ -81,7 +81,7 @@ struct DiscoverCard: View {
 				.accessibilityHidden(true)
 			VStack(spacing: 8) {
 				Text(suggestion.title)
-					.font(.system(size: 26, weight: .bold))
+					.font(.system(.title, weight: .bold))
 					.foregroundStyle(.white)
 					.multilineTextAlignment(.center)
 					.lineLimit(2)
@@ -91,7 +91,7 @@ struct DiscoverCard: View {
 				HStack(spacing: 8) {
 					if let verdict = suggestion.equivalentVerdict { VerdictChip(rating: verdict) }
 					Label(suggestion.kindLabel, systemImage: suggestion.kind.systemImage)
-						.font(.system(size: 12, weight: .semibold))
+						.font(.system(.caption, weight: .semibold))
 						.foregroundStyle(.white)
 						.padding(.horizontal, 9)
 						.padding(.vertical, 5)
@@ -101,7 +101,7 @@ struct DiscoverCard: View {
 			.fixedSize(horizontal: false, vertical: true)
 			if !suggestion.overview.isEmpty {
 				Text(suggestion.overview)
-					.font(.system(size: 15))
+					.font(.subheadline)
 					.foregroundStyle(.white.opacity(0.82))
 					.multilineTextAlignment(.center)
 					.lineLimit(4)
@@ -109,7 +109,7 @@ struct DiscoverCard: View {
 			}
 			if showsHint {
 				Text("Swipe right to add · left if not interested · up for later")
-					.font(.system(size: 12, weight: .medium))
+					.font(.system(.caption, weight: .medium))
 					.foregroundStyle(.white.opacity(0.55))
 					.lineLimit(1)
 					.minimumScaleFactor(0.8)
@@ -135,13 +135,13 @@ struct DiscoverCard: View {
 			HStack(spacing: 8) {
 				StarsLabel(value: stars, size: 13, showsValue: false)
 				Text("\(average.formatted(.number.precision(.fractionLength(1)))) average on TMDb")
-					.font(.system(size: 14, weight: .medium))
+					.font(.system(.subheadline, weight: .medium))
 					.foregroundStyle(.white.opacity(0.8))
 			}
 			.accessibilityElement(children: .combine)
 		} else {
 			Text("No ratings on TMDb yet")
-				.font(.system(size: 14, weight: .medium))
+				.font(.system(.subheadline, weight: .medium))
 				.foregroundStyle(.white.opacity(0.7))
 		}
 	}
@@ -151,7 +151,7 @@ struct DiscoverCard: View {
 	@ViewBuilder private var hint: some View {
 		if let lean = CardDecision.leaning(offset) {
 			Label(lean.decision.swipeLabel, systemImage: lean.decision.symbol)
-				.font(.system(size: 17, weight: .heavy))
+				.font(.system(.body, weight: .heavy))
 				.foregroundStyle(.white)
 				.padding(.horizontal, 16)
 				.padding(.vertical, 9)

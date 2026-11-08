@@ -2,8 +2,7 @@
 //  PhoneSettingsView.swift
 //  WatchList
 //
-//  Settings on iPhone, in the app's paper theme — following light and dark and
-//  your accent colour, like the tabs: accent colour, the watched cascade,
+//  Settings on iPhone: a system Form over the app's glass background — accent colour, the watched cascade,
 //  new-episode checks, exporting your library as JSON, and About. The same settings, under the same keys, as the
 //  shared SettingsView, so either screen shows a change made on the other.
 //
@@ -16,6 +15,7 @@ import WatchListLibrary
 
 struct PhoneSettingsView: View {
 	@ObservedObject private var theme = AppTheme.shared
+	@Environment(\.dismiss) private var dismiss
 	@AppStorage("autoMarkEpisodesWatched") private var autoMarkEpisodes = true
 	@AppStorage("autoCheckNewEpisodes") private var autoCheckEpisodes = true
 	@AppStorage(EpisodeAlerts.enabledKey) private var notifyNewEpisodes = false
@@ -35,10 +35,7 @@ struct PhoneSettingsView: View {
 	@State private var importing = false
 	@State private var restoreResult: String?
 
-	private let columns = [GridItem(.adaptive(minimum: 96), spacing: 12)]
 
-	/// No Done button: like Stats, the sheet closes with a swipe down, and its
-	/// name sits where Stats puts its own.
 	/// "for the 3 shows you're watching", "for the show you're watching".
 	private var watchingPhrase: String {
 		let count = HomeFeed.watching(shows).count
@@ -51,21 +48,23 @@ struct PhoneSettingsView: View {
 
 	var body: some View {
 		NavigationStack {
-			ScrollView {
-				VStack(alignment: .leading, spacing: 26) {
-					SheetTitle("Settings")
-						.padding(.bottom, -4)
-					accentSection
-					episodesSection
-					newEpisodesSection
-					servicesSection
-					dataSection
-					aboutSection
-				}
-				.padding(18)
+			Form {
+				accentSection
+				episodesSection
+				newEpisodesSection
+				servicesSection
+				dataSection
+				aboutSection
 			}
+			.scrollContentBackground(.hidden)
 			.background(GlassBackground())
-			.toolbar(.hidden, for: .navigationBar)
+			.navigationTitle("Settings")
+			.toolbar {
+				ToolbarItem(placement: .topBarTrailing) {
+					Button(role: .close) { dismiss() }
+				}
+			}
+			.tint(Glass.accent)
 			.fileExporter(isPresented: $exporting, document: exportDocument, contentType: .json,
 			              defaultFilename: LibraryExport.defaultFilename(for: .now)) { result in
 				switch result {
@@ -91,37 +90,34 @@ struct PhoneSettingsView: View {
 	/// over a row of swatches, the chosen one ringed, and its name.
 	private var accentSection: some View {
 		let chosen = AccentCatalog.all.first { $0.id == theme.accentID } ?? AccentCatalog.all[0]
-		return VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(text: "Accent Color", systemImage: "paintpalette.fill")
-			VStack(spacing: 14) {
-				ZStack(alignment: .bottomLeading) {
-					Glass.paper
-					RadialGradient(colors: [chosen.accent.opacity(0.75), .clear], center: UnitPoint(x: 0.15, y: 0.1),
-					               startRadius: 0, endRadius: 200)
-					RadialGradient(colors: [chosen.accent3.opacity(0.6), .clear], center: UnitPoint(x: 0.95, y: 0.6),
-					               startRadius: 0, endRadius: 170)
-					Text(BackdropLight.shared.tone == nil ? "How your screens will glow"
-					     : "Your show lights the page; this stays in your controls")
-						.font(.system(size: 13, weight: .semibold))
-						.foregroundStyle(Glass.ink)
-						.padding(.horizontal, 12)
-						.padding(.vertical, 8)
-						.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-						.padding(12)
-				}
-				.frame(height: 140)
-				.clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-				.animation(Glass.smooth, value: theme.accentID)
-				.accessibilityHidden(true)
-				HStack {
-					ForEach(AccentCatalog.all) { swatch($0) }
-				}
-				Text(chosen.name)
-					.font(.system(size: 15, weight: .semibold))
+		return Section {
+			ZStack(alignment: .bottomLeading) {
+				Glass.paper
+				RadialGradient(colors: [chosen.accent.opacity(0.75), .clear], center: UnitPoint(x: 0.15, y: 0.1),
+				               startRadius: 0, endRadius: 200)
+				RadialGradient(colors: [chosen.accent3.opacity(0.6), .clear], center: UnitPoint(x: 0.95, y: 0.6),
+				               startRadius: 0, endRadius: 170)
+				Text(BackdropLight.shared.tone == nil ? "How your screens will glow"
+				     : "Your show lights the page; this stays in your controls")
+					.font(.footnote.weight(.semibold))
 					.foregroundStyle(Glass.ink)
+					.padding(.horizontal, 12)
+					.padding(.vertical, 8)
+					.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+					.padding(12)
 			}
-			.padding(14)
-			.glass(cornerRadius: 22)
+			.frame(minHeight: 140)
+			.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+			.animation(Glass.smooth, value: theme.accentID)
+			.accessibilityHidden(true)
+			.listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+			HStack {
+				ForEach(AccentCatalog.all) { swatch($0) }
+			}
+		} header: {
+			Text("Accent Color")
+		} footer: {
+			Text(chosen.name)
 		}
 	}
 
@@ -140,7 +136,7 @@ struct PhoneSettingsView: View {
 				.frame(maxWidth: .infinity)
 				.contentShape(Circle())
 		}
-		.buttonStyle(.pressable)
+		.buttonStyle(.plain)
 		.accessibilityLabel(palette.name)
 		.accessibilityAddTraits(selected ? .isSelected : [])
 	}
@@ -148,83 +144,53 @@ struct PhoneSettingsView: View {
 	// MARK: Episodes
 
 	private var episodesSection: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(text: "Episodes", systemImage: "list.and.film")
-			VStack(alignment: .leading, spacing: 12) {
-				SettingToggle(title: "Mark all episodes watched", isOn: $autoMarkEpisodes,
-				              on: "On · a Watched show or season marks its episodes too",
-				              off: "Off · episodes are marked one by one")
-			}
-			.padding(16)
-			.glass(cornerRadius: 22)
+		Section("Episodes") {
+			SettingToggle(title: "Mark all episodes watched", isOn: $autoMarkEpisodes,
+			              on: "A Watched show or season marks its episodes too",
+			              off: "Episodes are marked one by one")
 		}
 	}
 
 	// MARK: New episodes
 
 	private var newEpisodesSection: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(text: "New Episodes", systemImage: "arrow.triangle.2.circlepath")
-			VStack(alignment: .leading, spacing: 10) {
-				SettingToggle(title: "Check for new episodes", isOn: $autoCheckEpisodes,
-				              on: LibraryRefresher.lastChecked.map {
-				              	"On · checked \($0.formatted(.relative(presentation: .named)))"
-				              } ?? "On · once a day",
-				              off: "Off · only when you tap Check now")
-
-				divider
-
-				SettingToggle(title: "Notify when episodes air", isOn: $notifyNewEpisodes,
-				              on: "On · \(watchingPhrase)",
-				              off: notifyNote ?? "Off · \(watchingPhrase)")
-				.onChange(of: notifyNewEpisodes) { _, on in
-					guard on else { notifyNote = nil; return }
-					Task {
-						if await EpisodeAlerts.requestPermission() {
-							notifyNote = nil
-						} else {
-							notifyNewEpisodes = false
-							notifyNote = "Off · notifications are off for WatchList in the Settings app"
-						}
+		Section {
+			SettingToggle(title: "Check for new episodes", isOn: $autoCheckEpisodes,
+			              on: LibraryRefresher.lastChecked.map {
+			              	"Checked \($0.formatted(.relative(presentation: .named)))"
+			              } ?? "Once a day",
+			              off: "Only when you tap Check Now")
+			SettingToggle(title: "Notify when episodes air", isOn: $notifyNewEpisodes,
+			              on: watchingPhrase.capitalizedFirst,
+			              off: notifyNote ?? watchingPhrase.capitalizedFirst)
+			.onChange(of: notifyNewEpisodes) { _, on in
+				guard on else { notifyNote = nil; return }
+				Task {
+					if await EpisodeAlerts.requestPermission() {
+						notifyNote = nil
+					} else {
+						notifyNewEpisodes = false
+						notifyNote = "Notifications are off for WatchList in the Settings app"
 					}
-				}
-
-				DisclosureGroup("How these work") {
-					Text("Once a day the iPhone adds new seasons and fills in details of episodes that just aired; your watched marks and ratings are never changed. It checks in the background a few times a day, so a notification can come a few hours after an episode airs.")
-						.font(.system(size: 13, weight: .medium))
-						.foregroundStyle(.secondary)
-						.padding(.top, 6)
-				}
-				.font(.system(size: 13, weight: .semibold))
-				.tint(.secondary)
-
-				divider
-
-				HStack(spacing: 10) {
-					Button {
-						Haptics.tap()
-						checkNow()
-					} label: {
-						Text(checking ? "Checking…" : "Check now")
-							.font(.system(size: 15, weight: .semibold))
-							.foregroundStyle(Glass.accent)
-					}
-					.buttonStyle(.pressable)
-					.disabled(checking || shows.isEmpty)
-					.opacity(checking || shows.isEmpty ? 0.45 : 1)
-
-					if checking { ProgressView().controlSize(.small) }
-					Spacer()
-				}
-
-				if let checkResult {
-					Text(checkResult)
-						.font(.system(size: 13, weight: .medium))
-						.foregroundStyle(.secondary)
 				}
 			}
-			.padding(16)
-			.glass(cornerRadius: 22)
+			Button {
+				checkNow()
+			} label: {
+				HStack {
+					Text(checking ? "Checking…" : "Check Now")
+					Spacer()
+					if checking { ProgressView() }
+				}
+			}
+			.disabled(checking || shows.isEmpty)
+		} header: {
+			Text("New Episodes")
+		} footer: {
+			VStack(alignment: .leading, spacing: 6) {
+				if let checkResult { Text(checkResult) }
+				Text("Once a day the iPhone adds new seasons and fills in details of episodes that just aired; your watched marks and ratings are never changed. It checks in the background a few times a day, so a notification can come a few hours after an episode airs.")
+			}
 		}
 	}
 
@@ -235,7 +201,7 @@ struct PhoneSettingsView: View {
 			let report = await LibraryRefresher.refreshAll(shows: shows, into: ctx)
 			checking = false
 			checkResult = report.summary
-			report.foundSomething ? Haptics.success() : Haptics.tap()
+			if report.foundSomething { Haptics.success() }
 		}
 	}
 
@@ -247,93 +213,45 @@ struct PhoneSettingsView: View {
 	/// them that has a title on top.
 	private var servicesSection: some View {
 		let saved = StreamingServices.saved
-		return VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(text: "Streaming", systemImage: "play.tv")
+		return Section("Streaming") {
 			NavigationLink { StreamingServicesView() } label: {
-				HStack(spacing: 12) {
-					VStack(alignment: .leading, spacing: 3) {
-						Text("Your services")
-							.font(.system(size: 16, weight: .semibold))
-							.foregroundStyle(Glass.ink)
-						Text(saved.isEmpty ? "None yet · Where to watch uses TMDb's order"
-						                   : saved.map(\.name).joined(separator: ", "))
-							.font(.system(size: 13, weight: .medium))
-							.foregroundStyle(.secondary)
-							.lineLimit(1)
-					}
-					Spacer()
-					Image(systemName: "chevron.right")
-						.font(.system(size: 13, weight: .bold))
+				VStack(alignment: .leading, spacing: 3) {
+					Text("Your Services")
+					Text(saved.isEmpty ? "None yet · Where to watch uses TMDb's order"
+					                   : saved.map(\.name).joined(separator: ", "))
+						.font(.footnote)
 						.foregroundStyle(.secondary)
+						.lineLimit(2)
 				}
-				.padding(16)
-				.contentShape(Rectangle())
 			}
-			.buttonStyle(.plain)
-			.glass(cornerRadius: 22)
 		}
 	}
 
 	private var dataSection: some View {
 		let empty = shows.isEmpty && films.isEmpty
-		return VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(text: "Your Data", systemImage: "square.and.arrow.up")
-			VStack(alignment: .leading, spacing: 10) {
-				Text("Export library")
-					.font(.system(size: 16, weight: .semibold))
-					.foregroundStyle(Glass.ink)
-				Text("Saves your shows, seasons, episodes and films — statuses, verdicts, stars, episode ratings, notes and watched dates — your collections and Discover choices as one JSON file. Nothing in the app changes.")
-					.font(.system(size: 13, weight: .medium))
-					.foregroundStyle(.secondary)
-
-				divider
-
-				Button {
-					Haptics.tap()
-					prepareExport()
-				} label: {
-					Label("Export JSON…", systemImage: "square.and.arrow.up")
-						.font(.system(size: 15, weight: .semibold))
-						.foregroundStyle(Glass.accent)
-				}
-				.buttonStyle(.pressable)
-				.disabled(empty)
-				.opacity(empty ? 0.45 : 1)
-
-				if let exportResult {
-					Text(exportResult)
-						.font(.system(size: 13, weight: .medium))
-						.foregroundStyle(.secondary)
-				}
-
-				divider
-
-				Text("Restore library")
-					.font(.system(size: 16, weight: .semibold))
-					.foregroundStyle(Glass.ink)
-				Text("Adds back the titles, collections and Discover choices in an export. Anything already in your library is left as it is.")
-					.font(.system(size: 13, weight: .medium))
-					.foregroundStyle(.secondary)
-
-				Button {
-					Haptics.tap()
-					restoreResult = nil
-					importing = true
-				} label: {
-					Label("Restore from JSON…", systemImage: "square.and.arrow.down")
-						.font(.system(size: 15, weight: .semibold))
-						.foregroundStyle(Glass.accent)
-				}
-				.buttonStyle(.pressable)
-
-				if let restoreResult {
-					Text(restoreResult)
-						.font(.system(size: 13, weight: .medium))
-						.foregroundStyle(.secondary)
+		return Group {
+			Section {
+				Button("Export JSON…", systemImage: "square.and.arrow.up") { prepareExport() }
+					.disabled(empty)
+			} header: {
+				Text("Your Data")
+			} footer: {
+				VStack(alignment: .leading, spacing: 6) {
+					Text("Saves your shows, seasons, episodes and films — statuses, verdicts, stars, episode ratings, notes and watched dates — your collections and Discover choices as one JSON file. Nothing in the app changes.")
+					if let exportResult { Text(exportResult) }
 				}
 			}
-			.padding(16)
-			.glass(cornerRadius: 22)
+			Section {
+				Button("Restore from JSON…", systemImage: "square.and.arrow.down") {
+					restoreResult = nil
+					importing = true
+				}
+			} footer: {
+				VStack(alignment: .leading, spacing: 6) {
+					Text("Adds back the titles, collections and Discover choices in an export. Anything already in your library is left as it is.")
+					if let restoreResult { Text(restoreResult) }
+				}
+			}
 		}
 	}
 
@@ -358,7 +276,7 @@ struct PhoneSettingsView: View {
 			let export = try LibraryRestore.read(try Data(contentsOf: url))
 			let report = try LibraryRestore.restore(export, into: ctx)
 			restoreResult = report.summary
-			report.addedSomething ? Haptics.success() : Haptics.tap()
+			if report.addedSomething { Haptics.success() }
 			if report.addedSomething { WatchSync.shared.scheduleSend() }
 		} catch {
 			restoreResult = error.localizedDescription
@@ -368,32 +286,13 @@ struct PhoneSettingsView: View {
 	// MARK: About
 
 	private var aboutSection: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			SectionLabel(text: "About", systemImage: "info.circle.fill")
-			VStack(alignment: .leading, spacing: 10) {
-				HStack {
-					Text("Version")
-						.font(.system(size: 16, weight: .semibold))
-						.foregroundStyle(Glass.ink)
-					Spacer()
-					Text(appVersion)
-						.font(.system(size: 16, weight: .medium))
-						.foregroundStyle(.secondary)
-				}
-				divider
-				Text("Titles, posters and details are from TMDb. This product uses the TMDb API but is not endorsed or certified by TMDb.")
-					.font(.system(size: 13, weight: .medium))
-					.foregroundStyle(.secondary)
-			}
-			.padding(16)
-			.glass(cornerRadius: 22)
+		Section {
+			LabeledContent("Version", value: appVersion)
+		} header: {
+			Text("About")
+		} footer: {
+			Text("Titles, posters and details are from TMDb. This product uses the TMDb API but is not endorsed or certified by TMDb.")
 		}
-	}
-
-	private var divider: some View {
-		Rectangle()
-			.fill(Glass.hairline.opacity(0.12))
-			.frame(height: 1)
 	}
 
 	private var appVersion: String {
@@ -403,8 +302,7 @@ struct PhoneSettingsView: View {
 	}
 }
 
-/// A switch, after design B of the alternatives: its name, and under it what
-/// it's doing right now, a green dot while on.
+/// A switch with what it's doing right now under its name.
 struct SettingToggle: View {
 	let title: String
 	@Binding var isOn: Bool
@@ -413,21 +311,14 @@ struct SettingToggle: View {
 
 	var body: some View {
 		Toggle(isOn: $isOn) {
-			VStack(alignment: .leading, spacing: 3) {
-				Text(title)
-					.font(.system(size: 16, weight: .semibold))
-					.foregroundStyle(Glass.ink)
-				HStack(spacing: 6) {
-					Circle()
-						.fill(isOn ? Glass.watched : Glass.ink.opacity(0.3))
-						.frame(width: 7, height: 7)
-					Text(isOn ? on : off)
-						.font(.system(size: 13, weight: .medium))
-						.foregroundStyle(.secondary)
-						.contentTransition(.opacity)
-				}
-			}
+			Text(title)
+			Text(isOn ? on : off)
+				.contentTransition(.opacity)
 		}
-		.tint(Glass.accent)
 	}
+}
+
+private extension String {
+	/// "for the show you're watching" → "For the show you're watching".
+	var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }

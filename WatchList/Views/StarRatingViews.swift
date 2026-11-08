@@ -118,10 +118,10 @@ struct StarRatingSlider: View {
 		VStack(alignment: .leading, spacing: 10) {
 			HStack(alignment: .firstTextBaseline) {
 				Text(value.map(StarRating.label) ?? "–")
-					.font(.system(size: 30, weight: .bold, design: .serif))
+					.font(.system(.title, design: .serif, weight: .bold))
 					.foregroundStyle(.white.opacity(value == nil ? 0.5 : 1))
 				Text("stars")
-					.font(.system(size: 13, weight: .medium))
+					.font(.system(.footnote, weight: .medium))
 					.foregroundStyle(.white.opacity(0.6))
 				Spacer()
 				if let value { RatingBadge(rating: StarRating.verdict(for: value)) }
@@ -144,7 +144,7 @@ struct StarRatingSlider: View {
 						VStack(alignment: .leading, spacing: 4) {
 							Capsule().fill(Glass.tint(verdict)).frame(height: 5)
 							Text(verdict.rawValue)
-								.font(.system(size: 9, weight: .semibold))
+								.font(.system(.caption2, weight: .semibold))
 								.foregroundStyle(.white.opacity(0.6))
 								.lineLimit(1)
 								.minimumScaleFactor(0.7)

@@ -32,7 +32,7 @@ struct DescribeFilter: View {
 			HStack(spacing: 8) {
 				TextField("Something romantic, no sad ending\u{2026}", text: $draft, axis: .vertical)
 					.lineLimit(1...3)
-					.font(.system(size: 15))
+					.font(.subheadline)
 					.focused($focused)
 					.submitLabel(.search)
 					.onSubmit(submit)
@@ -66,7 +66,7 @@ struct DescribeFilter: View {
 	/// What it was read as, or how it will be.
 	private var status: some View {
 		statusLine
-			.font(.system(size: 12, weight: .medium))
+			.font(.system(.caption, weight: .medium))
 			.foregroundStyle(.secondary)
 			.lineLimit(2)
 	}

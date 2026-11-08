@@ -122,10 +122,10 @@ struct PhoneEpisodeView: View {
 				.accessibilityHidden(true)
 			VStack(alignment: .leading, spacing: 4) {
 				Text([show?.title ?? "", HomeFeed.episodeLine(episode)].filter { !$0.isEmpty }.joined(separator: " · "))
-					.font(.system(size: 13, weight: .semibold))
+					.font(.system(.footnote, weight: .semibold))
 					.foregroundStyle(.white.opacity(0.75))
 				Text(episode.displayTitle)
-					.font(.system(size: 26, weight: .bold))
+					.font(.system(.title, weight: .bold))
 					.foregroundStyle(.white)
 					.fixedSize(horizontal: false, vertical: true)
 					.accessibilityAddTraits(.isHeader)
@@ -178,9 +178,9 @@ struct PhoneEpisodeView: View {
 					} label: {
 						VStack(spacing: 5) {
 							Image(systemName: tier.systemImage)
-								.font(.system(size: 18, weight: .semibold))
+								.font(.system(.body, weight: .semibold))
 							Text(tier.rawValue)
-								.font(.system(size: 14, weight: .semibold))
+								.font(.system(.subheadline, weight: .semibold))
 						}
 						.foregroundStyle(current ? .white : tint)
 						.frame(maxWidth: .infinity)
@@ -255,18 +255,18 @@ struct PhoneEpisodeView: View {
 			HStack(spacing: 6) {
 				if let tier = episode.episodeTier {
 					Image(systemName: tier.systemImage)
-						.font(.system(size: 11, weight: .bold))
+						.font(.system(.caption2, weight: .bold))
 						.foregroundStyle(Glass.tint(tier))
 					Text(tier.rawValue)
 				} else {
 					Image(systemName: episode.status.systemImage)
-						.font(.system(size: 12, weight: .semibold))
+						.font(.system(.caption, weight: .semibold))
 					Text(episode.status.rawValue)
 				}
 				Image(systemName: "chevron.down")
-					.font(.system(size: 11, weight: .bold))
+					.font(.system(.caption2, weight: .bold))
 			}
-			.font(.system(size: 14, weight: .semibold))
+			.font(.system(.subheadline, weight: .semibold))
 			.foregroundStyle(.white)
 		}
 	}

@@ -61,7 +61,10 @@ extension RatingSubject {
 }
 
 struct RatingPopup: View {
-	enum Mode { case justMarked, edit }
+	enum Mode: Identifiable {
+		case justMarked, edit
+		var id: Self { self }
+	}
 
 	let subject: RatingSubject
 	let mode: Mode
@@ -76,8 +79,8 @@ struct RatingPopup: View {
 	@State private var aspects: AspectTaste
 	/// Which of the two extras is open: what stood out, or the note.
 	@State private var extra: Extra
-	/// How far the sheet has been pulled down by its grabber or header.
-	@State private var pull: CGFloat = 0
+	/// The card's own height, which the sheet opens to.
+	@State private var cardHeight: CGFloat = 560
 
 	enum Extra: String, CaseIterable, Identifiable {
 		case aspects = "What stood out"
@@ -104,31 +107,21 @@ struct RatingPopup: View {
 
 	private var shownStars: Double? { StarRating.shown(explicit: stars, verdict: rating) }
 
+	/// A system sheet as tall as the card, so Save is always in view; swipe
+	/// down or Not now leaves the title as it is.
 	var body: some View {
-		ZStack {
-			Color.black.opacity(0.4)
-				.ignoresSafeArea()
-				.onTapGesture(perform: onClose)
-				.accessibilityHidden(true)
-			card
-				.offset(y: pull)
-				// A phone's width, even on an iPad.
-				.frame(maxWidth: 460)
-				.frame(maxHeight: .infinity, alignment: .bottom)
+		ScrollView {
+			card.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
 		}
-		.ignoresSafeArea(edges: .bottom)
-		.coversDock()
+			.scrollBounceBehavior(.basedOnSize)
+			.environment(\.colorScheme, .dark)
+			.presentationDetents([.height(cardHeight), .large])
+			.presentationDragIndicator(.visible)
+			.presentationBackground(tint.gradient)
 	}
 
 	private var card: some View {
 		VStack(alignment: .leading, spacing: 16) {
-				// The grabber and header: pull them down to close the sheet.
-				VStack(alignment: .leading, spacing: 12) {
-				Capsule()
-					.fill(.white.opacity(0.35))
-					.frame(width: 36, height: 5)
-					.frame(maxWidth: .infinity)
-					.accessibilityHidden(true)
 				HStack(alignment: .center, spacing: 14) {
 					// The whole poster, so you can see what you're rating.
 					PosterImage(urlString: subject.posterURL, systemPlaceholder: subject.placeholder)
@@ -139,20 +132,17 @@ struct RatingPopup: View {
 						.accessibilityHidden(true)
 					VStack(alignment: .leading, spacing: 2) {
 						Text(subject.title)
-							.font(.system(size: 22, weight: .bold, design: .serif))
+							.font(.system(.title2, design: .serif, weight: .bold))
 							.lineLimit(2)
 						Text(mode == .justMarked ? "Marked watched just now. How was it?" : "How was it?")
-							.font(.system(size: 13, weight: .medium))
+							.font(.system(.footnote, weight: .medium))
 							.foregroundStyle(.white.opacity(0.65))
 					}
 					Spacer()
 					Button("Not now", action: onClose)
-						.font(.system(size: 14, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.foregroundStyle(.white.opacity(0.8))
 				}
-				}
-				.contentShape(Rectangle())
-				.gesture(pullToClose)
 
 				// The four verdicts as one segmented row; tapping the chosen one clears it.
 				HStack(spacing: 2) {
@@ -177,14 +167,14 @@ struct RatingPopup: View {
 				if subject.note != nil && (extra == .note || subject.aspects == nil) {
 					TextField("Add a private note…", text: $note, axis: .vertical)
 						.lineLimit(2...5)
-						.font(.system(size: 14))
+						.font(.subheadline)
 						.padding(12)
 						.background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 				}
 
 				Button(action: save) {
 					Text("Save rating")
-						.font(.system(size: 16, weight: .bold))
+						.font(.system(.callout, weight: .bold))
 						.foregroundStyle(.black.opacity(0.85))
 						.frame(maxWidth: .infinity)
 						.padding(.vertical, 14)
@@ -193,25 +183,9 @@ struct RatingPopup: View {
 				.buttonStyle(.pressable)
 			}
 			.padding(.horizontal, 20)
-			.padding(.top, 8)
-			.padding(.bottom, 34)
-			.glassEffect(.regular.tint(tint.opacity(0.55)),
-			             in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous))
-		.foregroundStyle(.white)
-	}
-
-	/// Pulling the header down follows the finger; let go far or fast enough
-	/// and the sheet closes, otherwise it springs back.
-	private var pullToClose: some Gesture {
-		DragGesture()
-			.onChanged { pull = max(0, $0.translation.height) }
-			.onEnded { drag in
-				if drag.translation.height > 120 || drag.predictedEndTranslation.height > 260 {
-					onClose()
-				} else {
-					withAnimation(Glass.smooth) { pull = 0 }
-				}
-			}
+			.padding(.top, 28)
+			.padding(.bottom, 20)
+			.foregroundStyle(.white)
 	}
 
 	/// "What stood out?": each tap moves an aspect from unmarked to liked to
@@ -220,11 +194,11 @@ struct RatingPopup: View {
 		VStack(alignment: .leading, spacing: 8) {
 			HStack {
 				Text("Optional")
-					.font(.system(size: 13, weight: .medium))
+					.font(.system(.footnote, weight: .medium))
 					.foregroundStyle(.white.opacity(0.6))
 				Spacer()
 				Text("Tap again if it didn\u{2019}t work")
-					.font(.system(size: 11, weight: .medium))
+					.font(.system(.caption2, weight: .medium))
 					.foregroundStyle(.white.opacity(0.4))
 			}
 			TileFlowLayout(spacing: 8) {
@@ -247,9 +221,9 @@ struct RatingPopup: View {
 		} label: {
 			HStack(spacing: 5) {
 				Image(systemName: state == .disliked ? "hand.thumbsdown.fill" : aspect.systemImage)
-					.font(.system(size: 11, weight: .semibold))
+					.font(.system(.caption2, weight: .semibold))
 				Text(aspect.rawValue)
-					.font(.system(size: 13, weight: .semibold))
+					.font(.system(.footnote, weight: .semibold))
 					.strikethrough(state == .disliked)
 			}
 			.foregroundStyle(.white)
@@ -276,7 +250,7 @@ struct RatingPopup: View {
 			}
 		} label: {
 			Text(option.rawValue)
-				.font(.system(size: 13, weight: .semibold))
+				.font(.system(.footnote, weight: .semibold))
 				.lineLimit(1)
 				.minimumScaleFactor(0.8)
 				.foregroundStyle(selected ? Glass.onTint : .white)

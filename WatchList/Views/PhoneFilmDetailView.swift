@@ -96,14 +96,8 @@ struct PhoneFilmDetailView: View {
 		} action: { _, pastTitle in
 			withAnimation(.easeInOut(duration: 0.2)) { compactBar = pastTitle }
 		}
-		.blur(radius: ratingPopup == nil ? 0 : 10)
-		.overlay {
-			if let mode = ratingPopup {
-				RatingPopup(film: film, mode: mode, tint: pageColor) {
-					withAnimation(Glass.smooth) { ratingPopup = nil }
-				}
-				.transition(.opacity.combined(with: .scale(scale: 0.96)))
-			}
+		.sheet(item: $ratingPopup) { mode in
+			RatingPopup(film: film, mode: mode, tint: pageColor) { ratingPopup = nil }
 		}
 		.titlePage(color: theme, compactBar: compactBar)
 		.toolbar {
@@ -206,14 +200,14 @@ struct PhoneFilmDetailView: View {
 		return VStack(alignment: .leading, spacing: 12) {
 			if !line.isEmpty {
 				Text(line.joined(separator: " · "))
-					.font(.system(size: 15))
+					.font(.subheadline)
 					.foregroundStyle(.white)
 			}
 			if !chips.isEmpty {
 				TileFlowLayout(spacing: 6) {
 					ForEach(chips, id: \.self) { chip in
 						Text(chip)
-							.font(.system(size: 12, weight: .semibold))
+							.font(.system(.caption, weight: .semibold))
 							.foregroundStyle(.white)
 							.padding(.horizontal, 10)
 							.padding(.vertical, 5)
@@ -242,7 +236,7 @@ struct PhoneFilmDetailView: View {
 				.padding(.top, 6)
 			} label: {
 				Text("More")
-					.font(.system(size: 14, weight: .semibold))
+					.font(.system(.subheadline, weight: .semibold))
 					.foregroundStyle(.white)
 			}
 			.tint(.white)

@@ -25,11 +25,11 @@ struct VerdictSummaryCard: View {
 		let total = counts.reduce(0) { $0 + $1.count }
 		VStack(alignment: .leading, spacing: 12) {
 			Text(Self.sentence(for: counts))
-				.font(.system(size: 22, weight: .bold, design: .serif))
+				.font(.system(.title2, design: .serif, weight: .bold))
 				.fixedSize(horizontal: false, vertical: true)
 			if total > 0 {
 				Text(Self.breakdown(for: counts))
-					.font(.system(size: 13, weight: .medium))
+					.font(.system(.footnote, weight: .medium))
 					.foregroundStyle(.white.opacity(0.75))
 					.fixedSize(horizontal: false, vertical: true)
 				bar(total: total)
@@ -37,9 +37,9 @@ struct VerdictSummaryCard: View {
 			HStack(spacing: 4) {
 				Text(total == 0 ? "Your verdicts" : "See your stats")
 				Image(systemName: "chevron.right")
-					.font(.system(size: 12, weight: .bold))
+					.font(.system(.caption, weight: .bold))
 			}
-			.font(.system(size: 13, weight: .semibold))
+			.font(.system(.footnote, weight: .semibold))
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(18)
@@ -100,20 +100,20 @@ struct ShelfPoster: View {
 				.shadow(color: .black.opacity(0.35), radius: 8, y: 8)
 			VStack(alignment: .leading, spacing: 2) {
 				Text(item.title)
-					.font(.system(size: 12, weight: .semibold))
+					.font(.system(.caption, weight: .semibold))
 					.lineLimit(1)
 				if let stars = item.stars {
 					HStack(spacing: 3) {
 						Image(systemName: "star.fill")
-							.font(.system(size: 9))
+							.font(.caption2)
 							.foregroundStyle(StarRatingPicker.gold)
 						Text(StarRating.label(stars))
 					}
-					.font(.system(size: 11, weight: .semibold))
+					.font(.system(.caption2, weight: .semibold))
 					.foregroundStyle(.white.opacity(0.7))
 				} else {
 					Text(item.kindLabel)
-						.font(.system(size: 11, weight: .semibold))
+						.font(.system(.caption2, weight: .semibold))
 						.foregroundStyle(.white.opacity(0.7))
 				}
 			}
@@ -131,7 +131,7 @@ struct ShelfAddSpot: View {
 			.aspectRatio(2.0 / 3.0, contentMode: .fit)
 			.overlay {
 				Image(systemName: "plus")
-					.font(.system(size: 18, weight: .semibold))
+					.font(.system(.body, weight: .semibold))
 					.foregroundStyle(.white.opacity(0.7))
 			}
 			.contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

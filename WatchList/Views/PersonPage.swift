@@ -69,7 +69,7 @@ struct PersonPage: View {
 
 				Link(destination: URL(string: "https://www.themoviedb.org/person/\(personID)")!) {
 					Label("Open the full page on TMDb", systemImage: "arrow.up.right")
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.frame(maxWidth: .infinity, minHeight: GlassControl.height)
 				}
 				.buttonStyle(.glass)
@@ -98,11 +98,11 @@ struct PersonPage: View {
 				.shadow(color: .black.opacity(0.35), radius: 16, y: 8)
 				.padding(.top, 12)
 			Text(person?.name ?? name)
-				.font(.system(size: 28, weight: .heavy))
+				.font(.system(.title, weight: .heavy))
 				.multilineTextAlignment(.center)
 			if !line.isEmpty {
 				Text(line)
-					.font(.system(size: 13, weight: .medium))
+					.font(.system(.footnote, weight: .medium))
 					.foregroundStyle(.secondary)
 			}
 		}
@@ -114,7 +114,7 @@ struct PersonPage: View {
 			ProgressView().padding(.vertical, 30)
 		} else if owned.isEmpty {
 			Text("Nothing of theirs in your library yet. All titles has everything they've acted in.")
-				.font(.system(size: 14, weight: .medium))
+				.font(.system(.subheadline, weight: .medium))
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
 				.padding(18)
@@ -187,11 +187,11 @@ struct PersonPage: View {
 					.clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 				VStack(alignment: .leading, spacing: 2) {
 					Text(credit.displayTitle)
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 						.lineLimit(2)
 					Text([credit.character?.isEmpty == false ? credit.character : nil, credit.year]
 						.compactMap { $0 }.joined(separator: " · "))
-						.font(.system(size: 12, weight: .medium))
+						.font(.system(.caption, weight: .medium))
 						.foregroundStyle(.secondary)
 						.lineLimit(1)
 				}
@@ -200,11 +200,11 @@ struct PersonPage: View {
 					HStack(spacing: 5) {
 						Circle().fill(Glass.tint(status)).frame(width: 7, height: 7)
 						Text(status.rawValue)
-							.font(.system(size: 12, weight: .semibold))
+							.font(.system(.caption, weight: .semibold))
 							.foregroundStyle(.secondary)
 					}
 					Image(systemName: "chevron.right")
-						.font(.system(size: 12, weight: .bold))
+						.font(.system(.caption, weight: .bold))
 						.foregroundStyle(.tertiary)
 				}
 			}

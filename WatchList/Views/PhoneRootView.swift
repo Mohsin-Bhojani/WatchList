@@ -4,14 +4,13 @@
 //
 //  The app's shell: Home, Shows, Discover and Collections, and Search set
 //  apart — where titles get added.
-//    - iPhone: LiquidDock along the bottom in place of the system tab bar — the
-//      four tabs in one glass capsule, "Add a title" beside them
+//    - iPhone: the system tab bar along the bottom — the four tabs in one
+//      glass capsule, Search on its own beside them (Tab role .search)
 //    - iPad: the same tabs in the floating tab bar at the top, which opens out
 //      into a sidebar; the sidebar also lists Top 4, the by-verdict
 //      collections and your own, each opening straight onto its page
 //  Tapping the tab you're on goes back to its list and up to its top, as the
-//  system does; tapping Shows, Discover or Collections once it's there opens
-//  its filters.
+//  system does. Filters open from each tab's toolbar.
 //
 
 import SwiftUI
@@ -31,71 +30,40 @@ struct PhoneRootView: View {
 	@Environment(\.modelContext) private var ctx
 	@Query(sort: \TitleCollection.created) private var collections: [TitleCollection]
 
-	@State private var showsAtTop = false
-	@State private var showsFilters = false
-	@State private var collectionsAtTop = false
-	@State private var collectionsFilters = false
-	@State private var discoverAtTop = false
-	@State private var discoverFilters = false
 
 	/// Keyed on the device rather than the size class, so an iPad in Split View
 	/// or Slide Over keeps its sidebar.
 	private let isPad = UIDevice.current.userInterfaceIdiom == .pad
 
 	/// The tab bar's selection. A tap on the tab already chosen still comes
-	/// through here, which is how a second tap on Shows, Discover or Collections
-	/// at the top of its page opens the filters.
+	/// through here, and takes its page back up to the top.
 	private var tabSelection: Binding<PhoneTab> {
 		Binding {
 			selection
 		} set: { tapped in
 			if tapped == selection {
-				if tapped == .shows && showsAtTop { showsFilters = true }
-				if tapped == .collections && collectionsAtTop { collectionsFilters = true }
-				if tapped == .discover && discoverAtTop { discoverFilters = true }
+				NotificationCenter.default.post(name: .tabReselected, object: tapped)
 			}
 			selection = tapped
 		}
-	}
-
-	/// The dock's taps: the same rules as the system bar's, and a second tap on
-	/// the tab you're on, anywhere but its top, takes its page back up.
-	private func select(_ tapped: PhoneTab) {
-		if tapped == selection {
-			let atTop = (tapped == .shows && showsAtTop) || (tapped == .collections && collectionsAtTop)
-				|| (tapped == .discover && discoverAtTop)
-			if atTop {
-				tabSelection.wrappedValue = tapped
-			} else {
-				NotificationCenter.default.post(name: .tabReselected, object: tapped)
-			}
-			return
-		}
-		Haptics.selection()
-		selection = tapped
 	}
 
 	var body: some View {
 		TabView(selection: tabSelection) {
 			Tab("Home", systemImage: "house", value: PhoneTab.home) {
 				PhoneHomeView { selection = $0 }
-					.hidesSystemTabBar(!isPad)
 			}
 			Tab("Shows", systemImage: "popcorn", value: PhoneTab.shows) {
-				PhoneShowsView(atTop: $showsAtTop, showingFilters: $showsFilters)
-					.hidesSystemTabBar(!isPad)
+				PhoneShowsView()
 			}
 			Tab("Discover", systemImage: "sparkles", value: PhoneTab.discover) {
-				PhoneDiscoverView(atTop: $discoverAtTop, showingFilters: $discoverFilters)
-					.hidesSystemTabBar(!isPad)
+				PhoneDiscoverView()
 			}
 			Tab("Collections", systemImage: "square.grid.2x2", value: PhoneTab.collections) {
-				PhoneCollectionsView(atTop: $collectionsAtTop, showingFilters: $collectionsFilters)
-					.hidesSystemTabBar(!isPad)
+				PhoneCollectionsView()
 			}
 			Tab("Search", systemImage: "magnifyingglass", value: PhoneTab.search, role: .search) {
 				PhoneAddSearchView()
-					.hidesSystemTabBar(!isPad)
 			}
 
 			if isPad {
@@ -130,13 +98,6 @@ struct PhoneRootView: View {
 			}
 		}
 		.modifier(DockStyle(isPad: isPad))
-		.safeAreaInset(edge: .bottom, spacing: 0) {
-			if !isPad && !DockCover.shared.isCovered {
-				LiquidDock(selection: selection) { select($0) }
-					.transition(.move(edge: .bottom).combined(with: .opacity))
-			}
-		}
-		.animation(Glass.smooth, value: DockCover.shared.isCovered)
 		.task {
 			// Every library has Top 4, pinned above the verdicts.
 			ctx.ensurePinnedCollection()
@@ -165,22 +126,8 @@ struct PhoneRootView: View {
 	}
 }
 
-private extension View {
-	/// iPhone draws LiquidDock in the system tab bar's place.
-	@ViewBuilder func hidesSystemTabBar(_ hide: Bool) -> some View {
-		if hide {
-			toolbarVisibility(.hidden, for: .tabBar)
-				// The LiquidDock floats over the foot of every page in the tab,
-				// pushed ones too, and its inset doesn't reach their scroll views:
-				// room at the end of each, so the last row can scroll clear of it.
-				.contentMargins(.bottom, LiquidDock.clearance, for: .scrollContent)
-		} else { self }
-	}
-}
-
 /// iPad's tab bar floats at the top and opens out into a sidebar; iPhone keeps
-/// the system dock. Its height is the system's: neither a compact size class
-/// on the TabView nor one on the tab bar itself changes it.
+/// the system tab bar at the bottom.
 private struct DockStyle: ViewModifier {
 	let isPad: Bool
 

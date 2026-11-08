@@ -2,16 +2,14 @@
 //  FilterSheet.swift
 //  WatchList
 //
-//  Filter & Sort, as the Shows, Discover and Collections tabs open it: tapping
-//  the tab again goes back to its list and up to the top, and once it's there
-//  opens the sheet — a stack of filters, Reset and Done. The pieces:
+//  Filter & Sort, as the Shows, Discover and Collections tabs open it from
+//  their toolbar's filter button — a stack of filters, Reset and Done. The pieces:
 //    - FilterSheet: the sheet itself
 //    - FilterHeading: a filter's name, with what's picked beside it
 //    - SegmentedFilter: a segmented control, one option picked
 //    - SortSegments: sorts drawn like one, the chosen one reversing when tapped
 //    - TileFilter: a wrap of tiles, any number picked
 //    - FilterSummaryButton: the line under a tab's header saying what's set
-//    - reportsListAtTop: whether a tab's list is on screen at its top
 //
 
 import SwiftUI
@@ -31,6 +29,7 @@ struct FilterSheet<Content: View>: View {
 	@ViewBuilder let content: () -> Content
 
 	@Environment(\.dismiss) private var dismiss
+	@Environment(\.horizontalSizeClass) private var sizeClass
 
 	var body: some View {
 		NavigationStack {
@@ -62,7 +61,7 @@ struct FilterSheet<Content: View>: View {
 				if let resultCount {
 					Button { dismiss() } label: {
 						Text(resultCount == 0 ? "Nothing matches" : "Show \(resultCount) title\(resultCount == 1 ? "" : "s")")
-							.font(.system(size: 17, weight: .semibold))
+							.font(.system(.body, weight: .semibold))
 							.foregroundStyle(Color(.systemBackground))
 							.frame(maxWidth: .infinity, minHeight: 50)
 							.background(Glass.ink, in: Capsule())
@@ -75,8 +74,8 @@ struct FilterSheet<Content: View>: View {
 				}
 			}
 		}
-		// Half an iPad's form sheet cuts the last row off.
-		.presentationDetents(UIDevice.current.userInterfaceIdiom == .pad ? [.large] : phoneDetents)
+		// Half a regular-width form sheet cuts the last row off.
+		.presentationDetents(sizeClass == .regular ? [.large] : phoneDetents)
 		.presentationDragIndicator(.visible)
 	}
 }
@@ -100,7 +99,7 @@ struct FilterHeading: View {
 					.foregroundStyle(.secondary)
 			}
 		}
-		.font(.system(size: 15, weight: .semibold))
+		.font(.system(.subheadline, weight: .semibold))
 		.accessibilityElement(children: .combine)
 		.accessibilityAddTraits(.isHeader)
 	}
@@ -126,57 +125,36 @@ struct SegmentedFilter<Value: Hashable>: View {
 	}
 }
 
-/// The orders as a list to pick from, after design B of the alternatives:
-/// each its own row in one glass card, the chosen one ticked with the way it
-/// runs. Tapping the chosen one again reverses it: A–Z becomes Z–A, and the
-/// others turn their arrow round.
+/// The order, from a menu, and a button that reverses it: A–Z becomes Z–A,
+/// and the others turn their arrow round.
 struct SortSegments<Sort: ListSort>: View {
 	let title: String
 	@Binding var order: ListOrder<Sort>
 
-	var body: some View {
-		VStack(alignment: .leading, spacing: 8) {
-			FilterHeading(title, detail: order.summary)
-			VStack(spacing: 0) {
-				ForEach(Array(Sort.allCases.enumerated()), id: \.element.id) { index, sort in
-					if index > 0 { Divider().padding(.leading, 14) }
-					row(sort)
-				}
-			}
-			.glass(cornerRadius: 16)
+	private var sort: Binding<Sort> {
+		Binding { order.sort } set: { picked in
+			withAnimation(Glass.smooth) { order.sort = picked; order.reversed = false }
 		}
 	}
 
-	private func row(_ sort: Sort) -> some View {
-		let chosen = order.sort == sort
-		return Button {
-			Haptics.selection()
-			withAnimation(Glass.smooth) { order.choose(sort) }
-		} label: {
-			HStack(spacing: 8) {
-				Text(order.segmentTitle(for: sort))
-					.font(.system(size: 15, weight: chosen ? .semibold : .regular))
-					.foregroundStyle(Glass.ink)
-				if chosen, let arrow = order.arrowSymbol {
-					Image(systemName: arrow)
-						.font(.system(size: 12, weight: .bold))
-						.foregroundStyle(.secondary)
+	var body: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			FilterHeading(title, detail: order.summary)
+			HStack {
+				Picker(title, selection: sort) {
+					ForEach(Sort.allCases) { Text($0.title).tag($0) }
 				}
+				.pickerStyle(.menu)
+				.labelsHidden()
 				Spacer()
-				if chosen {
-					Image(systemName: "checkmark")
-						.font(.system(size: 14, weight: .bold))
-						.foregroundStyle(Glass.accent)
+				Toggle(isOn: $order.reversed.animation(Glass.smooth)) {
+					Label("Reverse", systemImage: "arrow.up.arrow.down")
 				}
+				.toggleStyle(.button)
+				.buttonStyle(.bordered)
 			}
-			.padding(.horizontal, 14)
-			.frame(minHeight: 46)
-			.contentShape(Rectangle())
+			.sensoryFeedback(.selection, trigger: order)
 		}
-		.buttonStyle(.plain)
-		.accessibilityLabel(chosen ? order.summary : sort.title)
-		.accessibilityHint(chosen ? "Tap again to reverse" : "")
-		.accessibilityAddTraits(chosen ? .isSelected : [])
 	}
 }
 
@@ -207,7 +185,7 @@ struct TileFilter: View {
 			withAnimation(Glass.smooth) { action() }
 		} label: {
 			Text(name)
-				.font(.system(size: 14, weight: .medium))
+				.font(.system(.subheadline, weight: .medium))
 				.foregroundStyle(chosen ? Color.white : Color.primary)
 				.padding(.horizontal, 14)
 				.padding(.vertical, 8)
@@ -279,46 +257,19 @@ struct FilterSummaryButton: View {
 		Button(action: action) {
 			HStack(spacing: 6) {
 				Image(systemName: "line.3.horizontal.decrease")
-					.font(.system(size: 12, weight: .bold))
+					.font(.system(.caption, weight: .bold))
 				Text(summary)
-					.font(.system(size: 13, weight: .semibold))
+					.font(.system(.footnote, weight: .semibold))
 					.lineLimit(1)
 			}
 			.foregroundStyle(Glass.ink)
 			.padding(.horizontal, 14)
-			.frame(height: 34)
+			.frame(minHeight: 34)
 			.contentShape(Capsule())
 		}
 		.buttonStyle(.plain)
 		.glassEffect(.regular.interactive(), in: Capsule())
 		.accessibilityLabel("Filters: \(summary)")
 		.accessibilityHint("Opens the filters")
-	}
-}
-
-extension View {
-	/// Keeps `atTop` true while this scroll view is on screen and at its top —
-	/// not scrolled down, and with no page pushed over it — when tapping its
-	/// tab again should open Filter & Sort.
-	func reportsListAtTop(_ atTop: Binding<Bool>) -> some View {
-		modifier(ListAtTop(atTop: atTop))
-	}
-}
-
-private struct ListAtTop: ViewModifier {
-	@Binding var atTop: Bool
-	@State private var scrolledToTop = true
-	@State private var onScreen = false
-
-	func body(content: Content) -> some View {
-		content
-			.onScrollGeometryChange(for: Bool.self) { geometry in
-				geometry.contentOffset.y + geometry.contentInsets.top < 1
-			} action: { _, isAtTop in
-				scrolledToTop = isAtTop
-			}
-			.onAppear { onScreen = true }
-			.onDisappear { onScreen = false }
-			.onChange(of: onScreen && scrolledToTop, initial: true) { _, ready in atTop = ready }
 	}
 }

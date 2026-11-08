@@ -20,19 +20,12 @@ struct RootView: View {
 	@Environment(\.scenePhase) private var scenePhase
 
 	init() {
-		// Serif, ink-coloured navigation titles.
+		// Ink-coloured navigation titles over the app's own backgrounds.
 		let ink = UIColor(resource: .ink)
-		func serif(_ size: CGFloat, _ weight: UIFont.Weight) -> UIFont {
-			let base = UIFont.systemFont(ofSize: size, weight: weight)
-			if let d = base.fontDescriptor.withDesign(.serif) {
-				return UIFont(descriptor: d, size: size)
-			}
-			return base
-		}
 		let nav = UINavigationBarAppearance()
 		nav.configureWithTransparentBackground()
-		nav.largeTitleTextAttributes = [.font: serif(34, .bold), .foregroundColor: ink]
-		nav.titleTextAttributes = [.font: serif(17, .semibold), .foregroundColor: ink]
+		nav.largeTitleTextAttributes = [.foregroundColor: ink]
+		nav.titleTextAttributes = [.foregroundColor: ink]
 		UINavigationBar.appearance().standardAppearance = nav
 		UINavigationBar.appearance().scrollEdgeAppearance = nav
 		UINavigationBar.appearance().compactAppearance = nav

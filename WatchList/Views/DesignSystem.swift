@@ -57,8 +57,15 @@ enum Glass {
 	static let cornerSmall: CGFloat = 10
 
 	// Springs.
-	static let pop    = Animation.spring(response: 0.32, dampingFraction: 0.78)
-	static let smooth = Animation.spring(response: 0.45, dampingFraction: 0.88)
+	/// Springs, or short fades when Reduce Motion is on.
+	static var pop: Animation {
+		UIAccessibility.isReduceMotionEnabled ? .easeInOut(duration: 0.15)
+			: .spring(response: 0.32, dampingFraction: 0.78)
+	}
+	static var smooth: Animation {
+		UIAccessibility.isReduceMotionEnabled ? .easeInOut(duration: 0.2)
+			: .spring(response: 0.45, dampingFraction: 0.88)
+	}
 
 	static func tint(_ status: WatchStatus) -> Color {
 		switch status {
@@ -85,13 +92,24 @@ enum Glass {
 		}
 	}
 
-	/// Serif headline font helper.
-	static func serif(_ size: CGFloat, _ weight: Font.Weight = .bold) -> Font {
-		.system(size: size, weight: weight, design: .serif)
+	/// Serif headline font helper, sized by a text style so it follows Dynamic Type.
+	static func serif(_ style: Font.TextStyle, _ weight: Font.Weight = .bold) -> Font {
+		.system(style, design: .serif, weight: weight)
 	}
 
 	// Retained for source compatibility (no longer drawn as drifting blobs).
 	static let ambient: [Color] = [paper, surface, paper, surface]
+}
+
+extension UIFont {
+	/// The system font at a text style's size for `typeSize`, at `weight` — for
+	/// measuring text that's drawn with `.font(.system(style, weight:))`.
+	static func preferred(_ style: UIFont.TextStyle, weight: UIFont.Weight,
+	                      typeSize: DynamicTypeSize) -> UIFont {
+		let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
+		let size = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits).pointSize
+		return .systemFont(ofSize: size, weight: weight)
+	}
 }
 
 // MARK: - Colour blur backdrop
@@ -115,8 +133,18 @@ struct GlassBackground: View {
 	/// Kept for source compatibility; the palette's colours are used instead.
 	var tints: [Color] = Glass.ambient
 	@Environment(\.colorScheme) private var scheme
+	@Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
 	var body: some View {
+		if reduceTransparency {
+			// The plain ground, without the blurred lights behind the glass.
+			Glass.paper.ignoresSafeArea().accessibilityHidden(true)
+		} else {
+			lights
+		}
+	}
+
+	private var lights: some View {
 		GeometryReader { geometry in
 			let width = geometry.size.width
 			let height = geometry.size.height
@@ -200,14 +228,15 @@ enum Haptics {
 /// A gentle press-scale that fits the calm editorial motion language.
 struct PressableStyle: ButtonStyle {
 	var scale: CGFloat = 0.97
-	var haptic: Bool = true
+	/// Kept so existing call sites compile; presses no longer buzz.
+	var haptic: Bool = false
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
 	func makeBody(configuration: Configuration) -> some View {
 		configuration.label
-			.scaleEffect(configuration.isPressed ? scale : 1)
+			.scaleEffect(configuration.isPressed && !reduceMotion ? scale : 1)
+			.opacity(configuration.isPressed && reduceMotion ? 0.7 : 1)
 			.animation(Glass.pop, value: configuration.isPressed)
-			.onChange(of: configuration.isPressed) { _, pressed in
-				if pressed && haptic { Haptics.tap(.soft) }
-			}
 	}
 }
 
@@ -225,11 +254,11 @@ struct StatusBadge: View {
 	var body: some View {
 		HStack(spacing: 5) {
 			Image(systemName: status.systemImage)
-				.font(.system(size: compact ? 10 : 12, weight: .bold))
+				.font(.system(compact ? .caption2 : .caption, weight: .bold))
 				.foregroundStyle(Glass.tint(status))
 			if !compact {
 				Text(status.rawValue)
-					.font(.system(size: 12, weight: .semibold))
+					.font(.system(.caption, weight: .semibold))
 					.foregroundStyle(Glass.ink)
 			}
 		}
@@ -249,10 +278,10 @@ struct RatingBadge: View {
 	var body: some View {
 		HStack(spacing: 5) {
 			Image(systemName: rating.systemImage)
-				.font(.system(size: compact ? 10 : 12, weight: .bold))
+				.font(.system(compact ? .caption2 : .caption, weight: .bold))
 			if !compact {
 				Text(rating.rawValue)
-					.font(.system(size: 12, weight: .bold))
+					.font(.system(.caption, weight: .bold))
 			}
 		}
 		.foregroundStyle(Glass.onTint)
@@ -271,10 +300,10 @@ struct EpisodeTierBadge: View {
 	var body: some View {
 		HStack(spacing: 5) {
 			Image(systemName: tier.systemImage)
-				.font(.system(size: compact ? 10 : 12, weight: .bold))
+				.font(.system(compact ? .caption2 : .caption, weight: .bold))
 			if !compact {
 				Text(tier.rawValue)
-					.font(.system(size: 12, weight: .semibold))
+					.font(.system(.caption, weight: .semibold))
 			}
 		}
 		.foregroundStyle(Glass.tint(tier))
@@ -319,7 +348,7 @@ struct PosterImage: View {
 
 	private var placeholder: some View {
 		Image(systemName: systemPlaceholder)
-			.font(.system(size: 28, weight: .light))
+			.font(.system(.title, weight: .light))
 			.foregroundStyle(Glass.accent3)
 	}
 }
@@ -331,9 +360,9 @@ struct SectionLabel: View {
 	var systemImage: String? = nil
 	var body: some View {
 		HStack(spacing: 6) {
-			if let s = systemImage { Image(systemName: s).font(.system(size: 11, weight: .bold)) }
+			if let s = systemImage { Image(systemName: s).font(.system(.caption2, weight: .bold)) }
 			Text(text.uppercased())
-				.font(.system(size: 12, weight: .semibold, design: .serif))
+				.font(.system(.caption, design: .serif, weight: .semibold))
 				.kerning(1.5)
 		}
 		.foregroundStyle(Glass.accent)
@@ -347,21 +376,8 @@ struct EmptyState: View {
 	let title: String
 	let subtitle: String
 	var body: some View {
-		VStack(spacing: 12) {
-			Image(systemName: icon)
-				.font(.system(size: 38, weight: .light))
-				.foregroundStyle(Glass.accent)
-			Text(title)
-				.font(Glass.serif(20, .bold))
-				.foregroundStyle(Glass.ink)
-			Text(subtitle)
-				.font(.system(size: 14, weight: .regular))
-				.foregroundStyle(.secondary)
-				.multilineTextAlignment(.center)
-		}
-		.frame(maxWidth: .infinity)
-		.padding(36)
-		.glass(cornerRadius: Glass.corner)
-		.padding(.horizontal, 20)
+		ContentUnavailableView(title, systemImage: icon, description: Text(subtitle))
+			.glass(cornerRadius: Glass.corner)
+			.padding(.horizontal, 20)
 	}
 }

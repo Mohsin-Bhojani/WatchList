@@ -48,7 +48,7 @@ struct ImagesTabView: View {
 				SectionLabel(text: "Images", systemImage: "photo.on.rectangle.angled")
 				Spacer()
 				Text(loading ? "via TMDb" : "\(gallery.count) via TMDb")
-					.font(.system(size: 12, weight: .medium, design: .rounded))
+					.font(.system(.caption, design: .rounded, weight: .medium))
 					.foregroundStyle(.tertiary)
 			}
 
@@ -56,7 +56,7 @@ struct ImagesTabView: View {
 				HStack(spacing: 10) {
 					ProgressView()
 					Text("Pulling artwork from TMDb…")
-						.font(.system(size: 14, weight: .medium, design: .rounded))
+						.font(.system(.subheadline, design: .rounded, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
 				.frame(maxWidth: .infinity, alignment: .leading)
@@ -82,10 +82,10 @@ struct ImagesTabView: View {
 	private func heading(_ group: ImageGroup) -> some View {
 		HStack(spacing: 6) {
 			Text(group.kind.title)
-				.font(Glass.serif(15, .semibold))
+				.font(Glass.serif(.subheadline, .semibold))
 				.foregroundStyle(.primary)
 			Text("\(group.entries.count)")
-				.font(.system(size: 12, weight: .semibold, design: .rounded))
+				.font(.system(.caption, design: .rounded, weight: .semibold))
 				.foregroundStyle(.secondary)
 		}
 	}
@@ -94,7 +94,6 @@ struct ImagesTabView: View {
 		LazyVGrid(columns: columns(for: group.kind), spacing: 10) {
 			ForEach(group.entries) { entry in
 				Button {
-					Haptics.tap()
 					viewing = entry
 				} label: {
 					ImageTile(entry: entry)

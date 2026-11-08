@@ -20,8 +20,7 @@ import WatchListLibrary
 
 struct PhoneCollectionsView: View {
 	/// Whether the page is on screen at its top, for the tab bar to read.
-	@Binding var atTop: Bool
-	@Binding var showingFilters: Bool
+	@State private var showingFilters = false
 
 	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
@@ -75,7 +74,6 @@ struct PhoneCollectionsView: View {
 				ScrollView {
 					VStack(alignment: .leading, spacing: 22) {
 						VStack(alignment: .leading, spacing: 14) {
-							ScreenHeader(title: "Collections", subtitle: "\(collections.count) collection\(collections.count == 1 ? "" : "s")")
 							if let filterSummary {
 								FilterSummaryButton(summary: filterSummary) { showingFilters = true }
 									.padding(.horizontal, 20)
@@ -87,12 +85,12 @@ struct PhoneCollectionsView: View {
 					}
 					.padding(.bottom, 24)
 				}
-				.reportsListAtTop($atTop)
 				.scrollsToTopOnReselect(.collections)
 			}
-			// Not shown, but it names the back button on a collection.
-			.navigationTitle("Collections")
-			.screenBar("Collections")
+			.screenBar("Collections",
+			           subtitle: "\(collections.count) collection\(collections.count == 1 ? "" : "s")") {
+				showingFilters = true
+			}
 			.navigationDestination(item: $opened) { PhoneCollectionView(source: .mine($0)) }
 			.newCollectionAlert(isPresented: $naming) { opened = $0.id }
 			.confirmationDialog("Delete \u{201C}\(deleting?.name ?? "")\u{201D}?",
@@ -177,7 +175,7 @@ struct PhoneCollectionsView: View {
 			sectionTitle("Your collections")
 			if yours.isEmpty {
 				Text("Make one for anything — comfort films, a watch party, a top ten.")
-					.font(.system(size: 14, weight: .medium))
+					.font(.system(.subheadline, weight: .medium))
 					.foregroundStyle(.secondary)
 					.padding(.bottom, 2)
 			}
@@ -202,14 +200,14 @@ struct PhoneCollectionsView: View {
 			Button { naming = true } label: {
 				HStack(spacing: 10) {
 					Image(systemName: "plus")
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 					Text("New collection")
-						.font(.system(size: 15, weight: .semibold))
+						.font(.system(.subheadline, weight: .semibold))
 					Spacer()
 				}
 				.foregroundStyle(Glass.ink.opacity(0.8))
 				.padding(.horizontal, 18)
-				.frame(height: 58)
+				.frame(minHeight: 58)
 				.contentShape(Rectangle())
 				.overlay(
 					RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -231,7 +229,7 @@ struct PhoneCollectionsView: View {
 
 	private func sectionTitle(_ text: String) -> some View {
 		Text(text)
-			.font(.system(size: 20, weight: .bold))
+			.font(.system(.title3, weight: .bold))
 			.foregroundStyle(Glass.ink)
 			.accessibilityAddTraits(.isHeader)
 	}
@@ -271,17 +269,17 @@ private struct CollectionCard: View {
 				.padding(.top, 6)
 			HStack(spacing: 6) {
 				Text(title)
-					.font(.system(size: 20, weight: .bold, design: .serif))
+					.font(.system(.title3, design: .serif, weight: .bold))
 					.foregroundStyle(.white)
 					.lineLimit(1)
 				if locked {
 					Image(systemName: "lock")
-						.font(.system(size: 11, weight: .semibold))
+						.font(.system(.caption2, weight: .semibold))
 						.foregroundStyle(.white.opacity(0.7))
 				}
 			}
 			Text(subtitle)
-				.font(.system(size: 12, weight: .medium))
+				.font(.system(.caption, weight: .medium))
 				.foregroundStyle(.white.opacity(0.65))
 		}
 		.padding(.horizontal, 14)

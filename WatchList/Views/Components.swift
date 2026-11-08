@@ -21,12 +21,12 @@ struct StatChip: View {
 	var body: some View {
 		VStack(alignment: .leading, spacing: 6) {
 			HStack(spacing: 5) {
-				Image(systemName: systemImage).font(.system(size: 12, weight: .bold))
-				Text(label).font(.system(size: 12, weight: .semibold, design: .rounded))
+				Image(systemName: systemImage).font(.system(.caption, weight: .bold))
+				Text(label).font(.system(.caption, design: .rounded, weight: .semibold))
 			}
 			.foregroundStyle(tint)
 			Text(value)
-				.font(.system(size: 26, weight: .bold, design: .serif))
+				.font(.system(.title, design: .serif, weight: .bold))
 				.foregroundStyle(.primary)
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
@@ -64,11 +64,11 @@ struct PosterCard: View {
 
 			VStack(alignment: .leading, spacing: 2) {
 				Text(title)
-					.font(.system(size: 15, weight: .bold, design: .serif))
+					.font(.system(.subheadline, design: .serif, weight: .bold))
 					.foregroundStyle(.primary)
 					.lineLimit(1)
 				Text(subtitle)
-					.font(.system(size: 12, weight: .medium, design: .rounded))
+					.font(.system(.caption, design: .rounded, weight: .medium))
 					.foregroundStyle(.secondary)
 					.lineLimit(1)
 			}
@@ -98,7 +98,7 @@ struct GlassRow: View {
 		HStack(spacing: 12) {
 			if let n = leadingNumber {
 				Text("\(n)")
-					.font(.system(size: 17, weight: .bold, design: .rounded))
+					.font(.system(.body, design: .rounded, weight: .bold))
 					.foregroundStyle(Glass.accent)
 					.frame(width: 34, height: 34)
 					.background(Glass.accent.opacity(0.14), in: Circle())
@@ -110,12 +110,12 @@ struct GlassRow: View {
 
 			VStack(alignment: .leading, spacing: 3) {
 				Text(title)
-					.font(.system(size: 16, weight: .semibold, design: .rounded))
+					.font(.system(.callout, design: .rounded, weight: .semibold))
 					.foregroundStyle(.primary)
 					.lineLimit(2)
 				if !subtitle.isEmpty {
 					Text(subtitle)
-						.font(.system(size: 13, weight: .medium, design: .rounded))
+						.font(.system(.footnote, design: .rounded, weight: .medium))
 						.foregroundStyle(.secondary)
 						.lineLimit(2)
 				}
@@ -127,7 +127,7 @@ struct GlassRow: View {
 			if let status { StatusBadge(status: status, compact: true) }
 			if showsChevron {
 				Image(systemName: "chevron.right")
-					.font(.system(size: 13, weight: .bold))
+					.font(.system(.footnote, weight: .bold))
 					.foregroundStyle(.tertiary)
 			}
 		}
@@ -156,7 +156,7 @@ struct PersonAvatar: View {
 				ZStack {
 					Rectangle().fill(Glass.hairline.opacity(0.06))
 					Text(initials)
-						.font(.system(size: 15, weight: .semibold, design: .serif))
+						.font(.system(.subheadline, design: .serif, weight: .semibold))
 						.foregroundStyle(Glass.accent3)
 				}
 			} else {
@@ -193,7 +193,7 @@ struct ImageTile: View {
 		.overlay(alignment: .bottomTrailing) {
 			if let language = entry.language {
 				Text(language.uppercased())
-					.font(.system(size: 9, weight: .bold, design: .rounded))
+					.font(.system(.caption2, design: .rounded, weight: .bold))
 					.foregroundStyle(.white)
 					.padding(.horizontal, 5)
 					.padding(.vertical, 2)
@@ -215,7 +215,7 @@ struct ImageTile: View {
 					ProgressView()
 				default:
 					Image(systemName: entry.kind.systemImage)
-						.font(.system(size: 20, weight: .light))
+						.font(.system(.title3, weight: .light))
 						.foregroundStyle(Glass.accent3)
 				}
 			}
@@ -238,27 +238,47 @@ struct ImageViewer: View {
 	private var current: ImageEntry { entries.first { $0.id == selection } ?? start }
 
 	var body: some View {
-		ZStack {
-			Color.black.ignoresSafeArea()
+		NavigationStack {
+			ZStack {
+				Color.black.ignoresSafeArea()
 
-			TabView(selection: $selection) {
-				ForEach(entries) { entry in
-					page(entry).tag(entry.id)
+				TabView(selection: $selection) {
+					ForEach(entries) { entry in
+						page(entry).tag(entry.id)
+					}
+				}
+				.tabViewStyle(.page(indexDisplayMode: .never))
+
+				VStack(spacing: 0) {
+					Spacer()
+					picks
+					caption
 				}
 			}
-			.tabViewStyle(.page(indexDisplayMode: .never))
-
-			VStack(spacing: 0) {
-				topBar
-				Spacer()
-				picks
-				caption
+			.navigationBarTitleDisplayMode(.inline)
+			.toolbarBackground(.hidden, for: .navigationBar)
+			.toolbar {
+				ToolbarItem(placement: .cancellationAction) {
+					Button(role: .close) { dismiss() }
+				}
+				ToolbarItem(placement: .principal) {
+					if entries.count > 1, let index = entries.firstIndex(of: current) {
+						Text("\(index + 1) of \(entries.count)")
+							.font(.subheadline.weight(.semibold))
+							.foregroundStyle(.white.opacity(0.85))
+					}
+				}
+				if let url = URL(string: current.fullURL) {
+					ToolbarItem(placement: .primaryAction) {
+						ShareLink(item: url)
+					}
+				}
 			}
 		}
+		.environment(\.colorScheme, .dark)
 		// Set here rather than in the initialiser so `selection` is a plain
 		// @State the TabView can drive afterwards.
 		.onAppear { selection = start.id }
-		.statusBarHidden()
 	}
 
 	private func page(_ entry: ImageEntry) -> some View {
@@ -271,9 +291,9 @@ struct ImageViewer: View {
 			default:
 				VStack(spacing: 10) {
 					Image(systemName: "exclamationmark.triangle")
-						.font(.system(size: 30, weight: .light))
+						.font(.system(.title, weight: .light))
 					Text("Couldn't load this image.")
-						.font(.system(size: 14, weight: .medium, design: .rounded))
+						.font(.system(.subheadline, design: .rounded, weight: .medium))
 				}
 				.foregroundStyle(.white.opacity(0.7))
 			}
@@ -282,33 +302,6 @@ struct ImageViewer: View {
 		.padding(.vertical, 60)
 	}
 
-	private var topBar: some View {
-		HStack {
-			circleButton("xmark", label: "Close") { dismiss() }
-			Spacer()
-			if entries.count > 1, let index = entries.firstIndex(of: current) {
-				Text("\(index + 1) of \(entries.count)")
-					.font(.system(size: 13, weight: .semibold, design: .rounded))
-					.foregroundStyle(.white.opacity(0.85))
-			}
-			Spacer()
-			if let url = URL(string: current.fullURL) {
-				ShareLink(item: url) {
-					Image(systemName: "square.and.arrow.up")
-						.font(.system(size: 15, weight: .bold))
-						.foregroundStyle(.white)
-						.frame(width: 34, height: 34)
-						.background(Circle().fill(.white.opacity(0.16)))
-				}
-			} else {
-				Color.clear.frame(width: 34, height: 34)
-			}
-		}
-		.padding(.horizontal, 16)
-		.padding(.top, 10)
-	}
-
-	/// Use as Poster / Use as Landscape, for the kinds the image in view suits.
 	@ViewBuilder private var picks: some View {
 		let slots = picking.filter { $0.fits(current.kind) }
 		if !slots.isEmpty {
@@ -316,13 +309,9 @@ struct ImageViewer: View {
 				ForEach(slots, id: \.self) { slot in
 					Button { onPick(current, slot) } label: {
 						Label(slot.action, systemImage: slot.systemImage)
-							.font(.system(size: 14, weight: .semibold))
-							.foregroundStyle(.white)
-							.padding(.horizontal, 14)
-							.frame(height: 40)
 					}
-					.buttonStyle(.plain)
-					.glassEffect(.regular.interactive(), in: Capsule())
+					.buttonStyle(.glass)
+					.controlSize(.large)
 				}
 			}
 			.padding(.bottom, 10)
@@ -331,7 +320,7 @@ struct ImageViewer: View {
 
 	private var caption: some View {
 		Text(captionParts.joined(separator: "  ·  "))
-			.font(.system(size: 12, weight: .medium, design: .rounded))
+			.font(.system(.caption, design: .rounded, weight: .medium))
 			.foregroundStyle(.white.opacity(0.75))
 			.padding(.horizontal, 16)
 			.padding(.bottom, 22)
@@ -345,105 +334,38 @@ struct ImageViewer: View {
 		return parts
 	}
 
-	private func circleButton(_ systemImage: String, label: String, action: @escaping () -> Void) -> some View {
-		Button(action: action) {
-			Image(systemName: systemImage)
-				.font(.system(size: 15, weight: .bold))
-				.foregroundStyle(.white)
-				.frame(width: 34, height: 34)
-				.background(Circle().fill(.white.opacity(0.16)))
-		}
-		.accessibilityLabel(label)
-	}
 }
 
 // MARK: - Status picker (segmented glass)
 
+/// A title's watch status, as a segmented control.
 struct StatusPicker: View {
 	@Binding var status: WatchStatus
+
 	var body: some View {
-		HStack(spacing: 8) {
-			ForEach(WatchStatus.allCases) { s in
-				let selected = status == s
-				Button {
-					Haptics.selection()
-					withAnimation(Glass.pop) { status = s }
-				} label: {
-					HStack(spacing: 5) {
-						Image(systemName: s.systemImage).font(.system(size: 12, weight: .bold))
-						Text(s.rawValue).font(.system(size: 13, weight: .semibold, design: .rounded))
-					}
-					.foregroundStyle(selected ? .white : Color.primary)
-					.frame(maxWidth: .infinity)
-					.padding(.vertical, 11)
-					.background {
-						if selected {
-							Capsule().fill(Glass.tint(s))
-						} else {
-							Capsule().fill(.ultraThinMaterial)
-						}
-					}
-				}
-				.buttonStyle(.pressable)
-			}
+		Picker("Status", selection: $status.animation(Glass.pop)) {
+			ForEach(WatchStatus.allCases) { Text($0.rawValue).tag($0) }
 		}
+		.pickerStyle(.segmented)
+		.labelsHidden()
+		.sensoryFeedback(.selection, trigger: status)
 	}
 }
 
-// MARK: - Rating picker (2×2 glass grid, clearable)
-
+/// An optional verdict: None or one of the four, from a menu.
 struct RatingPicker: View {
 	@Binding var rating: Rating?
-	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-	private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 8) {
-			if horizontalSizeClass == .regular {
-				// iPad: a 2×2 grid fits the narrow two-column side column.
-				LazyVGrid(columns: columns, spacing: 8) {
-					ForEach(Rating.allCases) { chip($0, expands: true) }
-				}
-			} else {
-				// iPhone: a single horizontal scrollable row.
-				ScrollView(.horizontal, showsIndicators: false) {
-					HStack(spacing: 8) {
-						ForEach(Rating.allCases) { chip($0, expands: false) }
-					}
-					.padding(.vertical, 2)
-				}
-			}
-			if rating != nil {
-				Text("Tap the selected rating again to clear it.")
-					.font(.system(size: 11, weight: .medium, design: .rounded))
-					.foregroundStyle(.secondary)
+		Picker("Rating", selection: $rating) {
+			Text("None").tag(Rating?.none)
+			Divider()
+			ForEach(Rating.allCases) { r in
+				Label(r.rawValue, systemImage: r.systemImage).tag(Rating?.some(r))
 			}
 		}
-	}
-
-	private func chip(_ r: Rating, expands: Bool) -> some View {
-		let selected = rating == r
-		return Button {
-			Haptics.selection()
-			withAnimation(Glass.pop) { rating = selected ? nil : r }
-		} label: {
-			HStack(spacing: 6) {
-				Image(systemName: r.systemImage).font(.system(size: 12, weight: .bold))
-				Text(r.rawValue).font(.system(size: 13, weight: .semibold, design: .rounded))
-			}
-			.foregroundStyle(selected ? .white : Color.primary)
-			.frame(maxWidth: expands ? .infinity : nil)
-			.padding(.horizontal, expands ? 0 : 16)
-			.padding(.vertical, 11)
-			.background {
-				if selected {
-					Capsule().fill(Glass.tint(r))
-				} else {
-					Capsule().fill(.ultraThinMaterial)
-				}
-			}
-		}
-		.buttonStyle(.pressable)
+		.pickerStyle(.menu)
+		.tint(rating.map(Glass.tint) ?? Glass.accent)
+		.sensoryFeedback(.selection, trigger: rating)
 	}
 }

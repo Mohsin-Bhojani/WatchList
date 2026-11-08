@@ -47,6 +47,48 @@ struct VerdictMenuSection<Item: Rated>: View {
 	}
 }
 
+// MARK: - Quick actions
+
+extension View {
+	/// A long press on a title anywhere in a list: its status and, once
+	/// Watched, its verdict — the same sections its page's menu has.
+	func titleQuickActions(_ item: WatchedTitle) -> some View {
+		contextMenu {
+			switch item {
+			case .show(let show):
+				StatusMenuSection(current: show.status) { status in
+					withAnimation(Glass.smooth) { show.mark(status) }
+				}
+				if show.status == .watched { VerdictMenuSection(item: show) }
+			case .film(let film):
+				StatusMenuSection(current: film.status, statuses: [.toWatch, .watched]) { status in
+					withAnimation(Glass.smooth) { film.mark(status) }
+				}
+				if film.status == .watched { VerdictMenuSection(item: film) }
+			}
+		}
+	}
+
+	/// In a List: swipe right to mark a title Watched, or back to To Watch.
+	func titleSwipeActions(_ item: WatchedTitle) -> some View {
+		swipeActions(edge: .leading) {
+			let watched = item.status == .watched
+			Button {
+				withAnimation(Glass.smooth) {
+					switch item {
+					case .show(let show): show.mark(watched ? .toWatch : .watched)
+					case .film(let film): film.mark(watched ? .toWatch : .watched)
+					}
+				}
+			} label: {
+				Label(watched ? "To Watch" : "Watched",
+				      systemImage: watched ? WatchStatus.toWatch.systemImage : WatchStatus.watched.systemImage)
+			}
+			.tint(watched ? Glass.toWatch : Glass.watched)
+		}
+	}
+}
+
 // MARK: - Sharing and artwork
 
 enum TitleLinks {

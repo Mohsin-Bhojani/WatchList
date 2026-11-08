@@ -51,7 +51,7 @@ struct EpisodeRatingSheet: View {
 					.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 					.overlay(alignment: .bottomLeading) {
 						Text(ShowFacts.code(episode))
-							.font(.system(size: 12, weight: .bold))
+							.font(.system(.caption, weight: .bold))
 							.foregroundStyle(.white)
 							.padding(.horizontal, 10)
 							.padding(.vertical, 5)
@@ -63,27 +63,27 @@ struct EpisodeRatingSheet: View {
 				VStack(alignment: .leading, spacing: 4) {
 					if let show {
 						Text(show.title)
-							.font(.system(size: 15, weight: .semibold))
+							.font(.system(.subheadline, weight: .semibold))
 							.foregroundStyle(.secondary)
 					}
 					Text(episode.displayTitle)
-						.font(.system(size: 24, weight: .bold))
+						.font(.system(.title2, weight: .bold))
 						.fixedSize(horizontal: false, vertical: true)
 					Text(HomeFeed.episodeLine(episode))
-						.font(.system(size: 13, weight: .medium))
+						.font(.system(.footnote, weight: .medium))
 						.foregroundStyle(.secondary)
 				}
 
 				if !episode.synopsis.isEmpty {
 					Text(episode.synopsis)
-						.font(.system(size: 15))
+						.font(.subheadline)
 						.foregroundStyle(.secondary)
 						.fixedSize(horizontal: false, vertical: true)
 				}
 
 				Button { rate(picked) } label: {
 					Label("Mark Watched", systemImage: "checkmark")
-						.font(.system(size: 17, weight: .semibold))
+						.font(.system(.body, weight: .semibold))
 						.foregroundStyle(Color(.systemBackground))
 						.frame(maxWidth: .infinity, minHeight: 50)
 						.background(Glass.ink, in: Capsule())
@@ -92,7 +92,7 @@ struct EpisodeRatingSheet: View {
 
 				HStack {
 					Text("Rate it, optional")
-						.font(.system(size: 14, weight: .medium))
+						.font(.system(.subheadline, weight: .medium))
 						.foregroundStyle(.secondary)
 					Spacer()
 					HStack(spacing: 2) {
@@ -106,15 +106,15 @@ struct EpisodeRatingSheet: View {
 					Divider()
 					HStack(spacing: 10) {
 						Text("Up next")
-							.font(.system(size: 13, weight: .medium))
+							.font(.system(.footnote, weight: .medium))
 							.foregroundStyle(.secondary)
 						Text([ShowFacts.code(upNext), ShowFacts.distinctName(upNext)].compactMap { $0 }.joined(separator: " · "))
-							.font(.system(size: 15))
+							.font(.subheadline)
 							.lineLimit(1)
 						Spacer(minLength: 0)
 						if let minutes = upNext.runtimeMinutes ?? upNext.specs?.runtimeMinutes {
 							Text("\(minutes) min")
-								.font(.system(size: 13, weight: .medium))
+								.font(.system(.footnote, weight: .medium))
 								.foregroundStyle(.secondary)
 						}
 					}
@@ -142,7 +142,7 @@ struct EpisodeRatingSheet: View {
 			withAnimation(Glass.pop) { picked = current ? nil : tier }
 		} label: {
 			Text(tier.rawValue)
-				.font(.system(size: 13, weight: .semibold))
+				.font(.system(.footnote, weight: .semibold))
 				.foregroundStyle(current ? Glass.onTint : Glass.ink)
 				.padding(.horizontal, 12)
 				.frame(minHeight: 32)
