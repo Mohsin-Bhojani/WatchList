@@ -164,6 +164,9 @@ public final class Season {
 	public var ratedAt: Date?
 	public var dateAdded: Date
 	public var show: Show?
+	/// The YouTube playlist its episodes play from (YouTubeLibrary.swift); nil
+	/// when it has none. Defaulted, so older stores migrate in place.
+	public var youtubePlaylistID: String? = nil
 
 	@Relationship(deleteRule: .cascade, inverse: \Episode.season)
 	public var episodes: [Episode]
@@ -212,6 +215,8 @@ public final class Episode {
 	public var imdbID: String?             // this episode's own IMDb id, for the link out
 	public var tmdbShowID: Int?            // needed to resolve episode external ids
 	public var season: Season?
+	/// The YouTube video it plays from, matched from its season's playlist.
+	public var youtubeVideoID: String? = nil
 
 	public init(episodeNumber: Int,
 	     seasonNumber: Int,
@@ -272,6 +277,12 @@ public final class Film {
 	/// a store from before they existed migrates in place.
 	public var likedAspects: [String] = []
 	public var dislikedAspects: [String] = []
+	/// The film series TMDb puts it in (Franchises.swift); nil when it's in
+	/// none or hasn't been looked up. Defaulted, so older stores migrate in place.
+	public var franchiseID: Int? = nil
+	public var franchiseName: String? = nil
+	/// When TMDb was last asked which series it's in; nil until it has been.
+	public var franchiseCheckedAt: Date? = nil
 
 	public init(title: String,
 	     synopsis: String = "",

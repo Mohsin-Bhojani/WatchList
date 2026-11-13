@@ -111,8 +111,9 @@ public struct TMDbFindItem: Decodable {
 }
 
 public struct TMDbMovie: Decodable {
-	public init(id: Int, title: String? = nil, overview: String? = nil, release_date: String? = nil, poster_path: String? = nil, backdrop_path: String? = nil, runtime: Int? = nil, status: String? = nil, original_language: String? = nil, budget: Int? = nil, revenue: Int? = nil, vote_average: Double? = nil, vote_count: Int? = nil, homepage: String? = nil, genres: [TMDbNamed]? = nil, spoken_languages: [TMDbSpokenLanguage]? = nil, production_companies: [TMDbNamed]? = nil, production_countries: [TMDbNamed]? = nil, external_ids: TMDbExternalIDs? = nil) {
+	public init(id: Int, title: String? = nil, overview: String? = nil, release_date: String? = nil, poster_path: String? = nil, backdrop_path: String? = nil, runtime: Int? = nil, status: String? = nil, original_language: String? = nil, budget: Int? = nil, revenue: Int? = nil, vote_average: Double? = nil, vote_count: Int? = nil, homepage: String? = nil, genres: [TMDbNamed]? = nil, spoken_languages: [TMDbSpokenLanguage]? = nil, production_companies: [TMDbNamed]? = nil, production_countries: [TMDbNamed]? = nil, external_ids: TMDbExternalIDs? = nil, belongs_to_collection: TMDbCollectionRef? = nil) {
 		self.id = id
+		self.belongs_to_collection = belongs_to_collection
 		self.title = title
 		self.overview = overview
 		self.release_date = release_date
@@ -152,6 +153,92 @@ public struct TMDbMovie: Decodable {
 	public let production_companies: [TMDbNamed]?
 	public let production_countries: [TMDbNamed]?
 	public let external_ids: TMDbExternalIDs?
+	/// The series it's part of — Harry Potter, Mission: Impossible — when TMDb
+	/// groups it in one. Films only: TMDb has no such grouping for shows.
+	public let belongs_to_collection: TMDbCollectionRef?
+}
+
+/// A film series as a film names it.
+public struct TMDbCollectionRef: Decodable, Equatable {
+	public init(id: Int, name: String?, poster_path: String? = nil, backdrop_path: String? = nil) {
+		self.id = id
+		self.name = name
+		self.poster_path = poster_path
+		self.backdrop_path = backdrop_path
+	}
+	public let id: Int
+	public let name: String?
+	public let poster_path: String?
+	public let backdrop_path: String?
+}
+
+/// A film series with every film in it.
+public struct TMDbCollection: Decodable {
+	public init(id: Int, name: String?, overview: String? = nil, poster_path: String? = nil,
+	            backdrop_path: String? = nil, parts: [TMDbCollectionPart]? = nil) {
+		self.id = id
+		self.name = name
+		self.overview = overview
+		self.poster_path = poster_path
+		self.backdrop_path = backdrop_path
+		self.parts = parts
+	}
+	public let id: Int
+	public let name: String?
+	public let overview: String?
+	public let poster_path: String?
+	public let backdrop_path: String?
+	public let parts: [TMDbCollectionPart]?
+}
+
+public struct TMDbCollectionPart: Decodable, Identifiable, Equatable {
+	public init(id: Int, title: String?, release_date: String? = nil, poster_path: String? = nil) {
+		self.id = id
+		self.title = title
+		self.release_date = release_date
+		self.poster_path = poster_path
+	}
+	public let id: Int
+	public let title: String?
+	public let release_date: String?
+	public let poster_path: String?
+}
+
+/// Someone's written review of a show or film on TMDb.
+public struct TMDbReview: Decodable, Identifiable, Equatable {
+	public init(id: String, author: String?, author_details: AuthorDetails? = nil, content: String?,
+	            created_at: String? = nil, url: String? = nil) {
+		self.id = id
+		self.author = author
+		self.author_details = author_details
+		self.content = content
+		self.created_at = created_at
+		self.url = url
+	}
+
+	public struct AuthorDetails: Decodable, Equatable {
+		public init(name: String? = nil, username: String? = nil, rating: Double? = nil) {
+			self.name = name
+			self.username = username
+			self.rating = rating
+		}
+		public let name: String?
+		public let username: String?
+		/// Out of ten; nil when they wrote without scoring it.
+		public let rating: Double?
+	}
+
+	public let id: String
+	public let author: String?
+	public let author_details: AuthorDetails?
+	public let content: String?
+	public let created_at: String?
+	public let url: String?
+}
+
+public struct TMDbReviewList: Decodable {
+	public let results: [TMDbReview]?
+	public let total_results: Int?
 }
 
 public struct TMDbTV: Decodable {
@@ -778,6 +865,18 @@ public struct TMDbService {
 
 	public func personCredits(_ id: Int) async throws -> TMDbPersonCredits {
 		try await get("/person/\(id)/combined_credits")
+	}
+
+	/// A film series and every film in it.
+	public func collection(id: Int) async throws -> TMDbCollection {
+		try await get("/collection/\(id)")
+	}
+
+	/// Written reviews of a show or film, newest TMDb returns first. English
+	/// only, as the rest of the app's text is.
+	public func reviews(_ kind: MediaKind, id: Int) async throws -> [TMDbReview] {
+		let list: TMDbReviewList = try await get(kind == .film ? "/movie/\(id)/reviews" : "/tv/\(id)/reviews")
+		return list.results ?? []
 	}
 
 	public func watchProviders(_ kind: MediaKind, id: Int) async throws -> TMDbWatchProviders {

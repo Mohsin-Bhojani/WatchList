@@ -16,43 +16,98 @@ import WatchListLibrary
 
 /// This week: the time watched on each of the last seven days as columns, and
 /// the titles that filled them — the week's most watched, or everything from a
-/// day once its column is tapped.
+/// day once its column is tapped. The arrows step back through earlier weeks,
+/// as far as the first thing watched.
 struct ProfileWeekSection: View {
 	let films: [Film]
 	private let now: Date
+
+	/// The earliest dated episode, for how far back the arrows go.
+	@Query private var earliestEpisode: [Episode]
+	/// 0 for this week, 1 for last week, and so on.
+	@State private var weeksBack = 0
+
+	init(films: [Film], now: Date = .now) {
+		self.films = films
+		self.now = now
+		var earliest = FetchDescriptor<Episode>(predicate: #Predicate { $0.watchedAt != nil },
+		                                        sortBy: [SortDescriptor(\.watchedAt)])
+		earliest.fetchLimit = 1
+		_earliestEpisode = Query(earliest)
+	}
+
+	var body: some View {
+		let earliest = ([earliestEpisode.first?.watchedAt]
+			+ films.map { $0.status == .watched ? $0.watchedAt : nil }).compactMap { $0 }.min()
+		let limit = ProfileFeed.weeksBackLimit(earliest: earliest, now: now)
+		WeekPage(films: films, now: now, weeksBack: min(weeksBack, limit), limit: limit, page: $weeksBack)
+			// A new week starts with nothing picked.
+			.id(min(weeksBack, limit))
+	}
+}
+
+/// One week of the section: its header with the arrows, the chart and its titles.
+private struct WeekPage: View {
+	let films: [Film]
+	/// The real now: what Today and Yesterday are measured from.
+	private let now: Date
+	/// The week's last day.
+	private let end: Date
+	private let weeksBack: Int
+	private let limit: Int
+	@Binding private var page: Int
 
 	@Query private var episodes: [Episode]
 	/// The tapped day's start; nil for the whole week.
 	@State private var picked: Date?
 
-	init(films: [Film], now: Date = .now) {
+	init(films: [Film], now: Date, weeksBack: Int, limit: Int, page: Binding<Int>) {
 		self.films = films
 		self.now = now
-		// Only the episodes marked Watched this week, however big the library.
-		let start = Calendar.current.date(byAdding: .day, value: -6, to: Calendar.current.startOfDay(for: now)) ?? now
+		self.weeksBack = weeksBack
+		self.limit = limit
+		_page = page
+		let calendar = Calendar.current
+		let end = ProfileFeed.weekEnd(weeksBack: weeksBack, now: now)
+		self.end = end
+		// Only the episodes marked Watched in this week, however big the library.
+		let start = calendar.date(byAdding: .day, value: -6, to: end) ?? end
+		let after = calendar.date(byAdding: .day, value: 1, to: end) ?? end
 		let never = Date.distantPast
-		_episodes = Query(filter: #Predicate<Episode> { ($0.watchedAt ?? never) >= start })
+		_episodes = Query(filter: #Predicate<Episode> {
+			($0.watchedAt ?? never) >= start && ($0.watchedAt ?? never) < after
+		})
 	}
 
+	private var isThisWeek: Bool { weeksBack == 0 }
+
 	var body: some View {
-		let week = ProfileFeed.week(ProfileFeed.watches(episodes: episodes, films: films), now: now)
+		let week = ProfileFeed.week(ProfileFeed.watches(episodes: episodes, films: films), now: end)
 		// Gone once midnight moves the week on past it.
 		let day = week.days.first { $0.id == picked }
 		VStack(alignment: .leading, spacing: 10) {
-			HStack(alignment: .firstTextBaseline) {
-				Text("This week")
-					.font(.system(.title3, weight: .bold))
-					.accessibilityAddTraits(.isHeader)
+			HStack(alignment: .center, spacing: 8) {
+				VStack(alignment: .leading, spacing: 2) {
+					Text(ProfileFeed.weekTitle(weeksBack: weeksBack, now: now))
+						.font(.system(.title3, weight: .bold))
+						.accessibilityAddTraits(.isHeader)
+					if week.minutes > 0 {
+						Text("\(ProfileFeed.duration(week.minutes)) · \(ProfileFeed.duration(week.dailyAverage)) a day")
+							.font(.system(.footnote, weight: .medium))
+							.foregroundStyle(.white.opacity(0.6))
+					}
+				}
 				Spacer(minLength: 8)
-				if week.minutes > 0 {
-					Text("\(ProfileFeed.duration(week.minutes)) · \(ProfileFeed.duration(week.dailyAverage)) a day")
-						.font(.system(.footnote, weight: .medium))
-						.foregroundStyle(.white.opacity(0.6))
+				if limit > 0 {
+					arrow("chevron.left", label: "Earlier week", enabled: weeksBack < limit) { page = weeksBack + 1 }
+					arrow("chevron.right", label: "Later week", enabled: !isThisWeek) { page = weeksBack - 1 }
 				}
 			}
 			VStack(alignment: .leading, spacing: 14) {
 				if week.minutes == 0 {
-					Text("Nothing watched in the last seven days. Episodes and films you mark Watched show up here, with how long they ran.")
+					Text(isThisWeek
+					     ? "Nothing watched in the last seven days. Episodes and films you mark Watched show up here, with how long they ran."
+					     : "Nothing watched this week.")
 						.font(.system(.subheadline, weight: .medium))
 						.foregroundStyle(.white.opacity(0.75))
 						.fixedSize(horizontal: false, vertical: true)
@@ -80,6 +135,25 @@ struct ProfileWeekSection: View {
 		}
 	}
 
+	/// A round glass arrow in the header, stepping a week either way.
+	private func arrow(_ systemImage: String, label: String, enabled: Bool,
+	                   action: @escaping () -> Void) -> some View {
+		Button {
+			Haptics.selection()
+			withAnimation(Glass.smooth) { action() }
+		} label: {
+			Image(systemName: systemImage)
+				.font(.system(.footnote, weight: .bold))
+				.frame(width: 36, height: 36)
+				.contentShape(Circle())
+		}
+		.buttonStyle(.plain)
+		.glassEffect(.regular.interactive(), in: Circle())
+		.disabled(!enabled)
+		.opacity(enabled ? 1 : 0.35)
+		.accessibilityLabel(label)
+	}
+
 	/// Picks a day, or goes back to the week when it's the day already picked.
 	private func toggle(_ day: ProfileFeed.Day) {
 		Haptics.selection()
@@ -94,7 +168,7 @@ struct ProfileWeekSection: View {
 		let top = ProfileFeed.chartTop(for: week)
 		let step = ProfileFeed.gridStep(forTop: top)
 		// The day whose label is lit: the one picked, or else today.
-		let lit = picked.map { ProfileFeed.label(for: $0, now: now) } ?? "Today"
+		let lit = picked.map { ProfileFeed.label(for: $0, now: now) } ?? (isThisWeek ? "Today" : nil)
 		return Chart {
 			ForEach(week.days) { day in
 				let label = ProfileFeed.label(for: day, now: now)
@@ -130,7 +204,7 @@ struct ProfileWeekSection: View {
 						// weight changes width, and the axis lays itself out again.
 						Text(label)
 							.fontWeight(label == "Today" ? .bold : .semibold)
-							.foregroundStyle(.white.opacity(label == lit ? 1 : 0.6))
+							.foregroundStyle(.white.opacity(label == lit ? 1 : lit == nil ? 0.8 : 0.6))
 					}
 				}
 				.font(.caption2)

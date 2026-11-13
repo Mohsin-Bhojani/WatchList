@@ -34,6 +34,56 @@ extension WatchTracked {
 	}
 }
 
+extension WatchTracked {
+	/// Moves the watched date, for something watched before it was marked —
+	/// only while it's Watched, and never past `now`.
+	public func setWatchedDate(_ date: Date, now: Date = .now) {
+		guard status == .watched else { return }
+		watchedAt = min(date, now)
+	}
+}
+
+/// When something was watched, as people say it: today, yesterday, a week or a
+/// month back. Anything else is picked on a calendar.
+public enum WatchedWhen: CaseIterable, Identifiable, Sendable {
+	case today, yesterday, weekAgo, monthAgo
+
+	public var id: Self { self }
+
+	public var title: String {
+		switch self {
+		case .today:     return "Today"
+		case .yesterday: return "Yesterday"
+		case .weekAgo:   return "A week ago"
+		case .monthAgo:  return "A month ago"
+		}
+	}
+
+	/// The moment it stands for, at `now`'s time of day.
+	public func date(now: Date = .now, calendar: Calendar = .current) -> Date {
+		switch self {
+		case .today:     return now
+		case .yesterday: return calendar.date(byAdding: .day, value: -1, to: now) ?? now
+		case .weekAgo:   return calendar.date(byAdding: .day, value: -7, to: now) ?? now
+		case .monthAgo:  return calendar.date(byAdding: .month, value: -1, to: now) ?? now
+		}
+	}
+
+	/// "Watched today", "Watched yesterday", or "Watched 3 Nov" — the year too
+	/// when it isn't this one.
+	public static func label(for date: Date, now: Date = .now, calendar: Calendar = .current) -> String {
+		if calendar.isDate(date, inSameDayAs: now) { return "Watched today" }
+		if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+		   calendar.isDate(date, inSameDayAs: yesterday) { return "Watched yesterday" }
+		let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
+		var style = sameYear ? Date.FormatStyle.dateTime.day().month(.abbreviated)
+		                     : Date.FormatStyle.dateTime.day().month(.abbreviated).year()
+		style.calendar = calendar
+		style.timeZone = calendar.timeZone
+		return "Watched \(date.formatted(style))"
+	}
+}
+
 extension Show: WatchTracked {}
 extension Film: WatchTracked {}
 extension Episode: WatchTracked {}

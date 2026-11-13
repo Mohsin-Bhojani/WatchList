@@ -97,6 +97,7 @@ final class ImportCoordinator: ObservableObject {
 			tmdbID: m.id,
 			specs: TechSpecs(movie: m)
 		)
+		film.setFranchise(from: m)
 		context.insert(film)
 		phase = .done
 		return film

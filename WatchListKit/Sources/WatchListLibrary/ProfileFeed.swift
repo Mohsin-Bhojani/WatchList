@@ -174,7 +174,52 @@ public enum ProfileFeed {
 		if calendar.isDate(day.start, inSameDayAs: now) { return "Today" }
 		if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
 		   calendar.isDate(day.start, inSameDayAs: yesterday) { return "Yesterday" }
-		return day.start.formatted(.dateTime.weekday(.wide))
+		var style = Date.FormatStyle.dateTime.weekday(.wide)
+		// Before this week a weekday alone is ambiguous: "Monday, 3 Nov".
+		if let weekStart = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)),
+		   day.start < weekStart {
+			style = style.day().month(.abbreviated)
+		}
+		style.calendar = calendar
+		style.timeZone = calendar.timeZone
+		return day.start.formatted(style)
+	}
+
+	// MARK: Earlier weeks
+
+	/// The last day of the week `weeksBack` weeks before this one: today for
+	/// this week, a week ago for last week. Weeks run seven days to that day,
+	/// as This week does, so they never overlap or leave a gap.
+	public static func weekEnd(weeksBack: Int, now: Date, calendar: Calendar = .current) -> Date {
+		let today = calendar.startOfDay(for: now)
+		return calendar.date(byAdding: .day, value: -7 * weeksBack, to: today) ?? today
+	}
+
+	/// "This week", "Last week", or the days it ran: "20 – 26 Oct".
+	public static func weekTitle(weeksBack: Int, now: Date, calendar: Calendar = .current) -> String {
+		switch weeksBack {
+		case ...0: return "This week"
+		case 1:    return "Last week"
+		default:
+			let end = weekEnd(weeksBack: weeksBack, now: now, calendar: calendar)
+			let start = calendar.date(byAdding: .day, value: -6, to: end) ?? end
+			var style = Date.IntervalFormatStyle(date: .abbreviated, time: .omitted)
+			if calendar.component(.year, from: start) == calendar.component(.year, from: now) {
+				style = Date.IntervalFormatStyle().day().month(.abbreviated)
+			}
+			style.calendar = calendar
+			style.timeZone = calendar.timeZone
+			return (start..<end).formatted(style)
+		}
+	}
+
+	/// How many weeks back there's anything to see: the week holding the
+	/// earliest watch, or none when nothing's dated.
+	public static func weeksBackLimit(earliest: Date?, now: Date, calendar: Calendar = .current) -> Int {
+		guard let earliest else { return 0 }
+		let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: earliest),
+		                                   to: calendar.startOfDay(for: now)).day ?? 0
+		return max(0, days / 7)
 	}
 
 	/// "10 h 43 m", "5 h" or "45 m".

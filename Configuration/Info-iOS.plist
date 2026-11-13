@@ -7,6 +7,9 @@
 	     holds only what the generator has no setting for. -->
 	<key>TMDBAPIKey</key>
 	<string>$(TMDB_API_KEY)</string>
+	<!-- The iPhone app only: playing episodes from a YouTube playlist. -->
+	<key>YouTubeAPIKey</key>
+	<string>$(YOUTUBE_API_KEY)</string>
 	<!-- The iPhone app only: the background new-episode check (EpisodeAlerts.swift). -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>

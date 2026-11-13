@@ -66,6 +66,7 @@ struct PhoneAddSearchView: View {
 	@State private var importError: String?
 	@State private var confirmation: Confirmation?
 	@State private var manualDraft: ManualDraft?
+	@State private var addingFromYouTube = false
 	/// The mood tile picked before typing, and the titles it found.
 	@State private var mood: SearchMood?
 	@State private var moodResults: [AddCandidate] = []
@@ -122,6 +123,11 @@ struct PhoneAddSearchView: View {
 			// Search tapped again while here: start typing.
 			.onReceive(NotificationCenter.default.publisher(for: .tabReselected)) { note in
 				if (note.object as? PhoneTab) == .search { fieldFocused = true }
+			}
+			.sheet(isPresented: $addingFromYouTube) {
+				YouTubePlaylistSheet(mode: .add) { added in
+					confirmation = Confirmation(title: added, query: trimmedQuery)
+				}
 			}
 			.sheet(item: $manualDraft) { draft in
 				PhoneManualEntryView(title: draft.title, imdb: draft.imdb) { saved in
@@ -198,6 +204,15 @@ struct PhoneAddSearchView: View {
 					.buttonBorderShape(.circle)
 					.tint(Glass.accent)
 				}
+			Button { addingFromYouTube = true } label: {
+				optionRow(icon: "play.rectangle", title: "Add from a YouTube playlist",
+				          subtitle: "For dramas whose episodes are on YouTube. They play here, like trailers.") {
+					Image(systemName: "chevron.right")
+						.font(.system(.footnote, weight: .bold))
+						.foregroundStyle(.tertiary)
+				}
+			}
+			.buttonStyle(.pressable)
 			Button { openManual() } label: {
 				optionRow(icon: "square.and.pencil", title: "Add manually",
 				          subtitle: "For anything TMDb doesn't have, or when you'd rather type it in.") {

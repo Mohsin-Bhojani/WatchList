@@ -52,6 +52,7 @@ struct PhoneSeasonView: View {
 			TitlePageColumns {
 				header
 				statusSwitch
+				if season.watchedCount > 0 { watchedDateButton }
 				if season.status == .watched || season.rating != nil { verdictCard }
 			} rest: {
 				episodesSection
@@ -163,6 +164,17 @@ struct PhoneSeasonView: View {
 		Haptics.success()
 	}
 
+	/// When the season's episodes were watched — the latest of them — and a
+	/// menu that moves every watched episode to one day, for a season binged
+	/// before it was marked.
+	private var watchedDateButton: some View {
+		let watched = season.episodes.filter { $0.status == .watched }
+		return WatchedDateButton(date: watched.compactMap(\.watchedAt).max(),
+		                         prompt: "Set for \(ShowFacts.episodes(watched.count)) watched") { date in
+			for episode in watched { episode.setWatchedDate(date) }
+		}
+	}
+
 	private var verdictCard: some View {
 		HStack(spacing: 8) {
 			VerdictChip(rating: season.rating)
@@ -195,12 +207,7 @@ struct PhoneSeasonView: View {
 						if index > 0 { PageRowDivider(inset: 106) }
 						episodeRow(episode)
 							.contextMenu {
-								Button(episode.status == .watched ? "Mark Unwatched" : "Mark Watched",
-								       systemImage: episode.status == .watched ? "circle" : "checkmark.circle") {
-									withAnimation(Glass.smooth) {
-										episode.status == .watched ? episode.mark(.toWatch) : episode.markWatched()
-									}
-								}
+								EpisodeWatchedMenuItems(episode: episode)
 								Section("Rate") {
 									ForEach(EpisodeTier.allCases) { tier in
 										Toggle(tier.rawValue, isOn: tierToggle(episode, tier))

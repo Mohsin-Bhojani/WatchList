@@ -48,6 +48,9 @@ struct PhoneEpisodeView: View {
 			TitlePageColumns {
 				header
 				statusSwitch
+				if episode.status == .watched {
+					WatchedDateButton(date: episode.watchedAt) { episode.setWatchedDate($0) }
+				}
 				ratingSection
 			} rest: {
 				if !episode.synopsis.isEmpty { PageSynopsisCard(text: episode.synopsis) }
@@ -112,14 +115,20 @@ struct PhoneEpisodeView: View {
 
 	private var header: some View {
 		VStack(alignment: .leading, spacing: 12) {
-			PosterImage(urlString: episode.stillURL.isEmpty ? (show?.backdropURL ?? "") : episode.stillURL,
-			            systemPlaceholder: "film")
-				.aspectRatio(16 / 9, contentMode: .fit)
-				.frame(maxWidth: .infinity)
-				.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-				.shadow(color: .black.opacity(0.4), radius: 20, y: 10)
-				.padding(.top, 6)
-				.accessibilityHidden(true)
+			// One that plays from YouTube has the player where its still would be.
+			if let videoID = episode.youtubeVideoID {
+				EpisodeYouTubeCard(videoID: videoID, thumbnailURL: episode.stillURL, title: episode.displayTitle)
+					.padding(.top, 6)
+			} else {
+				PosterImage(urlString: episode.stillURL.isEmpty ? (show?.backdropURL ?? "") : episode.stillURL,
+				            systemPlaceholder: "film")
+					.aspectRatio(16 / 9, contentMode: .fit)
+					.frame(maxWidth: .infinity)
+					.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+					.shadow(color: .black.opacity(0.4), radius: 20, y: 10)
+					.padding(.top, 6)
+					.accessibilityHidden(true)
+			}
 			VStack(alignment: .leading, spacing: 4) {
 				Text([show?.title ?? "", HomeFeed.episodeLine(episode)].filter { !$0.isEmpty }.joined(separator: " · "))
 					.font(.system(.footnote, weight: .semibold))

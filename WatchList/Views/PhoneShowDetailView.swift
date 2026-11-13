@@ -41,6 +41,8 @@ struct PhoneShowDetailView: View {
 	@State private var confirmingRemove = false
 	@State private var refreshing = false
 	@State private var refreshNote: String?
+	@State private var linkingYouTube = false
+	@State private var youtubeNote: String?
 	@State private var namingCollection = false
 	@State private var theme: UIColor?
 	@State private var votes: Votes?
@@ -89,6 +91,7 @@ struct PhoneShowDetailView: View {
 				if let tmdbID = show.tmdbID {
 					CommunitySection(title: .show(tmdbID: tmdbID), scale: .verdict, yours: show.rating?.rawValue)
 				}
+				ReviewsSection(kind: .show, tmdbID: show.tmdbID)
 			}
 		}
 		.onScrollGeometryChange(for: Bool.self) { geometry in
@@ -138,6 +141,17 @@ struct PhoneShowDetailView: View {
 		}
 		.task(id: artURL) { await loadTheme() }
 		.task(id: show.tmdbID) { await loadVotes() }
+		// A linked playlist is looked over for new uploads every few hours.
+		.task(id: show.id) { await YouTubeLinker.refreshIfDue(show, context: ctx) }
+		.sheet(isPresented: $linkingYouTube) {
+			YouTubePlaylistSheet(mode: .link(show)) { youtubeNote = $0 }
+		}
+		.alert("YouTube", isPresented: Binding(get: { youtubeNote != nil },
+		                                        set: { if !$0 { youtubeNote = nil } })) {
+			Button("OK", role: .cancel) {}
+		} message: {
+			Text(youtubeNote ?? "")
+		}
 	}
 
 	// MARK: Header
@@ -366,6 +380,7 @@ struct PhoneShowDetailView: View {
 							ForEach(Array(current.sortedEpisodes.enumerated()), id: \.element.id) { index, episode in
 								if index > 0 { PageRowDivider(inset: 106) }
 								seasonEpisodeRow(episode)
+									.contextMenu { EpisodeWatchedMenuItems(episode: episode) }
 							}
 							PageRowDivider(inset: 0)
 							NavigationLink { PhoneSeasonView(season: current) } label: {
@@ -487,6 +502,24 @@ struct PhoneShowDetailView: View {
 					Label(refreshing ? "Refreshing…" : "Refresh metadata", systemImage: "arrow.clockwise")
 				}
 				.disabled(show.tmdbID == nil || refreshing)
+			}
+			Section("YouTube") {
+				Button { linkingYouTube = true } label: {
+					Label(YouTubeLibrary.linkedSeasons(of: show).isEmpty ? "Link YouTube Playlist…" : "Link Another Playlist…",
+					      systemImage: "play.rectangle")
+				}
+				if !YouTubeLibrary.linkedSeasons(of: show).isEmpty {
+					Button { Task { await updateFromYouTube() } } label: {
+						Label("Check YouTube for New Episodes", systemImage: "arrow.clockwise")
+					}
+					Button(role: .destructive) {
+						withAnimation(Glass.smooth) { YouTubeLibrary.linkedSeasons(of: show).forEach(YouTubeLibrary.unlink) }
+					} label: {
+						Label("Unlink YouTube", systemImage: "link.badge.minus")
+					}
+				}
+			}
+			Section {
 				Button(role: .destructive) { confirmingRemove = true } label: {
 					Label("Remove from library", systemImage: "trash")
 				}
@@ -507,6 +540,24 @@ struct PhoneShowDetailView: View {
 		} else {
 			refreshNote = report.showsFailed > 0 ? "Couldn't reach TMDb. Try again later." : "Everything's up to date."
 		}
+	}
+
+	/// Looks every linked playlist over now, whenever it was last checked.
+	private func updateFromYouTube() async {
+		var report = YouTubeLibrary.Report()
+		for season in YouTubeLibrary.linkedSeasons(of: show) {
+			guard let id = season.youtubePlaylistID else { continue }
+			do {
+				let playlist = try await YouTubeService.shared.playlist(id: id)
+				let found = YouTubeLinker.link(playlist, to: season, context: ctx)
+				report.linked += found.linked
+				report.added += found.added
+			} catch {
+				youtubeNote = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+				return
+			}
+		}
+		youtubeNote = report.summary
 	}
 
 	// MARK: Sharing and removal

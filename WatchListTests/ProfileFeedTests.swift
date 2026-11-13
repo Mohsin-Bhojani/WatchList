@@ -139,4 +139,84 @@ struct ProfileFeedTests {
 		#expect(ProfileFeed.gridStep(forTop: 360) == 120)
 		#expect(ProfileFeed.gridStep(forTop: 720) == 240)
 	}
+
+	// MARK: Earlier weeks
+
+	@Test func earlierWeeksRunSevenDaysEndingAWeekApart() {
+		let lastWeekEnd = ProfileFeed.weekEnd(weeksBack: 1, now: now, calendar: Self.calendar)
+		let week = ProfileFeed.week([
+			watch(chicago, "Chicago P.D.", minutes: 43, daysAgo: 7),    // last week's last day
+			watch(thar, "Thar", film: true, minutes: 128, daysAgo: 13),  // its first
+			watch(severance, "Severance", minutes: 50, daysAgo: 6),     // this week's first
+			watch(severance, "Severance", minutes: 50, daysAgo: 14),    // the week before
+		], now: lastWeekEnd, calendar: Self.calendar)
+		#expect(week.days.map(\.minutes) == [128, 0, 0, 0, 0, 0, 43])
+		#expect(week.titles.map(\.id) == [thar, chicago])
+		#expect(ProfileFeed.weekEnd(weeksBack: 0, now: now, calendar: Self.calendar)
+			== Self.calendar.startOfDay(for: now))
+	}
+
+	@Test func weeksAreNamedThisWeekLastWeekThenByTheirDays() {
+		#expect(ProfileFeed.weekTitle(weeksBack: 0, now: now, calendar: Self.calendar) == "This week")
+		#expect(ProfileFeed.weekTitle(weeksBack: 1, now: now, calendar: Self.calendar) == "Last week")
+		let older = ProfileFeed.weekTitle(weeksBack: 2, now: now, calendar: Self.calendar)
+		// 26 Aug – 1 Sep, however the locale lays it out.
+		#expect(older.contains("26") && older.contains("1"))
+		#expect(older != "Last week")
+	}
+
+	@Test func theArrowsGoBackAsFarAsTheEarliestWatch() {
+		let day: TimeInterval = 86_400
+		#expect(ProfileFeed.weeksBackLimit(earliest: nil, now: now, calendar: Self.calendar) == 0)
+		#expect(ProfileFeed.weeksBackLimit(earliest: now - 6 * day, now: now, calendar: Self.calendar) == 0)
+		#expect(ProfileFeed.weeksBackLimit(earliest: now - 7 * day, now: now, calendar: Self.calendar) == 1)
+		#expect(ProfileFeed.weeksBackLimit(earliest: now - 20 * day, now: now, calendar: Self.calendar) == 2)
+	}
+
+	@Test func anOlderDayIsNamedWithItsDate() {
+		let older = ProfileFeed.Day(start: Self.calendar.date(byAdding: .day, value: -9,
+		                                                      to: Self.calendar.startOfDay(for: now))!,
+		                            minutes: 0, titles: [])
+		let name = ProfileFeed.name(for: older, now: now, calendar: Self.calendar)
+		#expect(name.contains("6"))   // Sunday 6 September
+	}
+
+	// MARK: Watched dates
+
+	@Test func aWatchedDateMovesOnlyWhileWatchedAndNeverAhead() {
+		let film = Film(title: "Thar")
+		film.setWatchedDate(now - 3600, now: now)
+		#expect(film.watchedAt == nil)
+
+		film.mark(.watched, at: now)
+		let lastMonth = WatchedWhen.monthAgo.date(now: now, calendar: Self.calendar)
+		film.setWatchedDate(lastMonth, now: now)
+		#expect(film.watchedAt == lastMonth)
+		film.setWatchedDate(now + 86_400, now: now)
+		#expect(film.watchedAt == now)
+
+		film.mark(.toWatch)
+		#expect(film.watchedAt == nil)
+	}
+
+	@Test func markingAnEpisodeWatchedEarlierDatesItThen() {
+		let show = Show(title: "Severance")
+		let season = Season(seasonNumber: 1)
+		season.show = show
+		let episode = Episode(episodeNumber: 1, seasonNumber: 1, title: "Good News About Hell")
+		episode.season = season
+		let yesterday = WatchedWhen.yesterday.date(now: now, calendar: Self.calendar)
+		episode.markWatched(at: yesterday)
+		#expect(episode.watchedAt == yesterday)
+		#expect(episode.status == .watched)
+	}
+
+	@Test func watchedWhenReadsAsPeopleSayIt() {
+		#expect(WatchedWhen.today.date(now: now, calendar: Self.calendar) == now)
+		#expect(WatchedWhen.weekAgo.date(now: now, calendar: Self.calendar) == now - 7 * 86_400)
+		#expect(WatchedWhen.label(for: now, now: now, calendar: Self.calendar) == "Watched today")
+		#expect(WatchedWhen.label(for: now - 86_400, now: now, calendar: Self.calendar) == "Watched yesterday")
+		let older = WatchedWhen.label(for: now - 30 * 86_400, now: now, calendar: Self.calendar)
+		#expect(older.hasPrefix("Watched ") && older.contains("16"))   // 16 August
+	}
 }

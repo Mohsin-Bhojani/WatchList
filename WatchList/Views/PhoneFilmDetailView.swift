@@ -26,6 +26,8 @@ import WatchListLibrary
 
 struct PhoneFilmDetailView: View {
 	@Bindable var film: Film
+	/// False when opened from its own series' page, which needs no link back.
+	private let showsSeriesLink: Bool
 
 	@Environment(\.modelContext) private var ctx
 	@Environment(\.dismiss) private var dismiss
@@ -43,8 +45,9 @@ struct PhoneFilmDetailView: View {
 	/// The design's teal, for Watched and Save rating.
 	static let teal = Color(.pageWatched)
 
-	init(film: Film) {
+	init(film: Film, showsSeriesLink: Bool = true) {
 		_film = Bindable(film)
+		self.showsSeriesLink = showsSeriesLink
 		_theme = State(initialValue: PageTheme.cached(Self.artURL(of: film)))
 	}
 
@@ -67,6 +70,7 @@ struct PhoneFilmDetailView: View {
 				header
 				statusSwitch
 				if film.status == .watched {
+					WatchedDateButton(date: film.watchedAt) { film.setWatchedDate($0) }
 					PageVerdictCard(rating: film.rating, stars: shownStars,
 					                dateLine: film.watchedAt.map { "Watched \(FilmFacts.shortDate($0))" },
 					                note: film.notes) {
@@ -83,9 +87,13 @@ struct PhoneFilmDetailView: View {
 				}
 				if !film.synopsis.isEmpty { PageSynopsisCard(text: film.synopsis) }
 				WhereToWatchSection(kind: .film, tmdbID: film.tmdbID)
+				if showsSeriesLink, let franchiseID = film.franchiseID {
+					PageFranchiseLink(id: franchiseID, name: film.franchiseName ?? "Series")
+				}
 				if let tmdbID = film.tmdbID {
 					CommunitySection(title: .film(tmdbID: tmdbID), scale: .verdict, yours: film.rating?.rawValue)
 				}
+				ReviewsSection(kind: .film, tmdbID: film.tmdbID)
 				PageSection(title: "Details") { detailsCard }
 				if !cast.isEmpty { PageSection(title: "Cast") { PageCastRow(cast: cast) } }
 			}
@@ -131,6 +139,7 @@ struct PhoneFilmDetailView: View {
 			Text("Its rating and note are removed with it.")
 		}
 		.task(id: film.tmdbID) { await loadCast() }
+		.task(id: film.tmdbID) { await checkFranchise() }
 		.task(id: Self.artURL(of: film)) {
 			guard let sampled = await PageTheme.load(Self.artURL(of: film)), !Task.isCancelled,
 			      sampled != theme else { return }
@@ -278,6 +287,13 @@ struct PhoneFilmDetailView: View {
 		}
 		if let date = film.watchedAt { parts.append(FilmFacts.shortDate(date)) }
 		return parts.joined(separator: " · ")
+	}
+
+	/// A film added before films kept their series asks TMDb once, here.
+	private func checkFranchise() async {
+		guard film.needsFranchiseCheck, let id = film.tmdbID, TMDbConfig.isConfigured,
+		      let movie = try? await TMDbService.shared.movie(id: id), !Task.isCancelled else { return }
+		withAnimation(Glass.smooth) { film.setFranchise(from: movie) }
 	}
 
 	private func loadCast() async {

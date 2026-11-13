@@ -37,7 +37,7 @@ struct PhoneCollectionsView: View {
 
 	/// Which sections the page shows.
 	private enum Showing: CaseIterable, Identifiable {
-		case all, pinned, verdicts, yours
+		case all, pinned, verdicts, franchises, yours
 
 		var id: Self { self }
 
@@ -46,6 +46,7 @@ struct PhoneCollectionsView: View {
 			case .all:      return "All"
 			case .pinned:   return "Pinned"
 			case .verdicts: return "By Verdict"
+			case .franchises: return "Series"
 			case .yours:    return "Yours"
 			}
 		}
@@ -61,6 +62,7 @@ struct PhoneCollectionsView: View {
 		case .all:      break
 		case .pinned:   parts.append("Pinned only")
 		case .verdicts: parts.append("By verdict only")
+		case .franchises: parts.append("Series only")
 		case .yours:    parts.append("Yours only")
 		}
 		if showing.shows(.yours) && sort != ListOrder() { parts.append(sort.summary) }
@@ -81,6 +83,7 @@ struct PhoneCollectionsView: View {
 						}
 						if showing.shows(.pinned) { pinnedSection }
 						if showing.shows(.verdicts) { verdictSection }
+						if showing.shows(.franchises) { franchiseSection }
 						if showing.shows(.yours) { yoursSection }
 					}
 					.padding(.bottom, 24)
@@ -103,6 +106,8 @@ struct PhoneCollectionsView: View {
 				Text("Only the collection goes. Its titles stay in your library.")
 			}
 			.sheet(isPresented: $showingFilters) { filterSheet }
+			// Films added before they kept their series learn it a few at a time.
+			.task(id: films.filter(\.needsFranchiseCheck).count) { await FranchiseLoader.backfill(films) }
 		}
 	}
 
@@ -161,6 +166,32 @@ struct PhoneCollectionsView: View {
 			}
 		}
 		.padding(.horizontal, 20)
+	}
+
+	// MARK: Series
+
+	/// Film series your films are in, made into collections by themselves.
+	/// Hidden until there's one, so a library without any isn't shown an
+	/// empty section.
+	@ViewBuilder private var franchiseSection: some View {
+		let groups = Franchises.groups(films)
+		if !groups.isEmpty {
+			VStack(alignment: .leading, spacing: 10) {
+				sectionTitle("Series")
+				cardGrid {
+					ForEach(groups) { group in
+						NavigationLink { PhoneFranchiseView(id: group.id, name: group.name) } label: {
+							CollectionCard(title: group.name,
+							               subtitle: Franchises.cardLine(group),
+							               posterURLs: group.films.map(\.posterURL),
+							               tint: nil)
+						}
+						.buttonStyle(.pressable)
+					}
+				}
+			}
+			.padding(.horizontal, 20)
+		}
 	}
 
 	// MARK: Your collections
