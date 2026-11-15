@@ -2,9 +2,9 @@
 //  ReviewsSection.swift
 //  WatchList
 //
-//  Reviews on a show or film page: what people wrote about it on TMDb. Two
-//  show on the page, each cut to a few lines and opened by a tap; All reviews
-//  lists the rest. The section isn't there when nobody has written one, so a
+//  Reviews on a show or film page: what people wrote about it on TMDb. One
+//  shows on the page, cut to a few lines and opened by a tap; All reviews
+//  lists the rest, so a long page doesn't get longer. The section isn't there when nobody has written one, so a
 //  title with none doesn't get an empty card.
 //
 
@@ -20,7 +20,7 @@ struct ReviewsSection: View {
 	/// Kept for the session, so going back to a page doesn't fetch them again.
 	@MainActor private static var cache: [String: [TMDbReview]] = [:]
 
-	private static let shown = 2
+	private static let shown = 1
 
 	var body: some View {
 		// A stack, not a Group, so its task runs while there's nothing to show.
@@ -30,7 +30,7 @@ struct ReviewsSection: View {
 					VStack(spacing: 0) {
 						ForEach(Array(reviews.prefix(Self.shown).enumerated()), id: \.element.id) { index, review in
 							if index > 0 { PageRowDivider(inset: 0) }
-							ReviewRow(review: review)
+							ReviewRow(review: review, collapsedLines: 3)
 						}
 						if reviews.count > Self.shown {
 							PageRowDivider(inset: 0)
@@ -107,7 +107,7 @@ struct ReviewRow: View {
 				.foregroundStyle(.white.opacity(0.85))
 				.lineLimit(expanded ? nil : collapsedLines)
 				.fixedSize(horizontal: false, vertical: true)
-			if !expanded && text.count > 280 {
+			if !expanded && text.count > collapsedLines * 55 {
 				Text("More")
 					.font(.system(.footnote, weight: .semibold))
 					.foregroundStyle(.white)

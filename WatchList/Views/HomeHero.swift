@@ -19,7 +19,8 @@ import WatchListLibrary
 /// run on into the rest of Home and change as the hero is swiped. The page
 /// samples that colour from its artwork (see `ArtworkBand`) and hands it up.
 /// The episode the show is up to, its title and Mark Watched sit on the lower
-/// fade; tapping anywhere else on the page opens the show.
+/// fade; tapping anywhere else on the page opens the show, and the › beside
+/// Mark Watched opens the episode itself — to rate it, date it or play it.
 ///
 /// On an iPad wider than it's tall, the page is laid out sideways instead: the
 /// artwork at its own shape on the trailing side, fading in from the band, and
@@ -42,6 +43,8 @@ struct HomeHeroPage: View {
 	let onBand: (UIColor) -> Void
 	/// Mark Watched with an episode to go: the rating sheet takes it from here.
 	let onRateEpisode: (Episode) -> Void
+	/// The › beside Mark Watched: the episode the show is up to.
+	let onOpenEpisode: (Episode) -> Void
 	let onOpen: () -> Void
 
 	@State private var art: UIImage?
@@ -55,7 +58,8 @@ struct HomeHeroPage: View {
 
 	init(show: Show, width: CGFloat, height: CGFloat, topInset: CGFloat, textBottom: CGFloat,
 	     cascadeWatched: Bool, wide: Bool = false, onBand: @escaping (UIColor) -> Void,
-	     onRateEpisode: @escaping (Episode) -> Void, onOpen: @escaping () -> Void) {
+	     onRateEpisode: @escaping (Episode) -> Void, onOpenEpisode: @escaping (Episode) -> Void,
+	     onOpen: @escaping () -> Void) {
 		self.show = show
 		self.width = width
 		self.height = height
@@ -65,6 +69,7 @@ struct HomeHeroPage: View {
 		self.wide = wide
 		self.onBand = onBand
 		self.onRateEpisode = onRateEpisode
+		self.onOpenEpisode = onOpenEpisode
 		self.onOpen = onOpen
 		_art = State(initialValue: Self.loadedArt[loadKey])
 	}
@@ -219,7 +224,9 @@ struct HomeHeroPage: View {
 				} else {
 					Spacer(minLength: 0)
 				}
-				Button(action: onOpen) {
+				Button {
+					if let next { onOpenEpisode(next) } else { onOpen() }
+				} label: {
 					Image(systemName: "chevron.right")
 						.font(.system(.callout, weight: .semibold))
 						.foregroundStyle(.white)
@@ -228,7 +235,7 @@ struct HomeHeroPage: View {
 				}
 				.buttonStyle(.plain)
 				.glassEffect(.regular.interactive(), in: Circle())
-				.accessibilityLabel("Open \(show.title)")
+				.accessibilityLabel(next.map { "Open \(HomeFeed.episodeLine($0))" } ?? "Open \(show.title)")
 			}
 		}
 		.padding(16)

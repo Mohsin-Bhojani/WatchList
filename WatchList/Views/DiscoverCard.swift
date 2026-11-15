@@ -104,7 +104,7 @@ struct DiscoverCard: View {
 					.font(.subheadline)
 					.foregroundStyle(.white.opacity(0.82))
 					.multilineTextAlignment(.center)
-					.lineLimit(4)
+					.lineLimit(3)
 					.fixedSize(horizontal: false, vertical: true)
 			}
 			if showsHint {

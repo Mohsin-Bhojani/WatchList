@@ -29,7 +29,8 @@ struct EpisodeRatingSheet: View {
 		return show?.backdropURL ?? ""
 	}
 
-	/// The rating to record with the mark; starts as the episode's own.
+	/// The rating to record with the mark; starts as the episode's own, or
+	/// Watch when it has none — the one most episodes get.
 	@State private var picked: EpisodeTier?
 	@State private var pickedLoaded = false
 
@@ -129,7 +130,7 @@ struct EpisodeRatingSheet: View {
 		.presentationDragIndicator(.visible)
 		.onAppear {
 			guard !pickedLoaded else { return }
-			picked = episode.episodeTier
+			picked = episode.episodeTier ?? .watch
 			pickedLoaded = true
 		}
 	}

@@ -15,7 +15,7 @@
 //      two across
 //    - Carousel: a poster at a time, its neighbours peeking in, with "4 of 18",
 //      the title, its verdict and its synopsis under it; the page takes the
-//      poster's colour. Top 4 opens in it; the rest open as a list. On an iPad
+//      poster's colour. Every collection opens in it; List is a tap away. On an iPad
 //      held sideways the posters take the leading side and the words sit
 //      beside them
 //    - Share sends the collection as a plain list
@@ -75,7 +75,7 @@ struct PhoneCollectionView: View {
 	init(source: CollectionSource) {
 		self.source = source
 		// Four posters are made for going through one at a time.
-		_mode = State(initialValue: source == .mine(TitleCollection.topFourID) ? .carousel : .list)
+		_mode = State(initialValue: .carousel)
 	}
 
 	private var mine: TitleCollection? {

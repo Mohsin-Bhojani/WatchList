@@ -194,17 +194,9 @@ struct PhoneAddSearchView: View {
 					SearchMoodGrid { picked in withAnimation(Glass.smooth) { mood = picked } }
 						.padding(.bottom, 8)
 				}
+				// An IMDb or TMDb link goes straight in the search field, which
+				// says so, so it doesn't need a row of its own here.
 				SectionLabel(text: "Ways to add", systemImage: "plus")
-				optionRow(icon: "link", title: "Paste an IMDb link",
-				          subtitle: "Copied a link from IMDb or TMDb? Paste it to add that exact title.") {
-					PasteButton(payloadType: String.self) { strings in
-						guard let first = strings.first else { return }
-						Task { @MainActor in query = first }
-					}
-					.labelStyle(.iconOnly)
-					.buttonBorderShape(.circle)
-					.tint(Glass.accent)
-				}
 			if youTubeEpisodes {
 				Button { addingFromYouTube = true } label: {
 					optionRow(icon: "play.rectangle", title: "Add from a YouTube playlist",

@@ -93,8 +93,11 @@ struct RatingPopup: View {
 		self.mode = mode
 		self.tint = tint
 		self.onClose = onClose
-		_rating = State(initialValue: subject.rating)
-		_stars = State(initialValue: StarRating.explicit(subject.stars, afterChoosing: subject.rating))
+		// A title not yet rated starts on Go For It, the verdict most get, so
+		// Save rating is one tap; nothing's kept until it's tapped.
+		let starting = subject.rating ?? .goForIt
+		_rating = State(initialValue: starting)
+		_stars = State(initialValue: StarRating.explicit(subject.stars, afterChoosing: starting))
 		_note = State(initialValue: subject.note ?? "")
 		_aspects = State(initialValue: subject.aspects ?? AspectTaste())
 		// A title with a note already opens on it; otherwise on what stood out.

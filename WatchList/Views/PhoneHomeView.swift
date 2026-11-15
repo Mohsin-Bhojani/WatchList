@@ -9,9 +9,8 @@
 //    - a full-bleed hero with one swipeable page per show you're Watching,
 //      showing the episode it's up to and Mark Watched — on an iPad held
 //      sideways, laid out sideways too (HomeHeroPage)
-//    - To Watch: shows and films still to watch, newest added first, leaving out
-//      any rated Skip
-//    - Recently watched: shows and films in the order they were marked Watched
+//  To Watch and Recently watched were taken off to keep Home to what you're
+//  watching now: the Shows tab lists the rest.
 //
 //  The navigation bar is hidden so the hero's colour band runs up under the
 //  status bar; the artwork itself starts below it. The band sits behind the
@@ -37,6 +36,7 @@ struct PhoneHomeView: View {
 	@State private var heroPage: Int?
 	@State private var heroScroll = HeroScroll()
 	@State private var openedShow: Show?
+	@State private var openedEpisode: Episode?
 	/// The episode Mark Watched is asking to rate.
 	@State private var ratingEpisode: Episode?
 	@State private var barScroll = BarScroll()
@@ -94,12 +94,6 @@ struct PhoneHomeView: View {
 							             topPadding: max(screen.topInset, 20),
 							             subtitle: watching.isEmpty ? nil : "\(watching.count) watching")
 						}
-					VStack(alignment: .leading, spacing: 30) {
-						toWatch
-						recentlyWatched
-					}
-					.padding(.top, 28)
-					.padding(.bottom, 24)
 				}
 				// Inside the scroll content, so the colour scrolls with the hero.
 				.background(alignment: .top) {
@@ -128,6 +122,7 @@ struct PhoneHomeView: View {
 				if first == nil { BackdropLight.shared.tone = nil }
 			}
 			.navigationDestination(item: $openedShow) { PhoneShowDetailView(show: $0) }
+			.navigationDestination(item: $openedEpisode) { PhoneEpisodeView(episode: $0) }
 		}
 		// Measured here, outside the scroll view that ignores the top safe area
 		// and above the tab bar's bottom inset, so both bars count.
@@ -162,7 +157,8 @@ struct PhoneHomeView: View {
 						             	// The first Watching show lights every page's backdrop.
 						             	if show.id == watching.first?.id { BackdropLight.shared.tone = tone }
 						             },
-						             onRateEpisode: { ratingEpisode = $0 }) {
+						             onRateEpisode: { ratingEpisode = $0 },
+						             onOpenEpisode: { openedEpisode = $0 }) {
 							openedShow = show
 						}
 						.containerRelativeFrame(.horizontal)
@@ -275,169 +271,6 @@ struct PhoneHomeView: View {
 		.frame(maxWidth: .infinity)
 		.frame(height: artHeroHeight * 0.85)
 	}
-
-	// MARK: To Watch
-
-	private var toWatch: some View {
-		shelf("To Watch", items: HomeFeed.toWatch(shows: shows, films: films), showsRating: false,
-		      empty: "Nothing waiting. Add a title from Discover or search.", emptyAction: ("Discover", .discover)) {
-			ToWatchListView()
-		}
-	}
-
-	// MARK: Recently watched
-
-	private var recentlyWatched: some View {
-		shelf("Recently watched",
-		      items: HomeFeed.recentlyWatched(shows: shows, films: films),
-		      showsRating: true,
-		      empty: "Titles you mark Watched land here, the most recent first.", emptyAction: ("Shows", .shows)) {
-			RecentlyWatchedListView()
-		}
-	}
-
-	/// After design A of the alternatives: the heading, counted, is itself the
-	/// way to the whole list; under it a sideways rail of title cards that lets
-	/// the next one peek in, so there's plainly more. Empty, a glass row says so
-	/// and offers a way in.
-	private func shelf<All: View>(_ title: String, items: [WatchedTitle], showsRating: Bool, empty: String,
-	                              emptyAction: (String, PhoneTab), @ViewBuilder all: @escaping () -> All) -> some View {
-		VStack(alignment: .leading, spacing: 12) {
-			Group {
-				if items.isEmpty {
-					heading(title, count: 0, chevron: false)
-				} else {
-					NavigationLink { all() } label: { heading(title, count: items.count, chevron: true) }
-						.buttonStyle(.plain)
-				}
-			}
-			.padding(.horizontal, 18)
-
-			if items.isEmpty {
-				HStack(spacing: 12) {
-					Text(empty)
-						.font(.system(.subheadline, design: .rounded, weight: .medium))
-						.foregroundStyle(.secondary)
-						.frame(maxWidth: .infinity, alignment: .leading)
-					Button(emptyAction.0) { openTab(emptyAction.1) }
-						.buttonStyle(.glass)
-				}
-				.padding(.horizontal, 16)
-				.padding(.vertical, 12)
-				.glass(cornerRadius: 18)
-				.padding(.horizontal, 18)
-			} else {
-				ScrollView(.horizontal) {
-					LazyHStack(alignment: .top, spacing: 12) {
-						ForEach(Array(items.prefix(20))) { item in
-							NavigationLink { item.destination } label: {
-								FadedPosterCard(item: item)
-									.frame(width: 128)
-							}
-							.buttonStyle(.pressable)
-						}
-					}
-					.padding(.horizontal, 18)
-				}
-				.scrollIndicators(.hidden)
-			}
-		}
-	}
-
-	private func heading(_ title: String, count: Int, chevron: Bool) -> some View {
-		HStack(alignment: .firstTextBaseline, spacing: 6) {
-			Text(title)
-				.font(.system(.title2, weight: .bold))
-				.foregroundStyle(Glass.ink)
-			Text("\(count)")
-				.font(.system(.subheadline, weight: .medium).monospacedDigit())
-				.foregroundStyle(.secondary)
-			if chevron {
-				Image(systemName: "chevron.right")
-					.font(.system(.subheadline, weight: .bold))
-					.foregroundStyle(.secondary)
-			}
-			Spacer(minLength: 0)
-		}
-		.contentShape(Rectangle())
-		.accessibilityElement(children: .combine)
-		.accessibilityHint(chevron ? "Shows them all" : "")
-	}
 }
 
-// MARK: - All
 
-/// The columns Home's "All" lists run in: one on a phone, as many as fit
-/// across an iPad.
-private func allListColumns(_ sizeClass: UserInterfaceSizeClass?) -> [GridItem] {
-	sizeClass == .regular
-		? [GridItem(.adaptive(minimum: 340), spacing: 12, alignment: .top)]
-		: [GridItem(.flexible())]
-}
-
-/// Home's "All": every Watched show and film, most recently marked first.
-struct RecentlyWatchedListView: View {
-	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
-	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
-	@Query(sort: \Film.dateAdded, order: .reverse) private var films: [Film]
-	var body: some View {
-		let recent = HomeFeed.recentlyWatched(shows: shows, films: films)
-		ZStack {
-			GlassBackground()
-			ScrollView {
-				LazyVGrid(columns: allListColumns(horizontalSizeClass), spacing: 10) {
-					ForEach(recent) { item in
-						NavigationLink { item.destination } label: {
-							GlassRow(title: item.title, subtitle: subtitle(for: item),
-							         thumbURL: item.posterURL, thumbPlaceholder: item.placeholder,
-							         rating: item.rating)
-						}
-						.buttonStyle(.pressable)
-					}
-				}
-				.padding(18)
-			}
-		}
-		.navigationTitle("Recently Watched")
-		.navigationBarTitleDisplayMode(.inline)
-		.toolbarBackground(.hidden, for: .navigationBar)
-	}
-
-	private func subtitle(for item: WatchedTitle) -> String {
-		guard let date = item.watchedAt else { return item.kindLabel }
-		return "\(item.kindLabel) · Watched \(date.formatted(.relative(presentation: .named)))"
-	}
-}
-
-// MARK: - To Watch
-
-/// Home's To Watch "All": every show and film still To Watch and not rated
-/// Skip, newest added first.
-struct ToWatchListView: View {
-	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
-	@Query(sort: \Show.dateAdded, order: .reverse) private var shows: [Show]
-	@Query(sort: \Film.dateAdded, order: .reverse) private var films: [Film]
-
-	var body: some View {
-		ZStack {
-			GlassBackground()
-			ScrollView {
-				LazyVGrid(columns: allListColumns(horizontalSizeClass), spacing: 10) {
-					ForEach(HomeFeed.toWatch(shows: shows, films: films)) { item in
-						NavigationLink { item.destination } label: {
-							GlassRow(title: item.title,
-							         subtitle: "\(item.kindLabel) · Added \(item.dateAdded.formatted(.relative(presentation: .named)))",
-							         thumbURL: item.posterURL, thumbPlaceholder: item.placeholder,
-							         rating: item.rating)
-						}
-						.buttonStyle(.pressable)
-					}
-				}
-				.padding(18)
-			}
-		}
-		.navigationTitle("To Watch")
-		.navigationBarTitleDisplayMode(.inline)
-		.toolbarBackground(.hidden, for: .navigationBar)
-	}
-}
