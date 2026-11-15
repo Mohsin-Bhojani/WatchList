@@ -162,6 +162,56 @@ struct HomeHeroPage: View {
 			.allowsHitTesting(false)
 	}
 
+	/// The season the show is in, an episode a segment: watched ones in their
+	/// rating's colour — white when unrated — and ones to go faint; then how
+	/// far through the season is.
+	private func seasonStrip(_ season: Season) -> some View {
+		let episodes = season.sortedEpisodes
+		let watched = episodes.filter { $0.status == .watched }.count
+		return HStack(spacing: 8) {
+			HStack(spacing: episodes.count > 40 ? 1 : 2) {
+				ForEach(episodes) { episode in
+					Capsule()
+						.fill(episode.status != .watched ? .white.opacity(0.22)
+						      : episode.episodeTier.map(Glass.tint) ?? .white)
+				}
+			}
+			.frame(height: 5)
+			Text("\(season.seasonNumber == 0 ? "Specials" : "S\(season.seasonNumber)") · \(watched) of \(episodes.count)")
+				.font(.system(.caption, weight: .medium).monospacedDigit())
+				.foregroundStyle(.white.opacity(0.78))
+				.fixedSize()
+		}
+		.accessibilityElement(children: .ignore)
+		.accessibilityLabel("\(season.displayName): \(watched) of \(episodes.count) episodes watched")
+	}
+
+	/// The episode watched last and how it was rated, in the rating's colour;
+	/// a tap opens it, to change the rating.
+	private func lastLine(_ episode: Episode) -> some View {
+		Button { onOpenEpisode(episode) } label: {
+			HStack(spacing: 6) {
+				Text("Last: \(ShowFacts.code(episode))")
+					.foregroundStyle(.white.opacity(0.78))
+				if let tier = episode.episodeTier {
+					Label(tier.rawValue, systemImage: tier.systemImage)
+						.foregroundStyle(Glass.tint(tier))
+				} else {
+					Text("Not rated")
+						.foregroundStyle(.white.opacity(0.6))
+				}
+				Image(systemName: "chevron.right")
+					.font(.system(.caption2, weight: .bold))
+					.foregroundStyle(.white.opacity(0.5))
+			}
+			.font(.system(.caption, weight: .semibold))
+			.contentShape(Rectangle())
+		}
+		.buttonStyle(.plain)
+		.accessibilityLabel("Last watched \(HomeFeed.episodeLine(episode)), \(episode.episodeTier?.rawValue ?? "not rated")")
+		.accessibilityHint("Opens the episode")
+	}
+
 	/// The episode panel, after design A of the alternatives: Liquid Glass under
 	/// the art — the episode and its length, the show and the
 	/// episode's name, how far through the show is, then Mark Watched and a way
@@ -190,7 +240,9 @@ struct HomeHeroPage: View {
 						.lineLimit(1)
 				}
 			}
-			if total > 0 {
+			if let season = HomeFeed.currentSeason(of: show, next: next) {
+				seasonStrip(season)
+			} else if total > 0 {
 				HStack(spacing: 8) {
 					Capsule()
 						.fill(.white.opacity(0.22))
@@ -207,6 +259,9 @@ struct HomeHeroPage: View {
 				}
 				.accessibilityElement(children: .ignore)
 				.accessibilityLabel("\(watched) of \(total) episodes watched")
+			}
+			if let last = HomeFeed.lastWatched(in: show) {
+				lastLine(last)
 			}
 			HStack(spacing: 8) {
 				// Caught up, there's nothing out to mark until the next one airs.

@@ -453,4 +453,29 @@ struct HeroLoopTests {
 		#expect(HeroLoop.showIndex(ofPage: 4, count: 3) == 0)
 		#expect(HeroLoop.showIndex(ofPage: 2, count: 3) == 1)
 	}
+
+	@Test func upNextDrawsTheSeasonItsInAndTheEpisodeWatchedLast() {
+		let show = Show(title: "Severance")
+		for number in 1...2 {
+			let season = Season(seasonNumber: number)
+			season.show = show
+			show.seasons.append(season)
+			for e in 1...3 {
+				let episode = Episode(episodeNumber: e, seasonNumber: number, title: "", airDate: "2022-0\(e)-01")
+				episode.season = season
+				season.episodes.append(episode)
+			}
+		}
+		let s1 = show.sortedSeasons[0].sortedEpisodes
+		s1[0].markWatched(at: Date(timeIntervalSince1970: 200))
+		s1[1].markWatched(at: Date(timeIntervalSince1970: 100))   // watched out of order
+		let next = HomeFeed.nextEpisode(of: show)
+		#expect(next === s1[2])
+		#expect(HomeFeed.currentSeason(of: show, next: next)?.seasonNumber == 1)
+		#expect(HomeFeed.lastWatched(in: show) === s1[0])          // by date, not order
+
+		for episode in show.sortedSeasons.flatMap(\.episodes) { episode.markWatched() }
+		#expect(HomeFeed.currentSeason(of: show, next: HomeFeed.nextEpisode(of: show))?.seasonNumber == 2)
+		#expect(HomeFeed.lastWatched(in: Show(title: "Empty")) == nil)
+	}
 }

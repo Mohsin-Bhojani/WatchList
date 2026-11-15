@@ -215,6 +215,27 @@ public enum HomeFeed {
 		seasonNumber == 0 ? Int.max : seasonNumber
 	}
 
+	/// The season Up Next's bar is drawn from: the next episode's, else the
+	/// one waiting to air, else the last in the main run. Nil with no episodes.
+	public static func currentSeason(of show: Show, next: Episode?, asOf now: Date = .now) -> Season? {
+		if let season = (next ?? nextToAir(of: show, asOf: now))?.season { return season }
+		return show.sortedSeasons.last { $0.seasonNumber > 0 && !$0.episodes.isEmpty }
+			?? show.sortedSeasons.last { !$0.episodes.isEmpty }
+	}
+
+	/// The episode watched most recently — the latest watched date, else the
+	/// furthest on in running order. Nil when none is watched.
+	public static func lastWatched(in show: Show) -> Episode? {
+		let order = runningOrder(of: show)
+		return order.indices
+			.filter { order[$0].status == .watched }
+			.max { lhs, rhs in
+				let (l, r) = (order[lhs].watchedAt ?? .distantPast, order[rhs].watchedAt ?? .distantPast)
+				return l != r ? l < r : lhs < rhs
+			}
+			.map { order[$0] }
+	}
+
 	/// "Season 2 · Episode 8" — "Specials" standing in for season 0.
 	public static func episodeLine(_ episode: Episode) -> String {
 		EpisodeCode.long(season: episode.seasonNumber, episode: episode.episodeNumber)
