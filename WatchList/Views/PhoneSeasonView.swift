@@ -155,7 +155,7 @@ struct PhoneSeasonView: View {
 			return
 		}
 		withAnimation(Glass.smooth) {
-			season.status = .watched
+			season.markWatched()
 			if cascadeWatched {
 				for episode in season.episodes { episode.markWatched() }
 			}

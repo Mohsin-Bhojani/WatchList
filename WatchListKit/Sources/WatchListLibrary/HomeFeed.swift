@@ -254,7 +254,7 @@ public enum HomeFeed {
 		show.mark(.watched)
 		if cascade {
 			for season in show.seasons {
-				season.status = .watched
+				season.markWatched()
 				for episode in season.episodes { episode.markWatched() }
 			}
 		}

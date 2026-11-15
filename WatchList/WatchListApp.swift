@@ -63,6 +63,17 @@ struct WatchListApp: App {
 					try? context.save()
 					UserDefaults.standard.set(true, forKey: key)
 				}
+				// And seasons, once — on their own key, since shows and films
+				// were rated before seasons were.
+				.task { @MainActor [container] in
+					let key = "seasons.ratedGoForItWhenWatched"
+					guard !UserDefaults.standard.bool(forKey: key) else { return }
+					let context = container.mainContext
+					guard let seasons = try? context.fetch(FetchDescriptor<Season>()) else { return }
+					TitleRatings.rateUnrated(shows: [], films: [], seasons: seasons)
+					try? context.save()
+					UserDefaults.standard.set(true, forKey: key)
+				}
 				.onChange(of: scenePhase) { _, phase in
 					// Leaving the app is when to book the next background check.
 					if phase == .background { BackgroundRefresh.schedule() }

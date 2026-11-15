@@ -9,7 +9,7 @@
 //      kept while it stays Watched, forgotten when it stops being
 //    - watching an episode starts its season and show, moving either from
 //      To Watch to Watching, and rates it Watch when it has no rating yet
-//    - a show or film marked Watched without a verdict gets Go For It
+//    - a show, season or film marked Watched without a verdict gets Go For It
 //    - verdict dates: stamped when a verdict is given or changed, forgotten
 //      when it's cleared — Discover starts from the most recently rated
 //    - hand-picked stars: kept only while they fit the verdict (StarRating)
@@ -107,13 +107,30 @@ extension Episode {
 	}
 }
 
+extension Season {
+	/// Marks it Watched. Without a verdict it gets Go For It, as shows and
+	/// films do; a verdict already given is kept.
+	public func markWatched(at date: Date = .now) {
+		status = .watched
+		if rating == nil { rate(.goForIt, stars: nil, at: date) }
+	}
+
+	/// When it was finished: its latest episode's watched date.
+	var lastWatchedAt: Date? { episodes.compactMap(\.watchedAt).max() }
+}
+
 public enum TitleRatings {
 	/// Gives Go For It to every watched show and film without a verdict, for
 	/// titles marked before watching one rated it, dated when each was
 	/// watched. Returns how many it rated.
 	@discardableResult
-	public static func rateUnrated(shows: [Show], films: [Film], now: Date = .now) -> Int {
+	public static func rateUnrated(shows: [Show], films: [Film], seasons: [Season] = [],
+	                               now: Date = .now) -> Int {
 		var rated = 0
+		for season in seasons where season.status == .watched && season.rating == nil {
+			season.rate(.goForIt, stars: nil, at: season.lastWatchedAt ?? now)
+			rated += 1
+		}
 		for show in shows where show.status == .watched && show.rating == nil {
 			show.rate(.goForIt, stars: nil, at: show.watchedAt ?? now)
 			rated += 1

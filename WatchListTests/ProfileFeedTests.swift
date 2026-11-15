@@ -279,4 +279,26 @@ struct ProfileFeedTests {
 		#expect(rated.rating == .skip)
 		#expect(show.rating == .goForIt)
 	}
+
+	@Test func watchedSeasonsAreRatedGoForItUnlessTheyHaveAVerdict() {
+		let season = Season(seasonNumber: 1)
+		season.markWatched(at: now)
+		#expect(season.status == .watched)
+		#expect(season.rating == .goForIt)
+
+		let loved = Season(seasonNumber: 2, rating: .perfection)
+		loved.markWatched(at: now)
+		#expect(loved.rating == .perfection)
+
+		let earlier = Season(seasonNumber: 3, status: .watched)
+		let episode = Episode(episodeNumber: 1, seasonNumber: 3, title: "One", status: .watched)
+		episode.watchedAt = now - 86_400
+		episode.season = earlier
+		earlier.episodes.append(episode)
+		let unwatched = Season(seasonNumber: 4)
+		#expect(TitleRatings.rateUnrated(shows: [], films: [], seasons: [earlier, unwatched, loved]) == 1)
+		#expect(earlier.rating == .goForIt)
+		#expect(earlier.ratedAt == now - 86_400)   // dated when it was finished
+		#expect(unwatched.rating == nil)
+	}
 }

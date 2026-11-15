@@ -219,7 +219,7 @@ struct PhoneShowDetailView: View {
 			show.mark(.watched)
 			if cascadeWatched {
 				for season in show.seasons {
-					season.status = .watched
+					season.markWatched()
 					for episode in season.episodes { episode.markWatched() }
 				}
 			}
