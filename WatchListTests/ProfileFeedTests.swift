@@ -246,4 +246,37 @@ struct ProfileFeedTests {
 		#expect(toWatch.episodeTier == nil)
 		#expect(rated.episodeTier == .skip)
 	}
+
+	@Test func watchingAShowOrFilmRatesItGoForItUnlessItHasAVerdict() {
+		let film = Film(title: "Heat")
+		film.mark(.watched, at: now)
+		#expect(film.rating == .goForIt)
+		#expect(film.ratedAt == now)
+
+		let loved = Film(title: "Thar", rating: .perfection)
+		loved.mark(.watched, at: now)
+		#expect(loved.rating == .perfection)
+
+		let show = Show(title: "Severance")
+		show.mark(.watching, at: now)
+		#expect(show.rating == nil)          // only Watched rates it
+		show.mark(.watched, at: now)
+		#expect(show.rating == .goForIt)
+
+		let episode = Episode(episodeNumber: 1, seasonNumber: 1, title: "One")
+		episode.mark(.watched, at: now)
+		#expect(episode.episodeTier == nil)  // episodes go by markWatched and Watch
+	}
+
+	@Test func showsAndFilmsWatchedBeforeAreRatedGoForItOnce() {
+		let watched = Film(title: "A", status: .watched)
+		let toWatch = Film(title: "B")
+		let rated = Show(title: "C", status: .watched, rating: .skip)
+		let show = Show(title: "D", status: .watched)
+		#expect(TitleRatings.rateUnrated(shows: [rated, show], films: [watched, toWatch]) == 2)
+		#expect(watched.rating == .goForIt)
+		#expect(toWatch.rating == nil)
+		#expect(rated.rating == .skip)
+		#expect(show.rating == .goForIt)
+	}
 }

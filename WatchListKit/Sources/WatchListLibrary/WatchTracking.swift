@@ -9,6 +9,7 @@
 //      kept while it stays Watched, forgotten when it stops being
 //    - watching an episode starts its season and show, moving either from
 //      To Watch to Watching, and rates it Watch when it has no rating yet
+//    - a show or film marked Watched without a verdict gets Go For It
 //    - verdict dates: stamped when a verdict is given or changed, forgotten
 //      when it's cleared — Discover starts from the most recently rated
 //    - hand-picked stars: kept only while they fit the verdict (StarRating)
@@ -23,7 +24,9 @@ public protocol WatchTracked: AnyObject {
 }
 
 extension WatchTracked {
-	/// Sets the status and keeps the watched date in step with it.
+	/// Sets the status and keeps the watched date in step with it. A show or
+	/// film marked Watched without a verdict gets Go For It, the one most get;
+	/// a verdict already given is kept.
 	public func mark(_ newStatus: WatchStatus, at date: Date = .now) {
 		if newStatus != .watched {
 			watchedAt = nil
@@ -31,6 +34,9 @@ extension WatchTracked {
 			watchedAt = date
 		}
 		status = newStatus
+		if newStatus == .watched, let rated = self as? Rated, rated.rating == nil {
+			rated.rate(.goForIt, stars: nil, at: date)
+		}
 	}
 }
 
@@ -98,6 +104,25 @@ extension Episode {
 		if episodeTier == nil { episodeTier = .watch }
 		if let season, season.status == .toWatch { season.status = .watching }
 		if let show = season?.show, show.status == .toWatch { show.mark(.watching, at: date) }
+	}
+}
+
+public enum TitleRatings {
+	/// Gives Go For It to every watched show and film without a verdict, for
+	/// titles marked before watching one rated it, dated when each was
+	/// watched. Returns how many it rated.
+	@discardableResult
+	public static func rateUnrated(shows: [Show], films: [Film], now: Date = .now) -> Int {
+		var rated = 0
+		for show in shows where show.status == .watched && show.rating == nil {
+			show.rate(.goForIt, stars: nil, at: show.watchedAt ?? now)
+			rated += 1
+		}
+		for film in films where film.status == .watched && film.rating == nil {
+			film.rate(.goForIt, stars: nil, at: film.watchedAt ?? now)
+			rated += 1
+		}
+		return rated
 	}
 }
 
