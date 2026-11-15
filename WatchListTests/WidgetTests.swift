@@ -132,7 +132,7 @@ struct WidgetMarkApplyTests {
 		WatchActionApplier.apply(WatchAction(id: mark.id, madeAt: mark.madeAt,
 		                                     change: .markWatched(episode: mark.episodeID, tier: nil)), in: context)
 		#expect(episode.status == .watched)
-		#expect(episode.episodeTier == nil)
+		#expect(episode.episodeTier == .watch)   // marked without a rating, it's rated Watch
 		#expect(show.status == .watching)
 	}
 }

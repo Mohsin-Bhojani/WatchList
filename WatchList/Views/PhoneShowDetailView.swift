@@ -220,7 +220,7 @@ struct PhoneShowDetailView: View {
 			if cascadeWatched {
 				for season in show.seasons {
 					season.status = .watched
-					for episode in season.episodes { episode.mark(.watched) }
+					for episode in season.episodes { episode.markWatched() }
 				}
 			}
 			ratingPopup = .justMarked

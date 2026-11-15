@@ -219,4 +219,31 @@ struct ProfileFeedTests {
 		let older = WatchedWhen.label(for: now - 30 * 86_400, now: now, calendar: Self.calendar)
 		#expect(older.hasPrefix("Watched ") && older.contains("16"))   // 16 August
 	}
+
+	// MARK: Episode ratings
+
+	@Test func watchingAnEpisodeRatesItWatchUnlessItHasARating() {
+		let unrated = Episode(episodeNumber: 1, seasonNumber: 1, title: "One")
+		unrated.markWatched(at: now)
+		#expect(unrated.episodeTier == .watch)
+
+		let rated = Episode(episodeNumber: 2, seasonNumber: 1, title: "Two")
+		rated.episodeTier = .rewatch
+		rated.markWatched(at: now)
+		#expect(rated.episodeTier == .rewatch)
+
+		let picked = Episode(episodeNumber: 3, seasonNumber: 1, title: "Three")
+		HomeFeed.markWatched(picked, tier: .skip)
+		#expect(picked.episodeTier == .skip)
+	}
+
+	@Test func episodesWatchedBeforeAreRatedWatchOnce() {
+		let watched = Episode(episodeNumber: 1, seasonNumber: 1, title: "One", status: .watched)
+		let toWatch = Episode(episodeNumber: 2, seasonNumber: 1, title: "Two")
+		let rated = Episode(episodeNumber: 3, seasonNumber: 1, title: "Three", status: .watched, episodeTier: .skip)
+		#expect(EpisodeRatings.rateUnrated([watched, toWatch, rated]) == 1)
+		#expect(watched.episodeTier == .watch)
+		#expect(toWatch.episodeTier == nil)
+		#expect(rated.episodeTier == .skip)
+	}
 }

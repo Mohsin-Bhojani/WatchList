@@ -8,7 +8,7 @@
 //    - watched dates: stamped when a show, film or episode becomes Watched,
 //      kept while it stays Watched, forgotten when it stops being
 //    - watching an episode starts its season and show, moving either from
-//      To Watch to Watching
+//      To Watch to Watching, and rates it Watch when it has no rating yet
 //    - verdict dates: stamped when a verdict is given or changed, forgotten
 //      when it's cleared — Discover starts from the most recently rated
 //    - hand-picked stars: kept only while they fit the verdict (StarRating)
@@ -91,10 +91,27 @@ extension Episode: WatchTracked {}
 extension Episode {
 	/// Marks it Watched and starts its season and show: either one still To
 	/// Watch becomes Watching. One already Watching or Watched is left alone.
+	/// Without a rating, it's rated Watch — the one most episodes get; a rating
+	/// already given is kept.
 	public func markWatched(at date: Date = .now) {
 		mark(.watched, at: date)
+		if episodeTier == nil { episodeTier = .watch }
 		if let season, season.status == .toWatch { season.status = .watching }
 		if let show = season?.show, show.status == .toWatch { show.mark(.watching, at: date) }
+	}
+}
+
+public enum EpisodeRatings {
+	/// Rates Watch every watched episode that has no rating, for episodes
+	/// marked before watching one rated it. Returns how many it rated.
+	@discardableResult
+	public static func rateUnrated(_ episodes: [Episode]) -> Int {
+		var rated = 0
+		for episode in episodes where episode.status == .watched && episode.episodeTier == nil {
+			episode.episodeTier = .watch
+			rated += 1
+		}
+		return rated
 	}
 }
 

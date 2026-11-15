@@ -40,6 +40,17 @@ struct WatchListApp: App {
 		WindowGroup {
 			RootView()
 				.syncsWithWatch()
+				// Episodes marked watched before watching one rated it Watch get
+				// that rating, once.
+				.task { @MainActor [container] in
+					let key = "episodes.ratedWatchWhenWatched"
+					guard !UserDefaults.standard.bool(forKey: key) else { return }
+					let context = container.mainContext
+					guard let episodes = try? context.fetch(FetchDescriptor<Episode>()) else { return }
+					EpisodeRatings.rateUnrated(episodes)
+					try? context.save()
+					UserDefaults.standard.set(true, forKey: key)
+				}
 				.onChange(of: scenePhase) { _, phase in
 					// Leaving the app is when to book the next background check.
 					if phase == .background { BackgroundRefresh.schedule() }
