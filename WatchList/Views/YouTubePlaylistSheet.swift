@@ -319,13 +319,17 @@ struct EpisodeYouTubeCard: View {
 	/// Not kept past the session: the rule can depend on where you are.
 	@MainActor static var refused: Set<String> = []
 
-	init(videoID: String, thumbnailURL: String, title: String, playlistID: String? = nil) {
+	/// With `autoplay`, it starts playing as soon as it's shown — Home's Up Next
+	/// opens it when ▶ is tapped.
+	init(videoID: String, thumbnailURL: String, title: String, playlistID: String? = nil, autoplay: Bool = false) {
 		self.videoID = videoID
 		self.thumbnailURL = thumbnailURL
 		self.title = title
 		self.playlistID = playlistID
 		_refused = State(initialValue: Self.refused.contains(videoID)
 		                 || playlistID.map(Self.refused.contains) == true)
+		_playing = State(initialValue: autoplay && !(Self.refused.contains(videoID)
+		                                              || playlistID.map(Self.refused.contains) == true))
 	}
 
 	var body: some View {

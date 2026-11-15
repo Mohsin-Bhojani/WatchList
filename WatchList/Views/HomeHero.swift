@@ -50,6 +50,9 @@ struct HomeHeroPage: View {
 	@State private var art: UIImage?
 	/// The episode panel's height as laid out, so a phone's art runs down to it.
 	@State private var panelHeight: CGFloat = 170
+	/// The episode playing from YouTube where the artwork was, after ▶.
+	@State private var playingVideo = false
+	@AppStorage(ExperimentalFeatures.youTubeEpisodes) private var youTubeEpisodes = false
 
 	/// Artwork already loaded this session, by page and size, so a page that's
 	/// created fresh — like the real page the loop swaps in at either end —
@@ -112,6 +115,10 @@ struct HomeHeroPage: View {
 			.buttonStyle(.plain)
 			.accessibilityLabel("Open \(show.title)")
 
+			if playingVideo, let next, let videoID = playable(next) {
+				player(next, videoID: videoID)
+			}
+
 			if wide {
 				wideDetails(progress: progress, next: next)
 					.padding(.leading, Self.wideInset)
@@ -127,6 +134,61 @@ struct HomeHeroPage: View {
 		.frame(height: height)
 		.clipped()
 		.task(id: loadKey) { await loadArt() }
+		// Marked watched or swiped away, the video stops.
+		.onChange(of: next?.id) { playingVideo = false }
+		.onDisappear { playingVideo = false }
+	}
+
+	/// The episode's YouTube video, when it has one and YouTube episodes are on.
+	private func playable(_ episode: Episode?) -> String? {
+		guard youTubeEpisodes else { return nil }
+		return episode?.youtubeVideoID
+	}
+
+	/// ▶ beside Mark Watched, for an episode that plays from YouTube.
+	private func playButton(_ next: Episode) -> some View {
+		Button {
+			Haptics.selection()
+			withAnimation(Glass.smooth) { playingVideo.toggle() }
+		} label: {
+			Image(systemName: playingVideo ? "stop.fill" : "play.fill")
+				.font(.system(.callout, weight: .semibold))
+				.foregroundStyle(.white)
+				.frame(width: GlassControl.height, height: GlassControl.height)
+				.contentShape(Circle())
+		}
+		.buttonStyle(.plain)
+		.glassEffect(.regular.tint(.red.opacity(0.55)).interactive(), in: Circle())
+		.accessibilityLabel(playingVideo ? "Stop" : "Play \(HomeFeed.episodeLine(next)) here")
+	}
+
+	/// The episode playing where the artwork was, with ✕ to stop it; on a
+	/// sideways iPad, on the artwork's side.
+	private func player(_ next: Episode, videoID: String) -> some View {
+		EpisodeYouTubeCard(videoID: videoID, thumbnailURL: next.stillURL, title: next.displayTitle,
+		                   playlistID: next.season?.youtubePlaylistID, autoplay: true)
+			.overlay(alignment: .topTrailing) {
+				Button {
+					withAnimation(Glass.smooth) { playingVideo = false }
+				} label: {
+					Image(systemName: "xmark")
+						.font(.system(.footnote, weight: .bold))
+						.foregroundStyle(.white)
+						.frame(width: 32, height: 32)
+						.contentShape(Circle())
+				}
+				.buttonStyle(.plain)
+				.glassEffect(.regular.interactive(), in: Circle())
+				.padding(8)
+				.accessibilityLabel("Stop playing")
+			}
+			.frame(maxWidth: wide ? min(artWidth, 620) : .infinity)
+			.padding(.horizontal, 16)
+			// Clear of "Home", its count and the profile button over the top of
+			// the page on a phone; on an iPad they're in the bar.
+			.padding(.top, wide ? artTop : artTop + 72)
+			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: wide ? .topTrailing : .top)
+			.transition(.opacity.combined(with: .scale(scale: 0.97)))
 	}
 
 	private var artwork: some View {
@@ -264,6 +326,7 @@ struct HomeHeroPage: View {
 				lastLine(last)
 			}
 			HStack(spacing: 8) {
+				if let next, playable(next) != nil { playButton(next) }
 				// Caught up, there's nothing out to mark until the next one airs.
 				if !caughtUp(next: next) {
 					Button(action: markWatched) {
@@ -300,8 +363,8 @@ struct HomeHeroPage: View {
 	}
 
 	/// The sideways layout's words, left-aligned: where the show is up to, its
-	/// name, the episode's name and synopsis, then Mark Watched beside how far
-	/// through the show is.
+	/// name, the episode's name and synopsis, then Mark Watched beside the
+	/// season's rating-coloured strip, and the episode watched last.
 	private func wideDetails(progress: String, next: Episode?) -> some View {
 		let watched = show.watchedEpisodeCount
 		let total = show.episodeCount
@@ -330,18 +393,25 @@ struct HomeHeroPage: View {
 					.padding(.top, 6)
 			}
 			HStack(spacing: 18) {
+				if let next, playable(next) != nil { playButton(next) }
 				if !caughtUp(next: next) {
 					Button(action: markWatched) {
 						Text("Mark Watched")
 							.font(.system(.callout, weight: .medium))
 							.foregroundStyle(.white)
+							.lineLimit(1)
+							.fixedSize()
 							.padding(.horizontal, 6)
 					}
 					.buttonStyle(.glass)
 					.controlSize(.large)
 					.accessibilityLabel(next == nil ? "Mark \(show.title) watched" : "Mark \(progress) watched")
 				}
-				if total > 0 {
+				if let season = HomeFeed.currentSeason(of: show, next: next) {
+					// The phone's rating-coloured strip, at a width that suits it here.
+					seasonStrip(season)
+						.frame(maxWidth: 220)
+				} else if total > 0 {
 					VStack(alignment: .leading, spacing: 6) {
 						Text(ShowFacts.progressLine(watched: watched, total: total))
 							.font(.system(.footnote, weight: .medium))
@@ -359,6 +429,10 @@ struct HomeHeroPage: View {
 				}
 			}
 			.padding(.top, 16)
+			if let last = HomeFeed.lastWatched(in: show) {
+				lastLine(last)
+					.padding(.top, 10)
+			}
 		}
 		.shadow(color: .black.opacity(0.25), radius: 6, y: 1)
 		.frame(width: max(min(width * 0.42, 460), 300), alignment: .leading)
