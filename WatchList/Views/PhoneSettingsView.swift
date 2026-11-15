@@ -19,6 +19,7 @@ struct PhoneSettingsView: View {
 	@AppStorage("autoMarkEpisodesWatched") private var autoMarkEpisodes = true
 	@AppStorage("autoCheckNewEpisodes") private var autoCheckEpisodes = true
 	@AppStorage(EpisodeAlerts.enabledKey) private var notifyNewEpisodes = false
+	@AppStorage(ExperimentalFeatures.youTubeEpisodes) private var youTubeEpisodes = false
 	@State private var notifyNote: String?
 
 	@Environment(\.modelContext) private var ctx
@@ -53,6 +54,7 @@ struct PhoneSettingsView: View {
 				episodesSection
 				newEpisodesSection
 				servicesSection
+				experimentalSection
 				dataSection
 				aboutSection
 			}
@@ -280,6 +282,21 @@ struct PhoneSettingsView: View {
 			if report.addedSomething { WatchSync.shared.scheduleSend() }
 		} catch {
 			restoreResult = error.localizedDescription
+		}
+	}
+
+	// MARK: Experimental
+
+	private var experimentalSection: some View {
+		Section {
+			SettingToggle(title: "Watch episodes from YouTube", isOn: $youTubeEpisodes,
+			              on: "Link a show to its YouTube playlist and its episodes play here",
+			              off: YouTubeConfig.isConfigured ? "Off" : "Needs a YouTube API key in Secrets.xcconfig")
+				.disabled(!YouTubeConfig.isConfigured && !youTubeEpisodes)
+		} header: {
+			Text("Experimental")
+		} footer: {
+			Text("Still being worked on, so it may change or go away. For dramas whose channels upload every episode, like ARY Digital and HUM TV. Some channels only let their episodes play in the YouTube app.")
 		}
 	}
 

@@ -207,14 +207,21 @@ struct TitleTrailerSection: View {
 
 /// YouTube's embedded player for one video, playing inline as soon as it's
 /// shown. Loaded through a small page of our own so YouTube sees where it's
-/// embedded, which it needs before it will play.
+/// embedded, which it needs before it will play. When YouTube won't play it
+/// here — the channel keeps it to YouTube's own app, or to some countries —
+/// `onRefused` is called with YouTube's error code, so the page can offer
+/// Open in YouTube instead of YouTube's dead "Video unavailable" screen.
 struct YouTubePlayer: UIViewRepresentable {
 	let videoKey: String
+	var onRefused: ((Int) -> Void)? = nil
+
+	func makeCoordinator() -> Coordinator { Coordinator(onRefused: onRefused) }
 
 	func makeUIView(context: Context) -> WKWebView {
 		let configuration = WKWebViewConfiguration()
 		configuration.allowsInlineMediaPlayback = true
 		configuration.mediaTypesRequiringUserActionForPlayback = []
+		configuration.userContentController.add(context.coordinator, name: "player")
 		let view = WKWebView(frame: .zero, configuration: configuration)
 		view.isOpaque = false
 		view.backgroundColor = .black
@@ -223,21 +230,46 @@ struct YouTubePlayer: UIViewRepresentable {
 		return view
 	}
 
-	func updateUIView(_ view: WKWebView, context: Context) {}
+	func updateUIView(_ view: WKWebView, context: Context) {
+		context.coordinator.onRefused = onRefused
+	}
 
-	static func dismantleUIView(_ view: WKWebView, coordinator: ()) {
-		// Stops the sound with the player.
+	static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
+		// Stops the sound with the player, and lets the page go.
+		view.configuration.userContentController.removeScriptMessageHandler(forName: "player")
 		view.loadHTMLString("", baseURL: nil)
 	}
 
+	final class Coordinator: NSObject, WKScriptMessageHandler {
+		var onRefused: ((Int) -> Void)?
+
+		init(onRefused: ((Int) -> Void)?) { self.onRefused = onRefused }
+
+		func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+			guard let code = (message.body as? NSNumber)?.intValue ?? Int(message.body as? String ?? "") else { return }
+			DispatchQueue.main.async { self.onRefused?(code) }
+		}
+	}
+
+	/// YouTube's IFrame player, reporting errors back: 100 removed or private,
+	/// 101 and 150 not allowed to play here, 152 and 153 refused for where it's
+	/// embedded, 5 can't play in this player.
 	static func page(_ key: String) -> String {
 		let safe = key.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
 		return """
 		<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-		<style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style>
-		</head><body><iframe src="https://www.youtube-nocookie.com/embed/\(safe)?playsinline=1&autoplay=1&rel=0&modestbranding=1"
-		allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen
-		referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>
+		<style>html,body{margin:0;height:100%;background:#000}#player,iframe{border:0;width:100%;height:100%}</style>
+		</head><body><div id="player"></div>
+		<script>
+		function refused(code){try{window.webkit.messageHandlers.player.postMessage(code)}catch(e){}}
+		function onYouTubeIframeAPIReady(){
+		  new YT.Player('player',{videoId:'\(safe)',host:'https://www.youtube-nocookie.com',
+		    playerVars:{playsinline:1,autoplay:1,rel:0,modestbranding:1},
+		    events:{onReady:function(e){e.target.playVideo()},onError:function(e){refused(e.data)}}});
+		}
+		</script>
+		<script src="https://www.youtube.com/iframe_api" onerror="refused(-1)"></script>
+		</body></html>
 		"""
 	}
 }

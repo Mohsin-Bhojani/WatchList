@@ -126,4 +126,18 @@ struct YouTubeTests {
 		#expect(show.overview.contains("Har Pal Geo"))
 		#expect(!show.firstAirYear.isEmpty)
 	}
+
+	@Test func searchPutsWholeDramasFirstAndClipsLast() {
+		func result(_ id: String, _ title: String) -> YouTubePlaylistResult {
+			YouTubePlaylistResult(id: id, title: title, channel: "", thumbnailURL: "")
+		}
+		let ranked = YouTubeEpisodes.ranked([
+			result("a", "Kabhi Main Kabhi Tum OST"),
+			result("b", "Kabhi Main Kabhi Tum Best Scenes"),
+			result("c", "Kabhi Main Kabhi Tum"),
+			result("d", "Kabhi Main Kabhi Tum | Full Episodes"),
+		])
+		#expect(ranked.map(\.id) == ["d", "c", "a", "b"])
+		#expect(YouTubeService.unescaped("Tom &amp; Jerry") == "Tom & Jerry")
+	}
 }

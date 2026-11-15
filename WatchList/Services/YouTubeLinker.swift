@@ -13,6 +13,15 @@ import SwiftData
 import WatchListCore
 import WatchListLibrary
 
+/// Features that are switched on in Settings → Experimental, off until then.
+enum ExperimentalFeatures {
+	/// Watching episodes from YouTube playlists. Everything YouTube in the app —
+	/// adding from a playlist, linking one, the player on episode pages, the
+	/// check for new uploads — is hidden while it's off. Shows and links already
+	/// made are kept, ready for when it's turned back on.
+	static let youTubeEpisodes = "experimental.youTubeEpisodes"
+}
+
 @MainActor
 enum YouTubeLinker {
 	/// How long a playlist goes between checks for new uploads.

@@ -34,6 +34,16 @@ struct YouTubePlaylistSheet: View {
 	@State private var playlist: YouTubePlaylist?
 	@State private var name = ""
 	@State private var seasonID: UUID?
+	@State private var query = ""
+	@State private var searching = false
+	@State private var results: [YouTubePlaylistResult] = []
+	@State private var searched = false
+
+	init(mode: Mode, onDone: @escaping (String) -> Void = { _ in }) {
+		self.mode = mode
+		self.onDone = onDone
+		if case .link(let show) = mode { _query = State(initialValue: show.title) }
+	}
 
 	private var matches: [Int: YouTubeVideo] { playlist.map { YouTubeEpisodes.match($0.videos) } ?? [:] }
 
@@ -47,6 +57,19 @@ struct YouTubePlaylistSheet: View {
 	var body: some View {
 		NavigationStack {
 			Form {
+				if let playlist {
+					preview(playlist)
+				}
+
+				if let error {
+					Section {
+						Label(error, systemImage: "exclamationmark.triangle.fill")
+							.foregroundStyle(.orange)
+					}
+				}
+
+				searchSection
+
 				Section {
 					HStack {
 						TextField("youtube.com/playlist?list=…", text: $link)
@@ -77,20 +100,9 @@ struct YouTubePlaylistSheet: View {
 					}
 					.disabled(link.trimmingCharacters(in: .whitespaces).isEmpty || loading)
 				} header: {
-					Text("Playlist link")
+					Text("Or paste a playlist link")
 				} footer: {
 					Text("On YouTube, open the playlist with every episode, tap Share and copy the link. Episodes play here in YouTube's player, like trailers.")
-				}
-
-				if let error {
-					Section {
-						Label(error, systemImage: "exclamationmark.triangle.fill")
-							.foregroundStyle(.orange)
-					}
-				}
-
-				if let playlist {
-					preview(playlist)
 				}
 			}
 			.navigationTitle(show == nil ? "Add from YouTube" : "Link YouTube Playlist")
@@ -109,6 +121,8 @@ struct YouTubePlaylistSheet: View {
 				seasonID = seasons.last(where: { $0.youtubePlaylistID == nil })?.id ?? seasons.last?.id
 				if !YouTubeConfig.isConfigured { error = YouTubeError.notConfigured.errorDescription }
 			}
+			// Linking a show searches YouTube for it straight away.
+			.task { if show != nil, YouTubeConfig.isConfigured { await search() } }
 		}
 	}
 
@@ -158,12 +172,90 @@ struct YouTubePlaylistSheet: View {
 		return numbers.count == last - first + 1 ? "\(numbers.count) · episodes \(first)–\(last)" : "\(numbers.count)"
 	}
 
-	private func load() async {
+	// MARK: Search
+
+	@ViewBuilder private var searchSection: some View {
+		Section {
+			HStack {
+				TextField("Drama name", text: $query)
+					.autocorrectionDisabled()
+					.submitLabel(.search)
+					.onSubmit { Task { await search() } }
+				if searching {
+					ProgressView()
+				} else {
+					Button("Search", systemImage: "magnifyingglass") { Task { await search() } }
+						.labelStyle(.iconOnly)
+						.disabled(query.trimmingCharacters(in: .whitespaces).isEmpty)
+				}
+			}
+			ForEach(results) { result in
+				Button {
+					Task { await load(id: result.id) }
+				} label: {
+					HStack(spacing: 12) {
+						PosterImage(urlString: result.thumbnailURL, systemPlaceholder: "play.rectangle")
+							.aspectRatio(16 / 9, contentMode: .fill)
+							.frame(width: 80, height: 45)
+							.clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+						VStack(alignment: .leading, spacing: 2) {
+							Text(result.title)
+								.font(.subheadline.weight(.semibold))
+								.foregroundStyle(.primary)
+								.lineLimit(2)
+							Text(result.channel)
+								.font(.caption)
+								.foregroundStyle(.secondary)
+								.lineLimit(1)
+						}
+						Spacer(minLength: 0)
+						if playlist?.id == result.id {
+							Image(systemName: "checkmark.circle.fill")
+								.foregroundStyle(Glass.watched)
+						}
+					}
+				}
+				.disabled(loading)
+			}
+			if searched && results.isEmpty && !searching {
+				Text("No playlists found. Try another spelling, or paste a link below.")
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+			}
+		} header: {
+			Text("Search YouTube")
+		} footer: {
+			Text("Pick the playlist from the channel that aired it, like ARY Digital, HUM TV or Har Pal Geo.")
+		}
+	}
+
+	private func search() async {
+		let text = query.trimmingCharacters(in: .whitespaces)
+		guard !text.isEmpty else { return }
 		error = nil
+		searching = true
+		defer { searching = false }
+		do {
+			let found = try await YouTubeService.shared.searchPlaylists(text)
+			withAnimation(Glass.smooth) {
+				results = found
+				searched = true
+			}
+		} catch {
+			self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+		}
+	}
+
+	private func load() async {
 		guard let id = YouTubePlaylistLink.id(from: link) else {
 			error = YouTubeError.badLink.errorDescription
 			return
 		}
+		await load(id: id)
+	}
+
+	private func load(id: String) async {
+		error = nil
 		loading = true
 		defer { loading = false }
 		do {
@@ -214,13 +306,44 @@ struct EpisodeYouTubeCard: View {
 
 	@Environment(\.openURL) private var openURL
 	@State private var playing = false
+	/// YouTube said no to playing it here; the card then sends you to YouTube.
+	@State private var refused: Bool
+
+
+	/// The playlist it's from, when it has one.
+	var playlistID: String? = nil
+
+	/// What YouTube wouldn't play here this session — videos, and the
+	/// playlists they're from, since a channel's rule covers all its episodes —
+	/// so the rest go straight to YouTube's app instead of failing one by one.
+	/// Not kept past the session: the rule can depend on where you are.
+	@MainActor static var refused: Set<String> = []
+
+	init(videoID: String, thumbnailURL: String, title: String, playlistID: String? = nil) {
+		self.videoID = videoID
+		self.thumbnailURL = thumbnailURL
+		self.title = title
+		self.playlistID = playlistID
+		_refused = State(initialValue: Self.refused.contains(videoID)
+		                 || playlistID.map(Self.refused.contains) == true)
+	}
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			ZStack {
-				if playing {
-					YouTubePlayer(videoKey: videoID)
-						.onDisappear { playing = false }
+				if refused {
+					refusedView
+				} else if playing {
+					YouTubePlayer(videoKey: videoID) { _ in
+						Self.refused.insert(videoID)
+						if let playlistID { Self.refused.insert(playlistID) }
+						withAnimation(Glass.smooth) {
+							playing = false
+							refused = true
+						}
+						Haptics.warning()
+					}
+					.onDisappear { playing = false }
 				} else {
 					Button {
 						Haptics.selection()
@@ -246,7 +369,8 @@ struct EpisodeYouTubeCard: View {
 			.shadow(color: .black.opacity(0.4), radius: 20, y: 10)
 
 			HStack(spacing: 8) {
-				Label(playing ? "Playing here, from YouTube" : "Plays here, from YouTube", systemImage: "play.rectangle.fill")
+				Label(refused ? "Plays in the YouTube app" : playing ? "Playing here, from YouTube" : "Plays here, from YouTube",
+				      systemImage: "play.rectangle.fill")
 					.font(.system(.caption, weight: .semibold))
 					.foregroundStyle(.white.opacity(0.7))
 				Spacer(minLength: 0)
@@ -264,5 +388,35 @@ struct EpisodeYouTubeCard: View {
 			}
 			.padding(.horizontal, 4)
 		}
+	}
+
+	/// In the player's place once YouTube has refused: why, and the way to it.
+	private var refusedView: some View {
+		PosterImage(urlString: thumbnailURL, systemPlaceholder: "play.rectangle")
+			.overlay { Color.black.opacity(0.65) }
+			.overlay {
+				VStack(spacing: 10) {
+					Text("This channel only lets this episode play on YouTube where you are.")
+						.font(.system(.footnote, weight: .semibold))
+						.foregroundStyle(.white)
+						.multilineTextAlignment(.center)
+						.fixedSize(horizontal: false, vertical: true)
+					if let url = YouTubePlaylistLink.watchURL(videoID) {
+						Button {
+							openURL(url)
+						} label: {
+							Label("Open in YouTube", systemImage: "play.rectangle.fill")
+								.font(.system(.subheadline, weight: .bold))
+								.foregroundStyle(.white)
+								.padding(.horizontal, 16)
+								.frame(minHeight: 40)
+								.glassEffect(.regular.tint(.red.opacity(0.6)).interactive(), in: Capsule())
+						}
+						.buttonStyle(.plain)
+					}
+				}
+				.padding(16)
+			}
+			.accessibilityElement(children: .combine)
 	}
 }

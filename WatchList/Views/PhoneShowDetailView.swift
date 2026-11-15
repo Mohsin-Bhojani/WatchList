@@ -42,6 +42,7 @@ struct PhoneShowDetailView: View {
 	@State private var refreshing = false
 	@State private var refreshNote: String?
 	@State private var linkingYouTube = false
+	@AppStorage(ExperimentalFeatures.youTubeEpisodes) private var youTubeEpisodes = false
 	@State private var youtubeNote: String?
 	@State private var namingCollection = false
 	@State private var theme: UIColor?
@@ -142,7 +143,9 @@ struct PhoneShowDetailView: View {
 		.task(id: artURL) { await loadTheme() }
 		.task(id: show.tmdbID) { await loadVotes() }
 		// A linked playlist is looked over for new uploads every few hours.
-		.task(id: show.id) { await YouTubeLinker.refreshIfDue(show, context: ctx) }
+		.task(id: show.id) {
+			if youTubeEpisodes { await YouTubeLinker.refreshIfDue(show, context: ctx) }
+		}
 		.sheet(isPresented: $linkingYouTube) {
 			YouTubePlaylistSheet(mode: .link(show)) { youtubeNote = $0 }
 		}
@@ -403,8 +406,28 @@ struct PhoneShowDetailView: View {
 						.padding(.vertical, 4)
 						.liquidCard(cornerRadius: 20)
 					}
+					youtubeLine
 				}
 			}
+		}
+	}
+
+	/// Under the episodes: where they play from YouTube, or the way to make
+	/// them — the same as the menu's Link YouTube Playlist.
+	@ViewBuilder private var youtubeLine: some View {
+		if youTubeEpisodes, YouTubeConfig.isConfigured {
+			let linked = !YouTubeLibrary.linkedSeasons(of: show).isEmpty
+			Button { linkingYouTube = true } label: {
+				Label(linked ? "Episodes play from YouTube · Link another playlist"
+				             : "Episodes on YouTube? Link a playlist to watch them here",
+				      systemImage: "play.rectangle")
+					.font(.system(.footnote, weight: .semibold))
+					.foregroundStyle(.white.opacity(0.75))
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(.horizontal, 4)
+					.contentShape(Rectangle())
+			}
+			.buttonStyle(.plain)
 		}
 	}
 
@@ -503,19 +526,21 @@ struct PhoneShowDetailView: View {
 				}
 				.disabled(show.tmdbID == nil || refreshing)
 			}
-			Section("YouTube") {
-				Button { linkingYouTube = true } label: {
-					Label(YouTubeLibrary.linkedSeasons(of: show).isEmpty ? "Link YouTube Playlist…" : "Link Another Playlist…",
-					      systemImage: "play.rectangle")
-				}
-				if !YouTubeLibrary.linkedSeasons(of: show).isEmpty {
-					Button { Task { await updateFromYouTube() } } label: {
-						Label("Check YouTube for New Episodes", systemImage: "arrow.clockwise")
+			if youTubeEpisodes {
+				Section("YouTube") {
+					Button { linkingYouTube = true } label: {
+						Label(YouTubeLibrary.linkedSeasons(of: show).isEmpty ? "Link YouTube Playlist…" : "Link Another Playlist…",
+						      systemImage: "play.rectangle")
 					}
-					Button(role: .destructive) {
-						withAnimation(Glass.smooth) { YouTubeLibrary.linkedSeasons(of: show).forEach(YouTubeLibrary.unlink) }
-					} label: {
-						Label("Unlink YouTube", systemImage: "link.badge.minus")
+					if !YouTubeLibrary.linkedSeasons(of: show).isEmpty {
+						Button { Task { await updateFromYouTube() } } label: {
+							Label("Check YouTube for New Episodes", systemImage: "arrow.clockwise")
+						}
+						Button(role: .destructive) {
+							withAnimation(Glass.smooth) { YouTubeLibrary.linkedSeasons(of: show).forEach(YouTubeLibrary.unlink) }
+						} label: {
+							Label("Unlink YouTube", systemImage: "link.badge.minus")
+						}
 					}
 				}
 			}

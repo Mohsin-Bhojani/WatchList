@@ -67,6 +67,7 @@ struct PhoneAddSearchView: View {
 	@State private var confirmation: Confirmation?
 	@State private var manualDraft: ManualDraft?
 	@State private var addingFromYouTube = false
+	@AppStorage(ExperimentalFeatures.youTubeEpisodes) private var youTubeEpisodes = false
 	/// The mood tile picked before typing, and the titles it found.
 	@State private var mood: SearchMood?
 	@State private var moodResults: [AddCandidate] = []
@@ -204,15 +205,17 @@ struct PhoneAddSearchView: View {
 					.buttonBorderShape(.circle)
 					.tint(Glass.accent)
 				}
-			Button { addingFromYouTube = true } label: {
-				optionRow(icon: "play.rectangle", title: "Add from a YouTube playlist",
-				          subtitle: "For dramas whose episodes are on YouTube. They play here, like trailers.") {
-					Image(systemName: "chevron.right")
-						.font(.system(.footnote, weight: .bold))
-						.foregroundStyle(.tertiary)
+			if youTubeEpisodes {
+				Button { addingFromYouTube = true } label: {
+					optionRow(icon: "play.rectangle", title: "Add from a YouTube playlist",
+					          subtitle: "For dramas whose episodes are on YouTube. They play here, like trailers.") {
+						Image(systemName: "chevron.right")
+							.font(.system(.footnote, weight: .bold))
+							.foregroundStyle(.tertiary)
+					}
 				}
+				.buttonStyle(.pressable)
 			}
-			.buttonStyle(.pressable)
 			Button { openManual() } label: {
 				optionRow(icon: "square.and.pencil", title: "Add manually",
 				          subtitle: "For anything TMDb doesn't have, or when you'd rather type it in.") {

@@ -29,6 +29,9 @@ struct PhoneEpisodeView: View {
 	@State private var confirmingRemove = false
 	@State private var theme: UIColor?
 	@State private var credits = TitleCredits()
+	@State private var findingOnYouTube = false
+	@AppStorage(ExperimentalFeatures.youTubeEpisodes) private var youTubeEpisodes = false
+	@State private var youtubeNote: String?
 
 	init(episode: Episode) {
 		_episode = Bindable(episode)
@@ -47,6 +50,9 @@ struct PhoneEpisodeView: View {
 		ScrollView {
 			TitlePageColumns {
 				header
+				if youTubeEpisodes, episode.youtubeVideoID == nil, YouTubeConfig.isConfigured, show != nil {
+					findOnYouTube
+				}
 				statusSwitch
 				if episode.status == .watched {
 					WatchedDateButton(date: episode.watchedAt) { episode.setWatchedDate($0) }
@@ -116,8 +122,9 @@ struct PhoneEpisodeView: View {
 	private var header: some View {
 		VStack(alignment: .leading, spacing: 12) {
 			// One that plays from YouTube has the player where its still would be.
-			if let videoID = episode.youtubeVideoID {
-				EpisodeYouTubeCard(videoID: videoID, thumbnailURL: episode.stillURL, title: episode.displayTitle)
+			if youTubeEpisodes, let videoID = episode.youtubeVideoID {
+				EpisodeYouTubeCard(videoID: videoID, thumbnailURL: episode.stillURL, title: episode.displayTitle,
+				                   playlistID: episode.season?.youtubePlaylistID)
 					.padding(.top, 6)
 			} else {
 				PosterImage(urlString: episode.stillURL.isEmpty ? (show?.backdropURL ?? "") : episode.stillURL,
@@ -145,6 +152,33 @@ struct PhoneEpisodeView: View {
 				                     FilmFacts.runtime(episode.runtimeMinutes)].compactMap { $0 })
 					.frame(maxWidth: .infinity, alignment: .leading)
 			}
+		}
+	}
+
+	/// For an episode that doesn't play here yet: finds its show's playlist on
+	/// YouTube, after which this and its other episodes play in the app.
+	private var findOnYouTube: some View {
+		Button {
+			findingOnYouTube = true
+		} label: {
+			Label("Watch on YouTube? Find this show's episodes", systemImage: "play.rectangle")
+				.font(.system(.footnote, weight: .semibold))
+				.foregroundStyle(.white)
+				.padding(.horizontal, 14)
+				.frame(minHeight: 36)
+				.glassEffect(.regular.interactive(), in: Capsule())
+		}
+		.buttonStyle(.plain)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.sheet(isPresented: $findingOnYouTube) {
+			if let show {
+				YouTubePlaylistSheet(mode: .link(show)) { youtubeNote = $0 }
+			}
+		}
+		.alert("YouTube", isPresented: Binding(get: { youtubeNote != nil }, set: { if !$0 { youtubeNote = nil } })) {
+			Button("OK", role: .cancel) {}
+		} message: {
+			Text(youtubeNote ?? "")
 		}
 	}
 

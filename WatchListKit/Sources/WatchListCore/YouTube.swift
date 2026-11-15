@@ -87,6 +87,14 @@ public struct YouTubeVideo: Equatable, Sendable, Identifiable {
 	public var durationMinutes: Int?
 }
 
+/// A playlist as YouTube's search lists it, before its videos are read.
+public struct YouTubePlaylistResult: Equatable, Sendable, Identifiable {
+	public let id: String
+	public let title: String
+	public let channel: String
+	public let thumbnailURL: String
+}
+
 public struct YouTubePlaylist: Equatable, Sendable {
 	public let id: String
 	public let title: String
@@ -123,6 +131,27 @@ public struct YouTubeService: Sendable {
 
 	/// A playlist's name and every video in it that can be watched, with their
 	/// lengths. Private and deleted videos are left out.
+	/// Playlists whose name matches `query` — a show's title — the ones that
+	/// read like a full run of episodes first. Costs 100 of the day's 10,000
+	/// quota units, so it runs only when asked.
+	public func searchPlaylists(_ query: String) async throws -> [YouTubePlaylistResult] {
+		let list: SearchList = try await get("search", ["part": "snippet", "type": "playlist", "maxResults": "10",
+		                                                 "q": query + " episodes"])
+		let results = list.items.compactMap { item -> YouTubePlaylistResult? in
+			guard let id = item.id.playlistId, let snippet = item.snippet else { return nil }
+			return YouTubePlaylistResult(id: id, title: Self.unescaped(snippet.title ?? ""),
+			                             channel: Self.unescaped(snippet.channelTitle ?? ""),
+			                             thumbnailURL: snippet.thumbnails?.best ?? "")
+		}
+		return YouTubeEpisodes.ranked(results)
+	}
+
+	/// YouTube's search escapes a few characters in names: "Tom &amp; Jerry".
+	static func unescaped(_ text: String) -> String {
+		text.replacingOccurrences(of: "&amp;", with: "&").replacingOccurrences(of: "&quot;", with: "\"")
+			.replacingOccurrences(of: "&#39;", with: "'")
+	}
+
 	public func playlist(id: String) async throws -> YouTubePlaylist {
 		let info: PlaylistList = try await get("playlists", ["part": "snippet", "id": id])
 		guard let snippet = info.items.first?.snippet else { throw YouTubeError.notFound }
@@ -206,6 +235,14 @@ public struct YouTubeService: Sendable {
 		let position: Int?
 		let publishedAt: String?
 		let thumbnails: Thumbnails?
+	}
+	private struct SearchList: Decodable {
+		struct Item: Decodable {
+			struct ID: Decodable { let playlistId: String? }
+			let id: ID
+			let snippet: Snippet?
+		}
+		let items: [Item]
 	}
 	private struct PlaylistList: Decodable {
 		struct Item: Decodable { let snippet: Snippet? }
@@ -318,6 +355,21 @@ public enum YouTubeEpisodes {
 	static func isFinale(_ title: String) -> Bool {
 		let lower = title.lowercased()
 		return lower.contains("last episode") || lower.contains("final episode") || lower.contains("finale")
+	}
+
+	/// Search results with the ones that read like a whole drama first — "Full
+	/// Episodes", "All Episodes" — and clips, songs and teasers last; otherwise
+	/// YouTube's order.
+	public static func ranked(_ results: [YouTubePlaylistResult]) -> [YouTubePlaylistResult] {
+		func score(_ result: YouTubePlaylistResult) -> Int {
+			let title = result.title.lowercased()
+			if isExtra(result.title) { return 0 }
+			return ["all episode", "full episode", "episodes", "complete"].contains(where: title.contains) ? 2 : 1
+		}
+		return results.enumerated().sorted { lhs, rhs in
+			let (l, r) = (score(lhs.element), score(rhs.element))
+			return l != r ? l > r : lhs.offset < rhs.offset
+		}.map(\.element)
 	}
 
 	/// A show's name from its playlist's: "Kabhi Main Kabhi Tum - All Episodes |
